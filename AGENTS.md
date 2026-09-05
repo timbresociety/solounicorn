@@ -1,179 +1,137 @@
-# ONE PERSON UNICORN — Codex Repository Contract
+# ONE PERSON UNICORN — Agent Map
 
-This file is the repository-level instruction source for Codex. It exists because visual and interaction work on this project must not fall back to generic dashboard patterns or generic DOM card interactions.
+This file is the repository-level map for Codex and other coding agents. Keep it short. Read deeper documents only when the task touches them.
 
-## Source of truth
+## Authority order
 
-Before changing product behavior, UI, interaction, visual assets, motion, onboarding, copy, audio, or responsive layout, read the relevant material in this order:
+1. The user's current explicit request.
+2. `ONE_PERSON_UNICORN_CANONICAL_CONTEXT_V2.md` — canonical product/system behavior.
+3. `ARCHITECTURE.md` — layer boundaries, dependency direction, determinism contract.
+4. `docs/balance/BALANCE_SPEC_V2.md` + `balance/v2/registry.json` — quantitative authority and lock status.
+5. `one-person-unicorn-design-context-v2.2/design.md` + `references/visual/INDEX.md` — visual/interaction authority.
+6. `CODEX_REBUILD_BRIEF.md` — current presentation rebuild acceptance criteria.
+7. `docs/automation/AUTOMATION.md` + active exec plan — task execution protocol.
+8. Relevant skill under `.agents/skills/`.
 
-1. `ONE_PERSON_UNICORN_CANONICAL_CONTEXT_V2.md` — product mechanics, economic truth, work-function behavior.
-2. `one-person-unicorn-design-context-v2.2/design.md` — binding visual, interaction, motion, responsive, accessibility, iconography, attention, and game-feel rules.
-3. `one-person-unicorn-design-context-v2.2/references/visual/INDEX.md` — authority of every visual reference.
-4. `CODEX_REBUILD_BRIEF.md` — implementation acceptance criteria for the current rebuild.
-5. Relevant skill in `.agents/skills/`.
+Do not treat `app/page.tsx`, `app/globals.css`, screenshots of v0, or old calibration numbers as authority.
 
-Do not treat the existing `app/page.tsx` or `app/globals.css` as design authority. They are v0 implementation evidence and may be replaced.
+## Critical balance rule
 
-## Mandatory preflight for visible or interactive work
+`ONE_PERSON_UNICORN_CANONICAL_CONTEXT_V2.md` intentionally contains `PROVISIONAL`, `CALIBRATION REFERENCE`, `CALIBRATION-ELIGIBLE`, illustrative, and `NOT YET LOCKED` values.
+
+Never silently promote those into production balance.
+
+- Product canon defines **what the systems do**.
+- `docs/balance/BALANCE_SPEC_V2.md` defines **how numbers become implementation truth**.
+- `balance/v2/registry.json` defines the current machine-readable status of each quantitative surface.
+- Only entries with `status: "locked"` may be treated as production balance.
+- `candidate`, `provisional`, `calibration`, and `missing` values may be used only in simulation/calibration work or clearly non-authoritative UI fixtures.
+- Do not create or consume `balance/v2/runtime.json` until `runtimeReady` is true.
+- A coding agent may promote evidence-backed values to `candidate`; only an explicit product-owner request may promote them to `locked`.
+
+Use `$opu-balance-guardian` for balance work and `$opu-simulation-guardian` for deterministic simulation work.
+
+## Architecture rules
+
+Dependency direction:
+
+`PRODUCT CANON -> BALANCE -> SIMULATION -> PRESENTATION`
+
+Additional inputs:
+
+`CONTENT -> SIMULATION`
+`DESIGN CANON -> PRESENTATION`
+`OPTIONAL GENAI -> PRESENTATION/WORDING ONLY`
+
+Never reverse these dependencies.
+
+Economic state, probabilities, ARR, cash, valuation, debt, cohort flow, agent reliability, skill effects, strategies, Relics, Complexity, Rot, and seeded randomness belong outside React presentation code.
+
+Runtime GenAI must never determine economic outcomes.
+
+## Task lanes
+
+Choose one primary lane before editing:
+
+- **product-canon** — changes to product/system truth. Requires explicit user intent.
+- **balance** — equations, parameter values, simulation calibration, registry status.
+- **simulation** — deterministic engine, state transitions, invariants, seeded RNG.
+- **gameplay/presentation** — room interaction rendering, HUD, responsive UI, motion, accessibility.
+- **content** — authored recipes, archetypes, Relics, Strategies, culture packs.
+- **infra** — build, CI, tooling, repository harness.
+
+If a task crosses lanes, create/update an exec plan in `docs/exec-plans/active/` before broad edits.
+
+## Mandatory preflight
 
 Before implementation:
 
-- state which canonical files you read;
-- identify the exact core interaction verb for the room being changed;
-- inspect the relevant visual references rather than relying on remembered style language;
-- if a required canonical whole-screen screenshot is missing from the repository, say so before final visual polish and create an asset/reference request rather than silently inventing a new shell;
-- define the visible causal chain: player input → physical response → system consequence → economic/pressure consequence → next decision.
+1. State the primary lane.
+2. Read only the relevant authority docs from the list above.
+3. Inspect the current code paths you will touch.
+4. Check `balance/v2/registry.json` before using any economic number.
+5. Define acceptance tests before changing code.
+6. For visible work, identify the exact canonical interaction verb and inspect relevant visual references.
+7. For cross-layer work, create an active exec plan.
 
-Do not begin a broad UI rebuild by styling existing cards. Establish composition, interaction, and object behavior first.
+## Gameplay interaction contracts
 
-## Product shell: hard constraint
+The seven canonical verbs are not optional:
 
-ONE PERSON UNICORN is a game cockpit, not a management dashboard, admin console, analytics product, terminal skin, or SaaS control panel.
+- Marketing — swipe / triage.
+- Product — assemble / recipe.
+- Monetization — time your tap.
+- Retention — aim / auto-fire.
+- Expansion — merge / custom package.
+- Operations — scratch / reveal + explicit high-variance bets.
+- Finance — active time-sensitive capital decisions.
 
-The approved desktop composition is:
+Do not replace tactile mechanics with generic button-card UI for convenience.
 
-- compact top economy HUD for valuation, ARR, cash, quarter/run state, and critical company pressure;
-- stable left work-function switcher;
-- the active tactile work function owns most of the visual center;
-- right-side build/agents/relics/skill/alert state only when useful;
-- central or near-central alert inbox may attract attention through escalation, but ordinary alerts do not obstruct active gameplay;
-- inactive systems create pressure through badges, queue state, motion, audio/haptic cues, and visible routing rather than more panels.
+## Presentation hard constraints
 
-Reject any screen whose center reads primarily as a form, settings panel, metric card collection, or three-button decision dashboard.
+ONE PERSON UNICORN is a tactile game cockpit, not a SaaS dashboard, crypto terminal, analytics console, or static decision form.
 
-A useful self-test: if the screenshot could plausibly be a dark Linear, Datadog, Bloomberg-lite, crypto terminal, or generic AI SaaS dashboard after changing the labels, the screen is wrong.
+The active work object owns the perceptual center. Persistent economy/navigation state forms a calm peripheral frame. Mobile is recomposed, not shrunk desktop.
 
-## Center ownership
+Use `$opu-design-guardian` for visible changes and `$opu-visual-qa` before completion.
 
-The center is gameplay territory.
+## Determinism
 
-During active play it must prioritize:
+For identical:
 
-1. the current physical work object or moving gameplay field;
-2. immediate causal response to the player's action;
-3. ARR/cash/valuation/pressure consequence;
-4. current opportunity or crisis;
-5. background machine activity.
+`seed + starting state + player action log + balance version + content version`
 
-Ordinary notifications, reward popups, upgrade announcements, tutorial paragraphs, and agent completion messages must not steal the center.
+the economic outcome must be identical.
 
-## Canonical work-function interaction contracts
+No `Math.random()` in simulation code. No live LLM output in economic resolution.
 
-Do not replace these with convenient click-card substitutes.
+## Completion gates
 
-### Marketing — SWIPE / TRIAGE
+Run:
 
-- The opportunity itself is a tactile swipe object.
-- LEFT = ignore, RIGHT = pursue, UP = aggressively pursue.
-- It must work with touch/mouse/trackpad through pointer gestures.
-- Buttons may exist only as accessibility/replay alternatives, not as the primary fantasy.
-- Dragging must produce physical response: translation, rotation/tilt, resistance, threshold feedback, and release resolution.
+```bash
+npm run validate
+```
 
-### Product — ASSEMBLE / RECIPE
+For production/balance-lock work also run:
 
-- Components are manipulated into a deterministic recipe.
-- Use drag, snap, combine/merge, bounce/rework behavior, verification, and ship state.
-- A list of buttons that advance a recipe is not acceptable.
+```bash
+npm run balance:lock-check
+```
 
-### Monetization — TIME YOUR TAP
+For visible work also:
 
-- A moving pricing cursor/band is the active object.
-- One tap/pointer action resolves the opportunity.
-- Timing, band movement, segment differences, impact response, and resulting ARR must be immediately legible.
+- run the app;
+- exercise the real gesture;
+- inspect desktop and mobile;
+- capture screenshots;
+- fix failures before reporting completion.
 
-### Retention — AIM / AUTO-FIRE
+Do not report completion because the app merely builds.
 
-- Threats move toward churn.
-- Founder moves one pointer to prioritize targets; intervention fires automatically.
-- The skill is prioritization under pressure, not clicking rows of cards.
+## Repository navigation
 
-### Expansion — MERGE / CREATE CUSTOM PACKAGE
+Start at `docs/index.md`.
 
-- Existing customer needs drive the board.
-- Modules are dragged/merged through tactile chains and assembled into a package.
-- A static six-cell diagram plus one package button is not acceptable.
-
-### Operations — SCRATCH / REVEAL + high-variance traps
-
-- Obligations are problems already happening; evidence is physically revealed.
-- Optimization scratchers are optional high-variance bets, not guaranteed rewards.
-- Clicking one of two generic cards is not a substitute for scratch/reveal interaction.
-
-### Finance — active capital decisions
-
-- Finance can use time-sensitive offer/card language where the product mechanic calls for it.
-- It must remain connected to cash, debt, ownership, growth credibility, and ongoing company operation.
-- Finance does not directly create valuation.
-
-## Rendering contract
-
-Use DOM/React for persistent accessible product chrome: HUD, metrics, labels, settings, financing details, tooltips, install/PWA affordances, semantic text, and accessibility equivalents.
-
-Use Canvas/WebGL or another genuinely tactile rendering layer for room interactions that require dragging, merging, aiming, scratch/reveal, physical routing, moving threats, particles, or object choreography. Adding an appropriate lightweight rendering/game dependency is permitted when required by the mechanic. Do not preserve a DOM-only implementation just to avoid a dependency.
-
-Authoritative simulation state must remain deterministic and independent of viewport or renderer.
-
-## Visual direction
-
-The gameplay plane is MACHINE:
-
-- near-black graphite;
-- restrained dark luxury;
-- calm financial instrumentation;
-- tactile premium manufactured objects;
-- local lighting and material response;
-- compressed information only when pressure demands it.
-
-The aspirational plane is SKY:
-
-- pastel cyan/lavender/blush atmosphere;
-- monumental depth and reflective environments;
-- reserved for brand/editorial/milestone bridge moments rather than ordinary HUD surfaces.
-
-Do not solve visual authorship with neon outlines, rainbow gradients, glassmorphism, cyberpunk styling, crypto-terminal density, gamer RGB, or excessive bordered panels.
-
-## 3D icon rule
-
-Navigation, menu, header, label, and text-adjacent iconography uses custom hyperrealistic outlined 3D image assets on transparent backgrounds as defined in design canon.
-
-Never ship a visible flat-icon, emoji, text abbreviation, or generic stock 3D icon as the final replacement for a required custom object.
-
-If final assets are unavailable, preserve the component and create an exact request through `$opu-asset-request`; do not pretend the placeholder is finished.
-
-## Motion and game feel
-
-Interaction response begins immediately. Ordinary actions use microphysics; meaningful events use one lead sensory channel; only run-defining moments earn cinematic treatment.
-
-Every tactile mechanic should communicate weight, friction, magnetic snap, spring, machining, compression, impact, fluidity, or another physically meaningful response appropriate to the object.
-
-Do not add decorative motion merely to make a dashboard feel alive.
-
-## Responsive contract
-
-Mobile portrait and desktop are separate compositions, not scaled versions of one another.
-
-The same deterministic state and room mechanics must survive both. On compact screens collapse secondary chrome before shrinking the active interaction below usable touch size.
-
-All core interactions work with one pointer and no hover, right-click, keyboard shortcut, or multitouch requirement.
-
-## Visual QA is a completion gate
-
-Visible work is not complete until Codex:
-
-1. runs the app;
-2. captures desktop and mobile screenshots;
-3. compares them against the canonical design rules and available reference screenshot(s);
-4. checks whether the center is truly gameplay rather than a card dashboard;
-5. tests the actual gesture, not only the resulting state mutation;
-6. checks reduced motion, overflow, touch targets, and responsive recomposition;
-7. fixes visible failures before reporting completion.
-
-Use `$opu-visual-qa`.
-
-Do not report success because the app builds or because every button works.
-
-## Rebuild behavior
-
-For the current v0 shown in the initial commit, preserve product/economic truth but assume the present visual composition and simplified room implementations are disposable. Refactor rather than cosmetically reskinning them.
-
-The desired outcome is an authored tactile game system with a calm peripheral instrument frame, not a polished version of the current dashboard.
+Long-running or multi-agent work must use `docs/exec-plans/`.
