@@ -2,15 +2,42 @@
 
 ## Objective
 
-Rebuild the current v0 presentation into the intended ONE PERSON UNICORN game cockpit without changing canonical economic truth.
+Rebuild the current v0 presentation into the intended ONE PERSON UNICORN game cockpit without changing canonical product causality or inventing unresolved economic balance.
 
-The first implementation proved basic state transitions but collapsed the product into a generic dark dashboard and simplified multiple tactile minigames into click-card UI. Treat that presentation as disposable.
+The first implementation proved basic state transitions but collapsed the product into a generic dark dashboard and simplified tactile minigames into click-card UI. Treat that presentation as disposable.
+
+## Authority
+
+Read in this order for this task:
+
+1. `AGENTS.md`
+2. relevant sections of `ONE_PERSON_UNICORN_CANONICAL_CONTEXT_V2.md`
+3. `ARCHITECTURE.md`
+4. `docs/balance/BALANCE_SPEC_V2.md` + `balance/v2/registry.json` for any numeric dependency
+5. relevant sections of `one-person-unicorn-design-context-v2.2/design.md`
+6. visual authority in `one-person-unicorn-design-context-v2.2/references/visual/INDEX.md`
+
+## Economic safety
+
+Preserve **locked causal relationships**, not every number that happens to appear in product canon.
+
+Do not promote `PROVISIONAL`, `CALIBRATION REFERENCE`, `CALIBRATION-ELIGIBLE`, illustrative, or `NOT YET LOCKED` values into production behavior.
+
+When a presentation/mechanic needs unresolved balance:
+
+- use a clearly marked fixture or adapter;
+- keep the simulation interface semantic;
+- leave the registry value unresolved;
+- do not hide an invented constant in React code.
+
+Visual work must not change balance-registry status.
 
 ## Preserve
 
-- deterministic simulation and economic relationships from `ONE_PERSON_UNICORN_CANONICAL_CONTEXT_V2.md`;
+- deterministic simulation boundary;
 - one actively controlled function at a time;
-- the seven work functions;
+- seven work functions;
+- canonical economic causality;
 - responsive PWA requirement;
 - compact, legible financial instrumentation;
 - protected-center / stable-periphery attention architecture;
@@ -18,106 +45,99 @@ The first implementation proved basic state transitions but collapsed the produc
 
 ## Replace
 
-- static center cards used as the primary gameplay surface;
-- DOM-button substitutions for swipe, drag, merge, aim, scratch, and other tactile verbs;
+- static center cards used as primary gameplay;
+- DOM-button substitutions for swipe, drag, merge, aim, scratch, and timing;
 - dense panel borders and repeated rounded-card framing used to manufacture hierarchy;
 - text abbreviations pretending to be final custom 3D iconography;
 - generic dark SaaS/dashboard styling;
+- presentation code directly mutating ARR/Cash/Valuation;
 - any layout that makes the simulation feel like a management tool with minigames bolted on.
 
 ## Canonical desktop composition
 
-The screen should read in this order:
+The screen should read:
 
-1. ACTIVE WORK OBJECT / ROOM GAMEPLAY in the center.
-2. Immediate causal feedback and economic consequence.
-3. Compact top score/survival instrumentation.
+1. ACTIVE WORK OBJECT / ROOM GAMEPLAY.
+2. Immediate causal feedback and consequence.
+3. Compact score/survival instrumentation.
 4. Left work-function navigation and queue urgency.
 5. Right build/agents/relics/skill/alerts only when relevant.
-6. Background automation and lower-priority operational state.
+6. Background automation and lower-priority state.
 
-The central game surface should own the majority of perceptual weight and enough physical area for the current interaction. The surrounding UI should feel calm, stable, and expensive.
+The central game surface owns the majority of perceptual weight and enough physical area for the active interaction. Surrounding UI stays calm, stable, and expensive.
 
 ## Canonical visual tone
 
 - restrained dark luxury;
 - near-black graphite and subtle metallic surfaces;
 - precise high-value instrumentation rather than terminal cosplay;
-- rich tactile objects and local light inside the active room;
-- visual authorship through scale, spacing, object behavior, material, motion, and composition rather than neon framing;
-- iridescent/Ethereal treatment only where rarity or a major bridge moment earns it;
-- pastel ethereal SKY atmosphere reserved for milestone/editorial transitions, not routine panels.
+- tactile objects and local light inside the active room;
+- authorship through scale, spacing, object behavior, material, motion, and composition;
+- Ethereal/iridescent treatment only where rarity or a major bridge moment earns it;
+- pastel SKY atmosphere reserved for milestone/editorial transitions.
 
 ## Whole-screen reference requirement
 
-A full-screen approved visual reference from the Design Direction Summary conversation should be copied into:
+Approved whole-screen reference path:
 
 `one-person-unicorn-design-context-v2.2/references/visual/founder/canonical-game-shell-desktop.png`
 
-When that file exists, treat it as the highest-authority reference for overall shell composition, hierarchy, density, and premium feel, while preserving later canonical interaction corrections.
+When present, it is the highest-authority reference for shell composition, hierarchy, density, and premium feel while later product mechanics remain authoritative.
 
-Do not trace it literally. Match its design quality and composition logic while implementing actual canonical gameplay verbs.
-
-If the file is absent, do not claim final shell visual approval. You may implement structural and interaction work, but flag the missing reference before final polish.
+If absent, structural/mechanics work may proceed, but do not claim final shell visual approval.
 
 ## Room acceptance tests
 
 ### Marketing
 
-Pass only if a player can physically drag/swipe the opportunity object left/right/up and threshold feedback makes the outcome legible before release. Three primary action buttons alone fail.
+Player physically drags/swipes the opportunity left/right/up. Threshold feedback is legible before release. Three primary action buttons alone fail.
 
 ### Product
 
-Pass only if components can be physically moved, snapped, merged/assembled, rejected, verified, and shipped. Sequential button pressing fails.
+Components physically move, snap, combine/assemble, reject, verify and ship. Sequential buttons fail.
 
 ### Monetization
 
-Pass only if the timing meter is animated, pointer/tap input resolves the window, and result feedback connects directly to the cohort and ARR consequence.
+Animated timing object + one pointer/tap resolves the pricing window and connects result to cohort/New Customer ARR consequence.
 
 ### Retention
 
-Pass only if threats move toward churn and the founder controls aim/priority while intervention fires automatically. Clicking static threat rows fails.
+Threats move toward churn. Founder controls aim/priority and intervention auto-fires. Static threat rows fail.
 
 ### Expansion
 
-Pass only if modules can be manipulated and merged into higher-order package pieces, then matched to a customer need. Static merge diagrams fail.
+Modules manipulate/merge into higher-order package pieces and match a customer need. Static merge diagrams fail.
 
 ### Operations
 
-Pass only if evidence can be scratched/revealed or otherwise physically exposed and risky optimization cards communicate real variance. Two static choice cards fail.
+Evidence is physically scratched/revealed. High-variance optimization cards communicate actual upside/downside. Two generic choice cards fail.
 
 ### Finance
 
-Pass if time-sensitive funding/debt/bootstrap decisions remain understandable, connected to cash/debt/ownership/growth state, and do not pretend to directly modify valuation.
+Time-sensitive funding/debt/bootstrap decisions connect to Cash, debt, ownership and growth credibility without directly creating Valuation.
 
 ## Interaction quality bar
 
-For every room define and implement:
+Every room:
 
-`input → physical response → local resolution → economic/pressure consequence → cross-room consequence → next decision`
+`input -> physical response -> local resolution -> semantic simulation action -> consequence -> next decision`
 
-The user must be able to understand cause and effect without reading a paragraph after every action.
+Cause/effect must be understandable without explanatory paragraphs after every action.
 
 ## Responsive acceptance
 
-Desktop and mobile portrait must be composed separately from the same state model.
+Desktop and mobile portrait are separate compositions over the same simulation state.
 
-On mobile:
-- preserve the active interaction size first;
-- collapse secondary rails/panels into drawers, anchored stacks, or compact navigation;
-- keep ARR, valuation, cash, quarter/time, and crisis state legible;
-- do not miniaturize desktop into a phone screenshot.
+On mobile, preserve active interaction size first; collapse secondary chrome before shrinking gameplay; keep ARR, Valuation, Cash, quarter/time and crisis state legible; do not miniaturize desktop.
 
-## Visual QA gate
+## Completion
 
-Before completion:
+Run:
 
-1. run the app;
-2. capture desktop and mobile screenshots;
-3. perform the actual room gestures;
-4. compare against the canonical screenshot when present;
-5. ask: “Does this look like a game cockpit with a tactile active room, or a dark dashboard?”;
-6. if the answer is dashboard, keep working;
-7. use `$opu-visual-qa` before reporting completion.
+```bash
+npm run validate
+```
 
-A successful build is not enough. A clean screenshot is not enough. The interaction and the visual composition both have to express the product fantasy.
+Then perform real gesture QA on desktop and mobile and use `$opu-visual-qa`.
+
+A build pass or clean screenshot alone is not completion.
