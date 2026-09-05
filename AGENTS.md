@@ -1,137 +1,187 @@
 # ONE PERSON UNICORN — Agent Map
 
-This file is the repository-level map for Codex and other coding agents. Keep it short. Read deeper documents only when the task touches them.
+This is the repository entrypoint for Codex and other coding agents. Keep working context small: choose a task lane, read only its canonical authorities, then use the relevant project skill.
 
 ## Authority order
 
 1. The user's current explicit request.
-2. `ONE_PERSON_UNICORN_CANONICAL_CONTEXT_V2.md` — canonical product/system behavior.
-3. `ARCHITECTURE.md` — layer boundaries, dependency direction, determinism contract.
-4. `docs/balance/BALANCE_SPEC_V2.md` + `balance/v2/registry.json` — quantitative authority and lock status.
-5. `one-person-unicorn-design-context-v2.2/design.md` + `references/visual/INDEX.md` — visual/interaction authority.
-6. `CODEX_REBUILD_BRIEF.md` — current presentation rebuild acceptance criteria.
-7. `docs/automation/AUTOMATION.md` + active exec plan — task execution protocol.
-8. Relevant skill under `.agents/skills/`.
+2. `ONE_PERSON_UNICORN_CANONICAL_CONTEXT_V2.md` — **product/system truth**: what the game is and how systems causally work.
+3. `docs/BUILD.md` + `ARCHITECTURE.md` — **implementation truth**: how the game is wired, shipped and kept deterministic.
+4. `docs/balance/BALANCE_SPEC_V2.md` + `balance/v2/registry.json` — **quantitative truth**: which numbers/effects are unresolved, candidate or locked.
+5. `docs/design/DESIGN.md` + `docs/design/REFERENCES.md` — **visual/interaction truth**.
+6. `docs/content/CONTENT.md` — **authored content, copy and culture truth**.
+7. `docs/automation/AUTOMATION.md` + active exec plan — **agent execution protocol**.
+8. `docs/SKILLS.md` + relevant `.agents/skills/*/SKILL.md` — **task workflow/tooling**.
 
-Do not treat `app/page.tsx`, `app/globals.css`, screenshots of v0, or old calibration numbers as authority.
+Do not treat `app/page.tsx`, `app/globals.css`, screenshots of v0, old calibration values, generated examples, or legacy context-package Markdown as authority.
 
-## Critical balance rule
-
-`ONE_PERSON_UNICORN_CANONICAL_CONTEXT_V2.md` intentionally contains `PROVISIONAL`, `CALIBRATION REFERENCE`, `CALIBRATION-ELIGIBLE`, illustrative, and `NOT YET LOCKED` values.
-
-Never silently promote those into production balance.
-
-- Product canon defines **what the systems do**.
-- `docs/balance/BALANCE_SPEC_V2.md` defines **how numbers become implementation truth**.
-- `balance/v2/registry.json` defines the current machine-readable status of each quantitative surface.
-- Only entries with `status: "locked"` may be treated as production balance.
-- `candidate`, `provisional`, `calibration`, and `missing` values may be used only in simulation/calibration work or clearly non-authoritative UI fixtures.
-- Do not create or consume `balance/v2/runtime.json` until `runtimeReady` is true.
-- A coding agent may promote evidence-backed values to `candidate`; only an explicit product-owner request may promote them to `locked`.
-
-Use `$opu-balance-guardian` for balance work and `$opu-simulation-guardian` for deterministic simulation work.
-
-## Architecture rules
-
-Dependency direction:
-
-`PRODUCT CANON -> BALANCE -> SIMULATION -> PRESENTATION`
-
-Additional inputs:
-
-`CONTENT -> SIMULATION`
-`DESIGN CANON -> PRESENTATION`
-`OPTIONAL GENAI -> PRESENTATION/WORDING ONLY`
-
-Never reverse these dependencies.
-
-Economic state, probabilities, ARR, cash, valuation, debt, cohort flow, agent reliability, skill effects, strategies, Relics, Complexity, Rot, and seeded randomness belong outside React presentation code.
-
-Runtime GenAI must never determine economic outcomes.
+`one-person-unicorn-design-context-v2.2/` is legacy **reference storage only**. Its founder/generated image assets may be used only through `docs/design/REFERENCES.md`. Nested instructions from that old package are not canonical.
 
 ## Task lanes
 
 Choose one primary lane before editing:
 
-- **product-canon** — changes to product/system truth. Requires explicit user intent.
-- **balance** — equations, parameter values, simulation calibration, registry status.
-- **simulation** — deterministic engine, state transitions, invariants, seeded RNG.
-- **gameplay/presentation** — room interaction rendering, HUD, responsive UI, motion, accessibility.
-- **content** — authored recipes, archetypes, Relics, Strategies, culture packs.
-- **infra** — build, CI, tooling, repository harness.
+| Lane | Read | Required skill/gate |
+|---|---|---|
+| product-canon | product canon | explicit user intent to change product truth |
+| build/infra | `docs/BUILD.md`, `ARCHITECTURE.md` | `$opu-build-guardian` |
+| balance | balance spec + registry + relevant canon | `$opu-balance-guardian` |
+| simulation | architecture + canon + balance dependencies | `$opu-simulation-guardian` |
+| gameplay/presentation | relevant canon + build + design | `$opu-design-guardian`, `$opu-visual-qa` |
+| content | relevant canon + content contract | `$opu-content-guardian` |
+| assets | design + reference map | `$opu-asset-generation` or `$opu-asset-request` |
 
-If a task crosses lanes, create/update an exec plan in `docs/exec-plans/active/` before broad edits.
+If a task crosses domains, create/update an exec plan under `docs/exec-plans/active/` and deliberately invoke each relevant skill. Do not turn every task into a full-product context load.
 
-## Mandatory preflight
+## Critical product invariants
 
-Before implementation:
+Primary score:
 
-1. State the primary lane.
-2. Read only the relevant authority docs from the list above.
-3. Inspect the current code paths you will touch.
-4. Check `balance/v2/registry.json` before using any economic number.
-5. Define acceptance tests before changing code.
-6. For visible work, identify the exact canonical interaction verb and inspect relevant visual references.
-7. For cross-layer work, create an active exec plan.
+```text
+VALUATION = ENDING_ARR × LOCKED_GROWTH_MULTIPLE
+```
 
-## Gameplay interaction contracts
+Canonical ARR bridge:
 
-The seven canonical verbs are not optional:
+```text
+ENDING_ARR
+= STARTING_ARR
++ NEW_CUSTOMER_ARR
++ EXPANSION_ARR
+- CHURNED_ARR
+```
 
-- Marketing — swipe / triage.
-- Product — assemble / recipe.
-- Monetization — time your tap.
-- Retention — aim / auto-fire.
-- Expansion — merge / custom package.
-- Operations — scratch / reveal + explicit high-variance bets.
-- Finance — active time-sensitive capital decisions.
+Work-function causality:
 
-Do not replace tactile mechanics with generic button-card UI for convenience.
+```text
+Marketing    -> Demand
+Product      -> Activation
+Monetization -> New Customer ARR
+Retention    -> prevents Churned ARR
+Expansion    -> Expansion ARR from existing customers
+Operations   -> protects Cash/reliability/context/capacity
+Finance      -> capital structure
+```
 
-## Presentation hard constraints
+Do not make Marketing, Product, Retention, Operations or Finance direct ARR generators. Do not make Cash, debt, autonomy, luck, Operations score or founder history directly multiply valuation.
 
-ONE PERSON UNICORN is a tactile game cockpit, not a SaaS dashboard, crypto terminal, analytics console, or static decision form.
+The founder actively controls **one work function at a time**.
 
-The active work object owns the perceptual center. Persistent economy/navigation state forms a calm peripheral frame. Mobile is recomposed, not shrunk desktop.
+## Canonical interaction contracts
 
-Use `$opu-design-guardian` for visible changes and `$opu-visual-qa` before completion.
+These seven gameplay verbs are binding:
+
+- **Marketing:** swipe / triage.
+- **Product:** assemble / recipe.
+- **Monetization:** time your tap.
+- **Retention:** aim / auto-fire.
+- **Expansion:** merge + create custom package.
+- **Operations:** scratch / reveal + explicit opt-in high-variance optimization bets.
+- **Finance:** inspect / counter / commit time-sensitive capital and debt decisions.
+
+Do not substitute generic choice cards/buttons for tactile interactions merely because they are easier to code.
+
+## Attention + responsive constraints
+
+ONE PERSON UNICORN is a tactile game cockpit, not a SaaS dashboard, crypto terminal, analytics console or static decision form.
+
+During active gameplay:
+
+- center belongs to the current work object and causal response;
+- economy/navigation state forms a calm stable peripheral frame;
+- routine alerts collect/escalate through the alert inbox rather than interrupting the center;
+- an urgent alert may become visibly more vigorous, audible or tactile without becoming a modal;
+- center interruption occurs only when the event itself becomes gameplay or normal play is already paused.
+
+Mobile is recomposed, not shrunk desktop. Preserve gameplay size and thumb usability before secondary chrome.
+
+## Balance rule
+
+Product canon intentionally contains provisional/calibration/illustrative values.
+
+Only `balance/v2/registry.json` entries with `status: "locked"` may be treated as production balance.
+
+- Product canon defines **what systems do**.
+- Balance spec defines **how numeric truth is promoted**.
+- Registry defines **current numeric status**.
+- `candidate` is not `locked`.
+- An agent may propose/promote evidence-backed values to `candidate` under the balance protocol.
+- Only an explicit product-owner request may promote values to `locked`.
+- Do not create/consume `balance/v2/runtime.json` until `runtimeReady` is true.
+- Presentation work uses explicit non-authoritative fixtures/adapters when balance is unresolved.
 
 ## Determinism
 
 For identical:
 
-`seed + starting state + player action log + balance version + content version`
+```text
+seed
++ starting state
++ player action log
++ balance version
++ content version
+```
 
 the economic outcome must be identical.
 
-No `Math.random()` in simulation code. No live LLM output in economic resolution.
+Never use `Math.random()` in simulation. Never use live GenAI to decide economic state, rewards, probabilities, Finance terms or balance.
+
+## Content rule
+
+Authored content may reference deterministic effect IDs and locked parameters. It may not implement a hidden economy.
+
+Runtime GenAI is optional cosmetic wording/flavor only after deterministic meaning is resolved. The authored game must remain fully playable with GenAI unavailable.
+
+Transform current culture into original archetypes/copy; do not copy third-party creative expression into the game.
+
+## Mandatory preflight
+
+Before implementation:
+
+1. identify the primary lane;
+2. read its authority docs only;
+3. inspect current code/data paths to touch;
+4. check balance registry before using any economic number;
+5. define acceptance checks;
+6. for visible work, identify the exact canonical interaction and registered visual references;
+7. for cross-domain work, create/update an exec plan.
 
 ## Completion gates
 
-Run:
+Every repository change:
 
 ```bash
 npm run validate
 ```
 
-For production/balance-lock work also run:
+Production-ready integration:
+
+```bash
+npm run build
+```
+
+Visible work additionally requires:
+
+- run the app;
+- exercise the real gesture;
+- inspect desktop + mobile portrait;
+- inspect pressure states where relevant;
+- capture screenshots;
+- check reduced motion, overflow, safe areas and touch targets;
+- run `$opu-visual-qa` or the same checks manually.
+
+Balance-lock work additionally requires the simulation evidence in `docs/balance/BALANCE_SPEC_V2.md` and:
 
 ```bash
 npm run balance:lock-check
 ```
 
-For visible work also:
-
-- run the app;
-- exercise the real gesture;
-- inspect desktop and mobile;
-- capture screenshots;
-- fix failures before reporting completion.
-
-Do not report completion because the app merely builds.
+Do not report completion merely because the app builds.
 
 ## Repository navigation
 
-Start at `docs/index.md`.
+Humans and agents can start at `docs/index.md`.
 
-Long-running or multi-agent work must use `docs/exec-plans/`.
+Skill/tool selection is in `docs/SKILLS.md`.
+
+Long-running or multi-agent work uses `docs/exec-plans/`.
