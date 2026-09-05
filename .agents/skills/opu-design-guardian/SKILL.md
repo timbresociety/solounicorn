@@ -4,20 +4,27 @@ description: Apply the ONE PERSON UNICORN canonical design system when creating 
 ---
 
 1. Read repository-root `AGENTS.md` first.
-2. Read the relevant product mechanics in `ONE_PERSON_UNICORN_CANONICAL_CONTEXT_V2.md`.
-3. Read the relevant sections of `one-person-unicorn-design-context-v2.2/design.md`.
-4. Read `one-person-unicorn-design-context-v2.2/references/visual/INDEX.md` before interpreting supplied visual references.
-5. Read `CODEX_REBUILD_BRIEF.md` for current rebuild acceptance criteria.
-6. Identify the canonical room interaction verb before implementation. Never replace swipe, merge/assembly, timing, aim/auto-fire, drag/pack, or scratch/reveal with generic button-card interactions for convenience.
-7. Preserve the protected-center / stable-periphery attention architecture during active gameplay.
-8. Treat the center as a tactile game surface. DOM product chrome frames it; Canvas/WebGL or an equivalent tactile renderer handles interactions that need physical manipulation or choreography.
-9. Use progressive disclosure for new mechanics and first-relevance teaching for advanced rules.
-10. For ordinary UI icons, enforce the custom hyperrealistic outlined 3D transparent-image contract. Never ship flat icons, emoji, abbreviations, or generic stock 3D as final art.
-11. For rarity-bearing assets only, use semantic material progression with Ethereal as the apex.
-12. For copy, use mechanical clarity first, then contextual wit/cultural literacy.
-13. For meaningful events, classify P0–P4 and choose one lead sensory channel.
-14. Recompose mobile and desktop independently while preserving identical deterministic game state.
-15. Reject generic dark-dashboard composition even when it is clean or technically correct.
-16. Before completion, invoke `$opu-visual-qa` or perform the same screenshot-based checks manually.
+2. Read the relevant mechanics in `ONE_PERSON_UNICORN_CANONICAL_CONTEXT_V2.md`.
+3. Read `docs/design/DESIGN.md`, `docs/design/REFERENCES.md`, and the relevant implementation boundary in `docs/BUILD.md`.
+4. Identify the canonical room interaction before implementation:
+   - Marketing: swipe / triage.
+   - Product: assemble / recipe.
+   - Monetization: time your tap.
+   - Retention: aim / auto-fire.
+   - Expansion: merge + create custom package.
+   - Operations: scratch / reveal + opt-in high-variance bets.
+   - Finance: inspect / counter / commit time-sensitive capital decisions.
+5. Never replace those with generic button-card interactions for convenience.
+6. Preserve protected central gameplay and stable peripheral awareness. Routine alerts accumulate/escalate through the alert inbox rather than interrupting the active center.
+7. Treat the active work object as the perceptual center. DOM product chrome frames it; use Canvas/WebGL only when physical choreography materially benefits from it.
+8. Use progressive disclosure and teach advanced mechanics on first relevance.
+9. Ordinary text-adjacent final icons use the custom hyperrealistic outlined 3D transparent-image contract. Do not ship flat icons, emoji, abbreviations, or generic stock 3D as final art.
+10. Reserve Ethereal iridescent liquid metal for apex states in explicit rarity/progression systems or earned bridge moments.
+11. Use mechanical clarity first in copy. For broader authored content, invoke `$opu-content-guardian`.
+12. Classify meaningful feedback P0-P4 and choose one lead sensory channel instead of making every effect peak at once.
+13. Recompose mobile and desktop independently over identical deterministic state. Preserve practical thumb interaction and the PWA contract.
+14. Reject generic dark SaaS/admin/crypto composition even when technically clean.
+15. If final visual/audio assets are required, use `$opu-asset-generation`; if quality cannot be reached, use `$opu-asset-request` rather than lowering the bar.
+16. Before completion, invoke `$opu-visual-qa` and run repository validation.
 
-If a required final visual/audio asset cannot be generated well in the current environment, invoke `$opu-asset-request` instead of inventing a generic substitute.
+The legacy `one-person-unicorn-design-context-v2.2/` directory is reference storage only. Do not treat its Markdown files as design or agent authority.

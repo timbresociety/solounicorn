@@ -1,9 +1,24 @@
 # Authored content
 
-This folder is reserved for deterministic game content: product recipes, customer archetypes, incidents, Strategies, Relics, Founder Histories, and versioned culture packs.
+Canonical content, writing and culture rules live in:
 
-Content may reference simulation effect IDs and locked balance parameters.
+`../docs/content/CONTENT.md`
 
-Content must not contain hidden economic formulas that bypass the simulation/balance layer.
+This folder contains deterministic game content such as:
 
-Runtime GenAI may vary surface wording or fictional names, but cannot determine mechanics or rewards.
+- Product recipes;
+- customer archetypes;
+- incidents;
+- Strategies;
+- Relics;
+- Founder Histories;
+- tutorials;
+- versioned culture packs.
+
+Content may reference approved simulation effect IDs and locked balance parameters.
+
+Content must not contain hidden economic formulas or hardcoded values that bypass simulation/balance.
+
+Runtime GenAI may vary cosmetic wording or fictional names only after deterministic meaning is resolved. It cannot determine mechanics, rewards, probabilities, Finance terms or economic outcomes.
+
+Use `$opu-content-guardian` for content changes.

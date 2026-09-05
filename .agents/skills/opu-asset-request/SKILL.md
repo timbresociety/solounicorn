@@ -1,21 +1,26 @@
 ---
 name: opu-asset-request
-description: Create a precise handoff when ONE PERSON UNICORN needs custom visual or audio assets that the current Codex environment cannot generate at the required quality. Use instead of flat icons, emoji, stock graphics, generic 3D substitutes, fake final audio, or silent placeholder acceptance.
+description: Create a precise handoff when ONE PERSON UNICORN needs final visual or audio assets that the current agent environment cannot generate at the required quality. Use instead of silently shipping weak placeholder art or audio.
 ---
 
-1. Identify the exact component/state and final destination path.
-2. Read the relevant generation contract under `one-person-unicorn-design-context-v2.2/asset-playbooks/` and the relevant founder references under `one-person-unicorn-design-context-v2.2/references/visual/`.
+1. Read `AGENTS.md`, the relevant rules in `docs/design/DESIGN.md`, `docs/design/REFERENCES.md`, and when copy/content is involved `docs/content/CONTENT.md`.
+2. Identify the exact component/state, semantic function, and final destination path.
 3. Create `asset_requests/pending/<asset-slug>.md`.
 4. Include:
    - screen/component usage;
-   - semantic function;
+   - semantic function and player state;
    - exact destination filename(s);
-   - dimensions, aspect ratio, transparency, format;
-   - semantic fusion/object logic;
-   - camera, lighting, material, silhouette, and family-consistency requirements;
-   - a complete ready-to-paste generation prompt;
+   - dimensions/aspect ratio/transparency/format or audio duration/loop/mix role;
+   - required states/variants;
+   - semantic object/fusion logic where visual;
+   - camera, lighting, material, silhouette and family requirements where visual;
+   - trigger, sonic role and mix behavior where audio;
+   - complete ready-to-use generation/production brief;
+   - exact registered references allowed by `docs/design/REFERENCES.md`;
    - reject conditions;
-   - small-size/readability acceptance tests.
-5. Keep the functional implementation moving without presenting a fake substitute as finished art.
-6. Tell the user exactly which file(s) to generate and where to add them.
-7. When the asset appears, validate it against the request before integration.
+   - final-size/in-product acceptance checks.
+5. Keep functional implementation moving while keeping the unresolved final-art slot explicit.
+6. Tell the user exactly which file(s) to create and where to place them.
+7. When the asset appears, validate it in the actual product before marking the request fulfilled.
+
+Do not point an asset producer at the whole legacy design package. Give the minimum canonical brief and exact registered references needed.

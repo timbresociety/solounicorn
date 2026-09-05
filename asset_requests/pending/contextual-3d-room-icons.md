@@ -18,8 +18,11 @@ Filenames: `marketing.webp`, `product.webp`, `monetization.webp`, `retention.web
 - aspect ratio: 1:1
 
 ## Canonical references
-- `references/visual/founder/contextual-3d-icon-family-airbnb-reference.png`
-- `design.md` sections 13, 14 and 28A.1
+- Design contract: `docs/design/DESIGN.md` sections on function interactions, contextual 3D icons, materials and generative design.
+- Reference authority: `docs/design/REFERENCES.md`.
+- Exact founder image: `one-person-unicorn-design-context-v2.2/references/visual/founder/contextual-3d-icon-family-airbnb-reference.png`.
+
+Use the founder image only for the bounded authority defined in `docs/design/REFERENCES.md`; do not copy its branded object choices or styling literally.
 
 ## Generation logic
 - Marketing: live signal scanner fused with a classic broadcast tuner; alert, discerning, culturally awake.
