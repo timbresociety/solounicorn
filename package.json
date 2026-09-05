@@ -9,7 +9,15 @@
     "dev": "vinext dev",
     "build": "vinext build",
     "start": "vinext start",
-    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next"
+    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
+    "typecheck": "tsc --noEmit",
+    "contract:check": "node scripts/check-repo-contract.mjs",
+    "balance:validate": "node scripts/validate-balance.mjs",
+    "balance:lock-check": "node scripts/validate-balance.mjs --require-locked",
+    "sim:smoke": "node scripts/simulation-smoke.mjs",
+    "sim:determinism": "node scripts/check-determinism.mjs",
+    "validate": "npm run contract:check && npm run balance:validate && npm run sim:smoke && npm run sim:determinism && npm run typecheck && npm run lint",
+    "ci": "npm run validate && npm run build"
   },
   "dependencies": {
     "next": "16.2.6",
