@@ -94,12 +94,21 @@ const allFiles = walk(root);
 for (const file of allFiles) {
   const relative = path.relative(root, file).split(path.sep).join("/");
 
-  if (relative !== "AGENTS.md" && path.basename(file) === "AGENTS.md") {
-    fail(`nested AGENTS.md creates competing instruction scope: ${relative}`);
+  const instructionName = path.basename(file).toLowerCase();
+  if (instructionName === "agents.override.md") {
+    fail(`agent override can shadow the canonical root map: ${relative}`);
+  }
+
+  if (instructionName === "agents.md" && relative !== "AGENTS.md") {
+    fail(`nested or case-variant AGENTS.md creates competing instruction scope: ${relative}`);
   }
 
   if (relative.includes("/.codex/skills/") || relative.startsWith(".codex/skills/")) {
     fail(`project skills belong only in root .agents/skills: ${relative}`);
+  }
+
+  if (relative.includes("/.agents/skills/")) {
+    fail(`nested project skills create competing workflow scope: ${relative}`);
   }
 }
 

@@ -50,3 +50,9 @@ That command is expected to fail while V2 balance remains unresolved.
 Humans: `docs/index.md`
 
 Agents: `AGENTS.md`
+
+## Continue across web and desktop
+
+Open the intended repository branch in each client. Start with `AGENTS.md`, then follow the [startup and handoff procedure](docs/automation/AUTOMATION.md#15-web--desktop-startup-and-freshness). It checks source freshness, reads only the relevant authorities, and records decisions and remaining work in the existing task plan.
+
+After a web correction is merged, synchronize the desktop checkout while preserving local edits, then start a fresh task or explicitly reread the changed guidance. A web conversation or GitHub PR does not update a running local session by itself.
