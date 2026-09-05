@@ -2,14 +2,20 @@
 
 Binding visual and interaction system:
 
-`../../one-person-unicorn-design-context-v2.2/design.md`
+`DESIGN.md`
 
-Reference authority map:
+Binding interpretation map for founder/generated/external references:
 
-`../../one-person-unicorn-design-context-v2.2/references/visual/INDEX.md`
+`REFERENCES.md`
 
-Current implementation acceptance criteria:
+Implementation/PWA constraints that design must respect:
 
-`../../CODEX_REBUILD_BRIEF.md`
+`../BUILD.md`
 
-Do not interpret the current v0 UI as a design reference.
+Product mechanics remain authoritative over visual analogy:
+
+`../../ONE_PERSON_UNICORN_CANONICAL_CONTEXT_V2.md`
+
+The current v0 UI is not a design reference.
+
+The legacy `../../one-person-unicorn-design-context-v2.2/` directory is reference storage only. Do not read its Markdown as a second design system. Use only assets registered by `REFERENCES.md`.
