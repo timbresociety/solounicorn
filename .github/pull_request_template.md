@@ -1,20 +1,23 @@
 ## Lane
 
 - [ ] product-canon
+- [ ] build/infra
 - [ ] balance
 - [ ] simulation
 - [ ] gameplay/presentation
 - [ ] content
-- [ ] infra
+- [ ] assets
 
 ## Authority checked
 
 - [ ] `AGENTS.md`
 - [ ] relevant canonical product sections
-- [ ] `ARCHITECTURE.md`
-- [ ] balance spec/registry if economic
-- [ ] design canon/references if visible
-- [ ] active exec plan if cross-layer
+- [ ] `docs/BUILD.md` + `ARCHITECTURE.md` when implementation/build related
+- [ ] balance spec/registry when economic
+- [ ] `docs/design/DESIGN.md` + `docs/design/REFERENCES.md` when visible
+- [ ] `docs/content/CONTENT.md` when authored content/copy changes
+- [ ] relevant project skill(s) from `docs/SKILLS.md`
+- [ ] active exec plan when cross-domain
 
 ## Balance safety
 
@@ -26,7 +29,7 @@
 ## Validation
 
 - [ ] `npm run validate`
-- [ ] `npm run build`
+- [ ] `npm run build` for production-ready integration
 - [ ] real interaction exercised when visible
 - [ ] desktop + mobile visually inspected when visible
 - [ ] quantitative report attached when balance-related
