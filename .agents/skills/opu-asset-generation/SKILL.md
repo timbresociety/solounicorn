@@ -1,24 +1,24 @@
 ---
 name: opu-asset-generation
-description: Generate custom ONE PERSON UNICORN visual assets with Codex-native image generation when a visible UI/gameplay asset needs authored 3D art, iconography, illustration, textures, or milestone imagery. Use before falling back to a user asset request when image generation is available.
+description: Generate custom ONE PERSON UNICORN visual assets when a current implemented surface needs authored 3D art, iconography, illustration, textures, rarity assets, or milestone imagery and image generation is available.
 ---
 
-1. Read the relevant asset rules in `one-person-unicorn-design-context-v2.2/design.md` and the relevant founder references in `one-person-unicorn-design-context-v2.2/references/visual/`.
-2. Generate only the assets needed for the current screen or flow. Do not burn usage generating the entire future library.
-3. Use Codex/ChatGPT native `$imagegen` when available. Attach/reference the relevant canonical image when the output must inherit composition, material, silhouette, or family behavior.
-4. For UI icons:
-   - generate one coherent family per task;
-   - transparent background;
-   - strong 24–64 px silhouette;
-   - hyperrealistic outlined 3D object treatment through contour lighting and separation, not a cartoon stroke;
-   - physically believable materials justified by the semantic object;
-   - no text, baked card, tile, scene background, emoji, stock-icon geometry, or forced Ethereal/gold/glass finish.
-5. For gameplay objects:
-   - prioritize a clear physical affordance and interaction state over ornamental complexity;
-   - generate neutral/idle assets first, then only the pressed/active/damaged variants the current mechanic actually needs.
-6. For Ethereal rarity assets:
-   - reserve iridescent liquid-metal behavior for explicit rarity/progression apex states or major bridge moments;
-   - never fake it with a CSS rainbow gradient.
-7. Inspect generated assets at intended UI size and on the actual near-black background before accepting them.
-8. Iterate obvious failures rather than integrating them because generation succeeded technically.
-9. If the required family cannot be generated reliably within sensible usage, invoke `$opu-asset-request` with exact destination paths and prompts for the user instead of lowering the visual bar.
+1. Read `AGENTS.md`, the relevant asset rules in `docs/design/DESIGN.md`, and `docs/design/REFERENCES.md`.
+2. Generate only assets needed for the current screen/flow. Do not mass-generate the future catalogue before a family is approved.
+3. Use native image generation when available. Supply the exact registered founder reference when inheritance of geometry, material behavior or atmosphere is required.
+4. For ordinary UI icons:
+   - create one coherent family per task;
+   - use transparent backgrounds;
+   - preserve a strong silhouette at intended UI size;
+   - use hyperrealistic 3D object treatment and contour separation, not a cartoon stroke;
+   - choose materials from the semantic object;
+   - bake no text, card, tile or opaque scene background into the icon;
+   - do not force Ethereal, gold, stone or glass onto utility icons.
+5. For gameplay objects, prioritize obvious physical affordance, readable state and interaction over ornament. Generate only state variants the implemented mechanic uses.
+6. For rarity-bearing assets, use a semantic progression and reserve Ethereal iridescent liquid metal for the apex when that family uses a material ladder.
+7. Never change Structure/Spark monogram geometry through image generation. Registered monogram references are identity truth; generated renders only change material, depth, light or environment.
+8. Inspect generated assets at intended size and on the actual near-black product surface. Review batches as a family for camera, scale, negative space and lighting discipline.
+9. Iterate obvious failures rather than integrating output because generation technically succeeded.
+10. If required quality cannot be reached sensibly, invoke `$opu-asset-request` with exact destination paths instead of shipping a generic substitute.
+
+The legacy design-context folder supplies registered image references only through `docs/design/REFERENCES.md`; its old Markdown playbooks are not authority.
