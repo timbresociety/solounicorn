@@ -7,7 +7,7 @@ on:
       - main
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: repository-gates-${{ github.ref }}
@@ -21,28 +21,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
 
-      - name: Node 24
+      - name: Node 22.13
         uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 22.13.0
           cache: npm
-
-      - name: Repair package lock
-        run: npm install --package-lock-only --ignore-scripts
-
-      - name: Commit repaired package lock
-        if: github.event_name == 'pull_request' && github.head_ref == 'hotfix/live-build'
-        run: |
-          if ! git diff --quiet -- package-lock.json; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add package-lock.json
-            git commit -m "Regenerate package lock"
-            git push origin HEAD:${{ github.head_ref }}
-          fi
 
       - name: Install
         run: npm ci
