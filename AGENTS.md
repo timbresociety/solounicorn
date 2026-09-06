@@ -2,6 +2,27 @@
 
 This is the repository entrypoint for Codex and other coding agents. Keep working context small: choose a task lane, read only its canonical authorities, then use the relevant project skill.
 
+## Ground every session
+
+Web chats, local Codex memories and earlier assistant summaries are recall aids. They are not proof of the current repository state or of a product-owner decision.
+
+On a new session, client switch, branch change or resumed handoff:
+
+1. Establish the repository, working branch, commit SHA, local changes and remote freshness. Read remote files at one resolved commit, not a moving branch throughout the task.
+2. Read this map, the task's authority sections and its active exec plan, if one exists. Verify any handoff's source commit against the checkout. Use the procedure in `docs/automation/AUTOMATION.md` §15–18.
+3. Give a brief grounded readback: intended player/user outcome, governing sources, and the actual next change. Identify a material conflict or unknown if present, then continue authorized work. This is not a routine approval checkpoint.
+4. Keep **requested**, **canonical**, **implemented**, **verified** and **proposed** distinct. Reading a requirement does not prove the feature exists; an earlier assistant answer does not make a proposal approved.
+
+When context is missing, inspect the source or preserve the uncertainty. Do not reconstruct missing decisions, screenshots, economic values or implementation progress from memory.
+
+## Collaboration expectations
+
+- Lead with the outcome; use concise, concrete language and explain consequences that affect the user's decision.
+- Preserve explicit corrections and their rationale. Do not repeatedly reopen settled choices or simplify a requested interaction merely to finish faster.
+- Resolve routine reversible implementation choices autonomously. Ask only when an unresolved conflict materially changes the result or an action lacks required authorization; continue independent work where possible.
+- Capture a durable correction in its existing authority when the user's request authorizes that domain change. Otherwise record it as a proposal in the task plan, with its source. Never silently turn inference into canon.
+- Report what changed, what was actually checked, and what remains. Do not claim shared app memory, desktop settings, a local checkout update, asset inspection, balance lock or deployment without direct evidence.
+
 ## Authority order
 
 1. The user's current explicit request.

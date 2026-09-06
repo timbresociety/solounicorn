@@ -36,6 +36,14 @@
 
 ## What changed
 
+## Context handoff
+
+Source branch/commit:
+Current user intent and governing authority sections:
+Accepted corrections / proposals still open (link to plan if applicable):
+Verified implementation versus remaining work:
+Next step after review:
+
 ## Evidence / screenshots / simulation report
 
 ## Known follow-ups
