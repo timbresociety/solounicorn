@@ -17,7 +17,12 @@
     "sim:smoke": "node scripts/simulation-smoke.mjs",
     "sim:determinism": "node scripts/check-determinism.mjs",
     "validate": "npm run contract:check && npm run balance:validate && npm run sim:smoke && npm run sim:determinism && npm run typecheck && npm run lint",
-    "ci": "npm run validate && npm run build"
+    "ci": "npm run validate && npm run build",
+    "test:unit": "vitest run tests/unit",
+    "test:replay": "vitest run tests/replay",
+    "test:integration": "vitest run tests/integration",
+    "validate:content": "vitest run tests/unit/content-validation.test.ts",
+    "test": "vitest run"
   },
   "dependencies": {
     "next": "16.2.6",
@@ -36,11 +41,13 @@
     "@vitejs/plugin-rsc": "0.5.26",
     "eslint": "9.39.4",
     "eslint-config-next": "16.2.6",
+    "playwright": "^1.63.0",
     "react-server-dom-webpack": "19.2.6",
     "tailwindcss": "4.2.1",
     "typescript": "5.9.3",
     "vinext": "1.0.0-beta.3",
     "vite": "8.0.13",
+    "vitest": "^3.2.4",
     "wrangler": "4.92.0"
   },
   "type": "module"

@@ -1,0 +1,161 @@
+{
+  "schemaVersion": 1,
+  "seed": 84022,
+  "runId": "run-84022",
+  "balanceVersion": "v2-golden.4",
+  "contentVersion": "v2-golden.1",
+  "finalTick": 900,
+  "finalHash": "fnv1a32:2abe7704",
+  "actionLog": {
+    "schemaVersion": 1,
+    "runId": "run-84022",
+    "balanceVersion": "v2-golden.4",
+    "contentVersion": "v2-golden.1",
+    "actions": [
+      {
+        "actionVersion": 1,
+        "actionId": "run-84022-action-0",
+        "sequence": 0,
+        "atTick": 0,
+        "type": "RUN_FOUNDER_HISTORY_SELECTED",
+        "payload": {
+          "founderHistoryId": "history.fresh-founder"
+        }
+      },
+      {
+        "actionVersion": 1,
+        "actionId": "run-84022-action-1",
+        "sequence": 1,
+        "atTick": 0,
+        "type": "RUN_GROWTH_MANDATE_SELECTED",
+        "payload": {
+          "growthMandateBps": 1000
+        }
+      },
+      {
+        "actionVersion": 1,
+        "actionId": "run-84022-action-2",
+        "sequence": 2,
+        "atTick": 0,
+        "type": "RUN_STARTED",
+        "payload": {}
+      },
+      {
+        "actionVersion": 1,
+        "actionId": "run-84022-action-3",
+        "sequence": 3,
+        "atTick": 1,
+        "type": "MARKETING_OPPORTUNITY_PURSUED",
+        "payload": {
+          "opportunityId": "signal.support-tabs"
+        }
+      },
+      {
+        "actionVersion": 1,
+        "actionId": "run-84022-action-4",
+        "sequence": 4,
+        "atTick": 2,
+        "type": "FOUNDER_FUNCTION_ENTERED",
+        "payload": {
+          "functionId": "PRODUCT"
+        }
+      },
+      {
+        "actionVersion": 1,
+        "actionId": "run-84022-action-5",
+        "sequence": 5,
+        "atTick": 3,
+        "type": "PRODUCT_COMPONENT_PLACED",
+        "payload": {
+          "requestId": "request-1",
+          "componentId": "component.inbox",
+          "slotId": "intake"
+        }
+      },
+      {
+        "actionVersion": 1,
+        "actionId": "run-84022-action-6",
+        "sequence": 6,
+        "atTick": 4,
+        "type": "PRODUCT_COMPONENT_PLACED",
+        "payload": {
+          "requestId": "request-1",
+          "componentId": "component.routing",
+          "slotId": "logic"
+        }
+      },
+      {
+        "actionVersion": 1,
+        "actionId": "run-84022-action-7",
+        "sequence": 7,
+        "atTick": 5,
+        "type": "PRODUCT_COMPONENT_PLACED",
+        "payload": {
+          "requestId": "request-1",
+          "componentId": "component.context",
+          "slotId": "memory"
+        }
+      },
+      {
+        "actionVersion": 1,
+        "actionId": "run-84022-action-8",
+        "sequence": 8,
+        "atTick": 6,
+        "type": "PRODUCT_RECIPE_TESTED",
+        "payload": {
+          "requestId": "request-1"
+        }
+      },
+      {
+        "actionVersion": 1,
+        "actionId": "run-84022-action-9",
+        "sequence": 9,
+        "atTick": 7,
+        "type": "PRODUCT_RECIPE_SHIPPED",
+        "payload": {
+          "requestId": "request-1",
+          "mode": "VERIFIED"
+        }
+      },
+      {
+        "actionVersion": 1,
+        "actionId": "run-84022-action-10",
+        "sequence": 10,
+        "atTick": 8,
+        "type": "FOUNDER_FUNCTION_ENTERED",
+        "payload": {
+          "functionId": "MONETIZATION"
+        }
+      },
+      {
+        "actionVersion": 1,
+        "actionId": "run-84022-action-11",
+        "sequence": 11,
+        "atTick": 44,
+        "type": "MONETIZATION_PRICE_COMMITTED",
+        "payload": {
+          "activationId": "pricing-1",
+          "cursorTick": 44
+        }
+      },
+      {
+        "actionVersion": 1,
+        "actionId": "run-84022-action-12",
+        "sequence": 12,
+        "atTick": 900,
+        "type": "SKILL_RANK_PURCHASED",
+        "payload": {
+          "skillRankId": "skill.marketing.craft.1"
+        }
+      },
+      {
+        "actionVersion": 1,
+        "actionId": "run-84022-action-13",
+        "sequence": 13,
+        "atTick": 900,
+        "type": "QUARTER_NEXT_STARTED",
+        "payload": {}
+      }
+    ]
+  }
+}

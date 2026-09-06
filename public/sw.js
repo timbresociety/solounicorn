@@ -1,4 +1,4 @@
-const CACHE = 'opu-v2-shell';
+const CACHE = 'opu-v2-golden-4';
 const CORE = ['/', '/manifest.webmanifest', '/structure-mark.png', '/icon-192.png', '/icon-512.png'];
 
 self.addEventListener('install', event => {
