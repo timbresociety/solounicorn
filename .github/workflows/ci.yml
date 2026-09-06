@@ -22,10 +22,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Node 22.13
+      - name: Node 24
         uses: actions/setup-node@v4
         with:
-          node-version: 22.13.0
+          node-version: 24
           cache: npm
 
       - name: Install
