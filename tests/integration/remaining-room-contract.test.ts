@@ -29,7 +29,7 @@ describe('remaining room fixture contracts', () => {
     runtime.dispatch('FOUNDER_FUNCTION_ENTERED', { functionId: 'RETENTION' });
     runtime.dispatch('RETENTION_THREAT_PRIORITIZED', { threatId: threat.id, customerId: customer.id });
 
-    let expansion = runtime.snapshot.state.functions.EXPANSION.queue[0];
+    const expansion = runtime.snapshot.state.functions.EXPANSION.queue[0];
     expect(expansion.balanceSource).toBe('NON_AUTHORITATIVE_FIXTURE');
     runtime.dispatch('FOUNDER_FUNCTION_ENTERED', { functionId: 'EXPANSION' });
     runtime.dispatch('EXPANSION_ITEMS_MERGED', { firstItemId: asEntityId('analytics-a'), secondItemId: asEntityId('analytics-b'), cellId: asEntityId('bench') });
