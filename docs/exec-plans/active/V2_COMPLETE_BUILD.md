@@ -11,9 +11,8 @@ This is the controlling execution plan for the V2 build. Every later Codex task 
 The plan operationalizes, but does not replace:
 
 1. `ONE_PERSON_UNICORN_CANONICAL_CONTEXT_V2.md` for product mechanics, economy, and deterministic game truth.
-2. `one-person-unicorn-design-context-v2.2/design.md` for visual, interaction, responsive, motion, audio, copy, and accessibility truth.
-3. `one-person-unicorn-design-context-v2.2/AGENTS.md` for the design implementation contract.
-4. Repository and global `AGENTS.md` instructions for execution practice.
+2. `docs/design/DESIGN.md` and `docs/design/REFERENCES.md` for visual, interaction, responsive, motion, audio, copy, and accessibility truth.
+3. Repository and global `AGENTS.md` instructions for execution practice.
 
 When this plan conflicts with a higher source, the higher source wins and this plan must be corrected in the same change. Provisional balance values in the canonical product document remain provisional here.
 
@@ -966,11 +965,11 @@ Completion gate: a novice can create their first customer through Point -> Do ->
 Evidence:
 
 ```text
-Status: pending
+Status: IN PROGRESS (2026-09-06 interaction correction)
 Commands:
 Simulation report:
 Screenshots:
-Playtest notes:
+Playtest notes: Expansion must use pointer drag for generator-to-generator merge and merged-capability-to-package placement. The current click-selection fixture does not satisfy the canonical Gossip Harbor-like merge grammar.
 ```
 
 ### M4. Retention and Expansion production loops
@@ -1057,11 +1056,11 @@ Completion gate: player can explain why automation increased throughput, what bu
 Evidence:
 
 ```text
-Status: pending
+Status: IN PROGRESS (2026-09-06 interaction correction)
 Commands:
 Simulation report:
 Screenshots:
-Playtest notes:
+Playtest notes: Optimization scratchers disclose and unlock positive effects through a physical scratch surface. A fully negative card is rejected through a trash affordance. Obligations remain damage-minimization evidence work and are not presented as guaranteed-reward scratchers.
 ```
 
 ### M6. Finance, capital structure, and obligations

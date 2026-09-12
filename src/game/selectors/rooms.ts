@@ -8,4 +8,4 @@ const roomMeta: Record<FunctionId, Omit<RoomSummary, 'id' | 'unlocked' | 'queue'
   EXPANSION: { name: 'Expansion', code: 'EXP', accent: '#a778ff' }, OPERATIONS: { name: 'Operations', code: 'OPS', accent: '#b5f35a' },
   FINANCE: { name: 'Finance', code: 'FIN', accent: '#77b9ff' },
 };
-export const selectGoldenRooms = (state: RunState): RoomSummary[] => (['MARKETING', 'PRODUCT', 'MONETIZATION', 'RETENTION', 'EXPANSION', 'OPERATIONS', 'FINANCE'] as FunctionId[]).map((id) => ({ id, ...roomMeta[id], unlocked: state.functions[id].unlocked, queue: state.functions[id].queue.filter((item) => item.metadata.resolved !== true).length }));
+export const selectGoldenRooms = (state: RunState): RoomSummary[] => (['MARKETING', 'PRODUCT', 'MONETIZATION', 'RETENTION', 'EXPANSION', 'OPERATIONS', 'FINANCE'] as FunctionId[]).map((id) => ({ id, ...roomMeta[id], unlocked: state.functions[id].unlocked, queue: state.functions[id].queue.filter((item) => item.metadata.resolved !== true && item.metadata.committed !== true).length }));

@@ -3,7 +3,7 @@ import { applyEffect } from '../effects/apply-effect';
 import { evaluateEligibility } from '../effects/eligibility';
 import { seedExpansionPresentationFixture, seedFinancePresentationFixture, seedOperationsPresentationFixture, seedRetentionPresentationFixture } from '../fixtures/v2-presentation';
 import type { SemanticAction } from '../schema/actions';
-import { asAgentId, asCohortId, asContentId, asCustomerId, asEntityId, asQueueItemId } from '../schema/ids';
+import { asAgentId, asCohortId, asCustomerId, asEntityId, asQueueItemId } from '../schema/ids';
 import type { DomainEvent, DomainEventType, ReasonCode } from '../schema/events';
 import type { AgentTierContent, CustomerArchetypeContent, MarketingSignalContent, ProductRecipeContent, RelicContent, SkillRankContent, StrategyContent } from '../schema/content';
 import type { FailureAttribution, QueueItem, RunState, StrainBand } from '../schema/state';
@@ -58,6 +58,10 @@ function applyPressure(state: RunState, context: EngineContext, emit: (type: Dom
   if (previousRot !== state.pressure.rotBand) emit('ROT_CHANGED', { from: previousRot, to: state.pressure.rotBand, rot: state.pressure.rot });
 }
 
+function quarterDurationTicks(state: RunState, context: EngineContext): number {
+  return context.balance.ticksPerQuarter.value * (state.clock.quarterIndex === 1 ? 2 : 1);
+}
+
 export function step(current: RunState, orderedActions: SemanticAction[] = [], context: EngineContext = DEFAULT_ENGINE_CONTEXT): StepResult {
   const state = clone(current);
   const events: DomainEvent[] = [];
@@ -87,7 +91,17 @@ export function step(current: RunState, orderedActions: SemanticAction[] = [], c
     let accepted = true;
     const semanticReject = (code: string, details: string) => { accepted = false; reject(action, code, details); };
 
+    if (state.clock.paused && state.clock.phase === 'ACTIVE' && state.clock.tickInQuarter > 0 && !['RUN_PAUSE_SET', 'RUN_ABANDONED'].includes(action.type)) {
+      semanticReject('RUN_PAUSED', 'Resume the company before working.');
+      continue;
+    }
+
     switch (action.type) {
+      case 'RUN_PAUSE_SET': {
+        if (state.clock.phase !== 'ACTIVE') semanticReject('WRONG_PHASE', 'Pause is available during an active quarter.');
+        else { state.clock.paused = action.payload.paused; emit('RUN_PHASE_CHANGED', { phase: 'ACTIVE', paused: state.clock.paused }, action); }
+        break;
+      }
       case 'RUN_FOUNDER_HISTORY_SELECTED': {
         if (state.clock.phase !== 'SETUP') semanticReject('WRONG_PHASE', 'Founder History is selected before the run.');
         else if (!contentById.has(action.payload.founderHistoryId)) semanticReject('UNKNOWN_CONTENT', 'Unknown Founder History.');
@@ -96,7 +110,7 @@ export function step(current: RunState, orderedActions: SemanticAction[] = [], c
       }
       case 'RUN_GROWTH_MANDATE_SELECTED': {
         if (state.clock.phase !== 'SETUP') semanticReject('WRONG_PHASE', 'Growth Mandate is selected before the run.');
-        else if (![1_000, 2_500, 5_000, 7_500, 10_000].includes(action.payload.growthMandateBps)) semanticReject('INVALID_MANDATE', 'Unsupported Growth Mandate.');
+        else if (![0, 1_000, 2_500, 5_000, 7_500, 10_000].includes(action.payload.growthMandateBps)) semanticReject('INVALID_MANDATE', 'Unsupported Growth Mandate.');
         else state.header.growthMandateBps = action.payload.growthMandateBps;
         break;
       }
@@ -119,16 +133,19 @@ export function step(current: RunState, orderedActions: SemanticAction[] = [], c
       case 'MARKETING_OPPORTUNITY_PURSUED':
       case 'MARKETING_OPPORTUNITY_AGGRESSIVELY_PURSUED': {
         const signal = contentById.get(action.payload.opportunityId) as MarketingSignalContent | undefined;
+        const ignoredMilestone = `Q${state.clock.quarterIndex}:MARKETING_IGNORED:${action.payload.opportunityId}`;
         if (state.clock.phase !== 'ACTIVE' || state.founderAttention !== 'MARKETING') semanticReject('WRONG_FUNCTION', 'Founder must be active in Marketing.');
         else if (!signal || signal.kind !== 'MARKETING_SIGNAL') semanticReject('UNKNOWN_SIGNAL', 'Unknown Marketing opportunity.');
-        else if (state.cohorts.demand.some((cohort) => cohort.sourceId === signal.id)) semanticReject('ALREADY_RESOLVED', 'Marketing opportunity already resolved.');
+        else if (state.outcome.milestones.includes(ignoredMilestone) || state.cohorts.demand.some((cohort) => cohort.sourceId === signal.id && cohort.createdAtTick >= state.clock.tick - state.clock.tickInQuarter)) semanticReject('ALREADY_RESOLVED', 'Marketing opportunity already resolved this quarter.');
         else {
           const ignored = action.type === 'MARKETING_OPPORTUNITY_IGNORED';
           const aggressive = action.type === 'MARKETING_OPPORTUNITY_AGGRESSIVELY_PURSUED';
           emit('MARKETING_OPPORTUNITY_RESOLVED', { opportunityId: signal.id, decision: ignored ? 'IGNORE' : aggressive ? 'AGGRESSIVE' : 'PURSUE' }, action);
-          if (!ignored) {
+          if (ignored) state.outcome.milestones.push(ignoredMilestone);
+          else {
             const demandUnits = aggressive ? signal.aggressiveDemandUnits.value : signal.demandUnits.value;
             const cost = aggressive ? signal.aggressiveCostCents.value : signal.pursueCostCents.value;
+            if (state.economy.cash < cost) { semanticReject('INSUFFICIENT_CASH', 'Not enough cash for this lead. Ignore it or choose a cheaper opportunity.'); break; }
             state.economy.cash = cents(state.economy.cash - cost);
             emit('CASH_CHANGED', { cents: -cost, balanceCents: state.economy.cash }, action, 'PLAYER_ACTION', -cost, 'CENTS');
             const demandId = asCohortId(`demand-${state.cohorts.demand.length + 1}`);
@@ -188,7 +205,9 @@ export function step(current: RunState, orderedActions: SemanticAction[] = [], c
           state.functions.PRODUCT.queue = state.functions.PRODUCT.queue.filter((item) => item.id !== request.id);
           state.functions.PRODUCT.activeRecipe = undefined;
           const pricingId = asQueueItemId(`pricing-${state.cohorts.activated.length}`);
-          state.functions.MONETIZATION.queue.push({ id: pricingId, kind: 'PRICING_OPPORTUNITY', sourceEntityId: asEntityId(activationId), createdAtTick: state.clock.tick, expiresAtTick: tick(state.clock.tick + context.balance.pricingOpportunityExpiryTicks.value), priority: 1, workRemaining: workUnits(1_000), contentId: asContentId('customer.support-scaleup'), metadata: { activationCohortId: activationId, model: 'PER_SEAT' } });
+          const customerType = context.content.entries.find((entry) => entry.kind === 'CUSTOMER_ARCHETYPE' && entry.segment === demand.segment) as CustomerArchetypeContent | undefined;
+          if (!customerType) { semanticReject('MISSING_CUSTOMER_ARCHETYPE', `No customer archetype exists for ${demand.segment}.`); break; }
+          state.functions.MONETIZATION.queue.push({ id: pricingId, kind: 'PRICING_OPPORTUNITY', sourceEntityId: asEntityId(activationId), createdAtTick: state.clock.tick, expiresAtTick: tick(state.clock.tick + context.balance.pricingOpportunityExpiryTicks.value), priority: 1, workRemaining: workUnits(1_000), contentId: customerType.id, metadata: { activationCohortId: activationId, model: customerType.pricingModel } });
           state.functions.MONETIZATION.unlocked = true;
           emit('PRODUCT_RECIPE_SHIPPED', { requestId: request.id, mode: action.payload.mode, riskPpm: implementationRiskPpm }, action, action.payload.mode === 'EARLY' ? 'PRODUCT_EARLY_SHIP' : 'PRODUCT_VERIFIED', 1, 'COUNT');
           emit('ACTIVATED_COHORT_CREATED', { cohortId: activationId, demandCohortId: demand.id, pricingId }, action);
@@ -246,7 +265,7 @@ export function step(current: RunState, orderedActions: SemanticAction[] = [], c
           emit('RETENTION_PRIORITY_CHANGED', { threatId: threat.id, customerId: customer.id, prioritized: true }, action);
           emit('RETENTION_THREAT_RESOLVED', { threatId: threat.id, customerId: customer.id, balanceSource: threat.balanceSource }, action);
           emit('CHURN_PREVENTED', { threatId: threat.id, customerId: customer.id, annualDollars: customer.currentArr, balanceSource: threat.balanceSource }, action);
-          if (!context.balance.runtimeReady) seedExpansionPresentationFixture(state);
+          if (!context.balance.runtimeReady) seedExpansionPresentationFixture(state, customer.id);
         }
         break;
       }
@@ -256,7 +275,7 @@ export function step(current: RunState, orderedActions: SemanticAction[] = [], c
         break;
       }
       case 'EXPANSION_ITEMS_MERGED': {
-        const need = state.functions.EXPANSION.queue[0];
+        const need = state.functions.EXPANSION.queue.find(item => item.metadata.committed !== true);
         if (state.clock.phase !== 'ACTIVE' || state.founderAttention !== 'EXPANSION' || !need) semanticReject('WRONG_FUNCTION', 'Founder must be active in Expansion with an account need.');
         else {
           const outputs = Array.isArray(need.metadata.mergedOutputs) ? need.metadata.mergedOutputs : [];
@@ -268,7 +287,7 @@ export function step(current: RunState, orderedActions: SemanticAction[] = [], c
         break;
       }
       case 'EXPANSION_PACKAGE_ITEM_PLACED': {
-        const need = state.functions.EXPANSION.queue[0];
+        const need = state.functions.EXPANSION.queue.find(item => item.metadata.committed !== true);
         if (!need || String(need.metadata.packageId) !== String(action.payload.packageId)) semanticReject('UNKNOWN_PACKAGE', 'Expansion package is unavailable.');
         else {
           const outputs = Array.isArray(need.metadata.mergedOutputs) ? need.metadata.mergedOutputs : [];
@@ -281,10 +300,11 @@ export function step(current: RunState, orderedActions: SemanticAction[] = [], c
       }
       case 'EXPANSION_PACKAGE_COMMITTED': {
         const customer = state.cohorts.customers.find((item) => item.id === action.payload.customerId);
-        const need = state.functions.EXPANSION.queue[0];
+        const need = state.functions.EXPANSION.queue.find(item => item.metadata.committed !== true);
         const placed = need && Array.isArray(need.metadata.placedItems) ? need.metadata.placedItems : [];
         if (state.clock.phase !== 'ACTIVE' || state.founderAttention !== 'EXPANSION' || !need || String(need.metadata.packageId) !== String(action.payload.packageId) || !placed.includes('intelligence') || !placed.includes('workflow')) semanticReject('PACKAGE_INCOMPLETE', 'Create and fit both requested capabilities before committing.');
-        else if (!customer) semanticReject('UNKNOWN_CUSTOMER', 'Customer is unavailable.');
+        else if (need.metadata.committed === true) semanticReject('ALREADY_RESOLVED', 'That package is already committed.');
+        else if (!customer || String(need.sourceEntityId) !== String(customer.id)) semanticReject('UNKNOWN_CUSTOMER', 'Customer is unavailable.');
         else {
           const cap = Math.floor(customer.currentArr * tune(context, 'expansionCapPpm') / 1_000_000);
           const booked = annualDollars(Math.max(0, cap - customer.expansionBookedThisQuarter));
@@ -293,7 +313,7 @@ export function step(current: RunState, orderedActions: SemanticAction[] = [], c
           emit('EXPANSION_PACKAGE_COMMITTED', { packageId: action.payload.packageId, customerId: customer.id }, action);
           emit('EXPANSION_BOOKED', { customerId: customer.id, annualDollars: booked }, action, 'EXPANSION_FIT', booked, 'ANNUAL_DOLLARS');
           need.metadata.committed = true;
-          if (!context.balance.runtimeReady) seedOperationsPresentationFixture(state);
+          if (!context.balance.runtimeReady) seedOperationsPresentationFixture(state, need.id);
         }
         break;
       }
@@ -315,7 +335,7 @@ export function step(current: RunState, orderedActions: SemanticAction[] = [], c
         state.pressure.rot = pressureUnits(Math.max(0, state.pressure.rot - tune(context, 'operationsRecoveryAmount')));
         state.functions.OPERATIONS.queue = state.functions.OPERATIONS.queue.filter((item) => item.id !== action.payload.obligationId);
         emit('OPERATIONS_OBLIGATION_RESOLVED', { ...action.payload, rot: state.pressure.rot }, action, 'OPERATIONS_RECOVERY', -tune(context, 'operationsRecoveryAmount'), 'PRESSURE_UNITS');
-        if (!context.balance.runtimeReady) seedFinancePresentationFixture(state);
+        if (!context.balance.runtimeReady) seedFinancePresentationFixture(state, obligation.id);
         break;
       }
       case 'OPERATIONS_OPTIMIZER_ACCEPTED': {
@@ -392,11 +412,36 @@ export function step(current: RunState, orderedActions: SemanticAction[] = [], c
           emit('CASH_CHANGED', { cents: check, balanceCents: state.economy.cash }, action, 'FINANCE_TRANSACTION', check, 'CENTS');
           emit('OWNERSHIP_CHANGED', { dilutionBps: dilution, founderOwnershipBps: state.capital.founderOwnershipBps }, action, 'FINANCE_TRANSACTION', -dilution, 'BASIS_POINTS');
           emit('FINANCE_OFFER_RESOLVED', { action: action.type, offerId: offer.id, balanceSource: offer.balanceSource }, action);
+          state.functions.FINANCE.queue = state.functions.FINANCE.queue.filter((item) => item.id !== offer.id);
         }
         break;
       }
-      case 'FINANCE_OFFER_COUNTERED':
-      case 'FINANCE_OFFER_PASSED':
+      case 'FINANCE_OFFER_COUNTERED': {
+        const offer = state.functions.FINANCE.queue.find((item) => item.id === action.payload.offerId);
+        if (!offer || offer.metadata.opened !== true || offer.metadata.resolved === true) semanticReject('INVALID_OFFER_COUNTER', 'Open an available Finance offer before countering it.');
+        else {
+          const check = Number(offer.metadata.checkCents);
+          offer.metadata.dilutionBps = action.payload.targetDilutionBps;
+          offer.metadata.resolved = true;
+          state.economy.cash = cents(state.economy.cash + check);
+          state.capital.founderOwnershipBps = basisPoints(Math.max(0, state.capital.founderOwnershipBps - action.payload.targetDilutionBps));
+          emit('CASH_CHANGED', { cents: check, balanceCents: state.economy.cash }, action, 'FINANCE_TRANSACTION', check, 'CENTS');
+          emit('OWNERSHIP_CHANGED', { dilutionBps: action.payload.targetDilutionBps, founderOwnershipBps: state.capital.founderOwnershipBps }, action, 'FINANCE_TRANSACTION', -action.payload.targetDilutionBps, 'BASIS_POINTS');
+          emit('FINANCE_OFFER_RESOLVED', { action: action.type, offerId: offer.id, targetDilutionBps: action.payload.targetDilutionBps, balanceSource: offer.balanceSource }, action);
+          state.functions.FINANCE.queue = state.functions.FINANCE.queue.filter((item) => item.id !== offer.id);
+        }
+        break;
+      }
+      case 'FINANCE_OFFER_PASSED': {
+        const offer = state.functions.FINANCE.queue.find((item) => item.id === action.payload.offerId);
+        if (!offer || offer.metadata.resolved === true) semanticReject('INVALID_OFFER_PASS', 'Finance offer is unavailable.');
+        else {
+          offer.metadata.resolved = true;
+          emit('FINANCE_OFFER_RESOLVED', { action: action.type, offerId: offer.id, balanceSource: offer.balanceSource }, action);
+          state.functions.FINANCE.queue = state.functions.FINANCE.queue.filter((item) => item.id !== offer.id);
+        }
+        break;
+      }
       case 'FINANCE_INTEREST_PAID':
       case 'FINANCE_DEBT_REFINANCED':
       case 'FINANCE_OBLIGATION_IGNORED': emit('FINANCE_OFFER_RESOLVED', { action: action.type, ...action.payload }, action); break;
@@ -415,14 +460,34 @@ export function step(current: RunState, orderedActions: SemanticAction[] = [], c
         }
         break;
       }
+      case 'QUARTER_RESULTS_REVIEWED': {
+        if (state.clock.phase !== 'QUARTER_CLOSE' || state.quarter.closeStage !== 'RESULTS') semanticReject('WRONG_PHASE', 'Review results before choosing what changed.');
+        else state.quarter.closeStage = 'WHAT_CHANGED';
+        break;
+      }
       case 'QUARTER_RELIC_CHOSEN': {
         const relic = contentById.get(action.payload.relicId) as RelicContent | undefined;
-        if (!relic || relic.kind !== 'RELIC' || !evaluateEligibility(state, relic.eligibility).eligible) semanticReject('INELIGIBLE_RELIC', 'Relic is unavailable.'); else { state.progression.ownedRelicIds.push(relic.id); relic.effects.forEach((effect) => applyEffect(state, effect, relic.id)); emit('RELIC_ACQUIRED', { relicId: relic.id }, action); }
+        if (state.clock.phase !== 'QUARTER_CLOSE' || state.quarter.closeStage !== 'WHAT_CHANGED') semanticReject('WRONG_PHASE', 'Relics are chosen after reviewing quarter results.');
+        else if (!relic || relic.kind !== 'RELIC' || !evaluateEligibility(state, relic.eligibility).eligible) semanticReject('INELIGIBLE_RELIC', 'Relic is unavailable.');
+        else if (state.progression.ownedRelicIds.includes(relic.id)) semanticReject('ALREADY_OWNED', 'Relic is already part of this run.');
+        else { state.progression.ownedRelicIds.push(relic.id); relic.effects.forEach((effect) => applyEffect(state, effect, relic.id)); state.quarter.closeStage = 'STRATEGY'; emit('RELIC_ACQUIRED', { relicId: relic.id }, action); }
+        break;
+      }
+      case 'QUARTER_RELICS_SKIPPED': {
+        if (state.clock.phase !== 'QUARTER_CLOSE' || state.quarter.closeStage !== 'WHAT_CHANGED') semanticReject('WRONG_PHASE', 'Relics can only be skipped at the What Changed stage.');
+        else state.quarter.closeStage = 'STRATEGY';
         break;
       }
       case 'QUARTER_STRATEGY_CHOSEN': {
         const strategy = contentById.get(action.payload.strategyId) as StrategyContent | undefined;
-        if (!strategy || strategy.kind !== 'STRATEGY' || !evaluateEligibility(state, strategy.eligibility).eligible) semanticReject('INELIGIBLE_STRATEGY', 'Strategy is unavailable.'); else { state.progression.activeStrategyId = strategy.id; state.progression.strategyQuartersRemaining = strategy.durationQuarters; strategy.effects.forEach((effect) => applyEffect(state, effect, strategy.id)); emit('STRATEGY_ACTIVATED', { strategyId: strategy.id, quarters: strategy.durationQuarters }, action); }
+        if (state.clock.phase !== 'QUARTER_CLOSE' || state.quarter.closeStage !== 'STRATEGY') semanticReject('WRONG_PHASE', 'Strategy is chosen after What Changed.');
+        else if (!strategy || strategy.kind !== 'STRATEGY' || !evaluateEligibility(state, strategy.eligibility).eligible) semanticReject('INELIGIBLE_STRATEGY', 'Strategy is unavailable.');
+        else { state.progression.activeStrategyId = strategy.id; state.progression.strategyQuartersRemaining = strategy.durationQuarters; strategy.effects.forEach((effect) => applyEffect(state, effect, strategy.id)); state.quarter.closeStage = 'INVEST'; emit('STRATEGY_ACTIVATED', { strategyId: strategy.id, quarters: strategy.durationQuarters }, action); }
+        break;
+      }
+      case 'QUARTER_STRATEGY_SKIPPED': {
+        if (state.clock.phase !== 'QUARTER_CLOSE' || state.quarter.closeStage !== 'STRATEGY') semanticReject('WRONG_PHASE', 'Strategy can only be skipped at the strategy stage.');
+        else state.quarter.closeStage = 'INVEST';
         break;
       }
       case 'QUARTER_INVESTING_FINISHED': if (state.clock.phase !== 'QUARTER_CLOSE') semanticReject('WRONG_PHASE', 'Quarter is not closing.'); else state.quarter.closeStage = 'READY'; break;
@@ -436,6 +501,9 @@ export function step(current: RunState, orderedActions: SemanticAction[] = [], c
           state.quarter = { index: state.clock.quarterIndex, startingArr: state.economy.endingArr, targetArr: annualDollars(state.economy.endingArr + Math.floor(state.economy.endingArr * (state.header.growthMandateBps ?? 0) / 10_000) + state.capital.growthArrears), newCustomerArr: annualDollars(0), expansionArr: annualDollars(0), churnedArr: annualDollars(0), endingArr: state.economy.endingArr, growthBps: basisPoints(0) };
           state.economy.startingArr = state.economy.endingArr; state.economy.newCustomerArrQTD = annualDollars(0); state.economy.expansionArrQTD = annualDollars(0); state.economy.churnedArrQTD = annualDollars(0); state.economy.collectionsQTD = cents(0);
           state.cohorts.customers.forEach((customer) => { customer.expansionBookedThisQuarter = annualDollars(0); });
+          if (!context.balance.runtimeReady) {
+            for (const functionId of ['RETENTION', 'EXPANSION', 'OPERATIONS', 'FINANCE'] as const) state.functions[functionId].queue = [];
+          }
           if (state.progression.strategyQuartersRemaining > 0) state.progression.strategyQuartersRemaining -= 1;
           emit('RUN_PHASE_CHANGED', { phase: 'ACTIVE', quarter: state.clock.quarterIndex }, action); emit('RUN_CONTINUED', { quarter: state.clock.quarterIndex }, action);
         }
@@ -455,9 +523,9 @@ export function step(current: RunState, orderedActions: SemanticAction[] = [], c
     state.clock.tick = tick(state.clock.tick + 1); state.clock.tickInQuarter = tick(state.clock.tickInQuarter + 1);
     state.cohorts.customers.forEach((customer) => { customer.ageTicks = tick(customer.ageTicks + 1); });
     applyPressure(state, context, emit);
-    if (state.clock.tickInQuarter >= context.balance.ticksPerQuarter.value) {
-      recalculateEconomy(state); state.clock.phase = 'QUARTER_CLOSE'; state.clock.paused = true; state.quarter.closeStage = 'INVEST';
-      state.quarter.mandateMet = state.economy.endingArr >= state.quarter.targetArr;
+    if (state.clock.tickInQuarter >= quarterDurationTicks(state, context)) {
+      recalculateEconomy(state); state.clock.phase = 'QUARTER_CLOSE'; state.clock.paused = true; state.quarter.closeStage = 'RESULTS';
+      state.quarter.mandateMet = state.header.growthMandateBps === 0 || state.economy.endingArr >= state.quarter.targetArr;
       emit('QUARTER_CLOSED', { quarter: state.quarter.index, startingArr: state.quarter.startingArr, newCustomerArr: state.quarter.newCustomerArr, expansionArr: state.quarter.expansionArr, churnedArr: state.quarter.churnedArr, endingArr: state.quarter.endingArr });
       emit(state.quarter.mandateMet ? 'GROWTH_MANDATE_MET' : 'GROWTH_MANDATE_MISSED', { targetArr: state.quarter.targetArr, endingArr: state.quarter.endingArr });
       emit('VALUATION_RERATED', { endingArr: state.economy.endingArr, multipleBps: state.economy.growthMultipleBps, valuation: state.economy.valuation });
@@ -466,7 +534,7 @@ export function step(current: RunState, orderedActions: SemanticAction[] = [], c
 
   if (state.clock.phase === 'ACTIVE' && state.economy.cash < context.balance.bankruptcyFloorCents.value) fail(state, 'BANKRUPT', 'FINANCE', 'Cash fell below the configured bankruptcy floor.', emit);
   if (state.clock.phase === 'ACTIVE' && state.pressure.rotBand === 'CORRUPTED') fail(state, 'CONTEXT_CORRUPTION', 'OPERATIONS', 'Autonomous context crossed the corruption threshold.', emit);
-  if (state.economy.valuation >= context.balance.unicornValuationDollars.value && !state.outcome.unicornReached) { state.outcome.unicornReached = true; state.clock.phase = 'UNICORN_CHECKPOINT'; state.clock.paused = true; emit('UNICORN_REACHED', { valuation: state.economy.valuation }); }
+  if (state.clock.phase !== 'FAILED' && state.clock.phase !== 'ABANDONED' && state.economy.valuation >= context.balance.unicornValuationDollars.value && !state.outcome.unicornReached) { state.outcome.unicornReached = true; state.clock.phase = 'UNICORN_CHECKPOINT'; state.clock.paused = true; emit('UNICORN_REACHED', { valuation: state.economy.valuation }); }
 
   recalculateEconomy(state);
   assertRunInvariants(state);

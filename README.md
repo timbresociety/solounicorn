@@ -4,22 +4,15 @@ A deterministic roguelike business simulation about scaling a one-person AI comp
 
 ## Canonical context
 
-There is one authority per domain:
+The current product context is [solounicorn-master-context](solounicorn-master-context/00_START_HERE.md). Its product, design and engineering documents supersede the removed V2 source pack. Embedded execution guidance does not authorize publication or external actions.
 
-- Product/system truth: `ONE_PERSON_UNICORN_CANONICAL_CONTEXT_V2.md`
-- Build/PWA/integration requirements: `docs/BUILD.md`
-- Architecture/dependency rules: `ARCHITECTURE.md`
-- Quantitative balance lifecycle: `docs/balance/BALANCE_SPEC_V2.md`
-- Machine-readable balance status: `balance/v2/registry.json`
-- Visual/interaction design: `docs/design/DESIGN.md`
-- Visual reference interpretation: `docs/design/REFERENCES.md`
-- Content/copy/culture: `docs/content/CONTENT.md`
-- Agent skills/tooling: `docs/SKILLS.md`
-- Agent automation: `docs/automation/AUTOMATION.md`
+The active game now uses `src/game/founder`, a continuous, deterministic solo-founder roguelike. Start with $1,500, build recurring subscriptions through six tactile work functions, automate real work, and reach a $1B valuation while covering operating bills and any accepted VC mandate. Finance manages cashflow and capital, not a seventh minigame.
 
-The existing v0 UI is implementation evidence, not design or balance authority.
+The current tactile build adds strain and context-repair scratch sheets, nine tested Product recipes, a persistent tiered merge board, breakable Retention banks, a bouncing offer meter, and stable Demand swipes. Quarter-end drafts appear automatically and continue with capability offers after the strategy pool is exhausted.
 
-`one-person-unicorn-design-context-v2.2/` is legacy reference storage only. Its registered visual assets are used through `docs/design/REFERENCES.md`; its old Markdown must not be treated as current instructions.
+Craft, Scale, Automate and Luck have working effects across all six functions. Quarters produce continuous reports and seeded run upgrades. The HUD evolves through Garage, Assisted, Swarm, Executive and Ethereal stages. Earned revenue, invoices, collections, operating expenses and debt principal stay distinct. Saves include checksums and semantic command history; previous V2 saves remain under their original storage key.
+
+The active profile is **candidate**, not locked balance. It inherits numerical primitives from the master context and records owner overrides and playable-scope deviations in [the founder runtime contract](docs/FOUNDER_RUNTIME.md). The older `src/game/engine` runtime is preserved as migration/recovery evidence and remains covered by regression tests.
 
 ## Quick start
 
@@ -35,7 +28,7 @@ Production-ready build:
 npm run build
 ```
 
-`npm run validate` checks repository context topology, balance-registry integrity, simulation smoke/determinism, TypeScript and lint.
+`npm run validate` checks repository context topology, balance-registry integrity, simulation smoke/determinism, the current founder accounting/replay/full-run suite, TypeScript and lint.
 
 Production balance is intentionally blocked until required quantitative surfaces are locked:
 
@@ -49,4 +42,4 @@ That command is expected to fail while V2 balance remains unresolved.
 
 Humans: `docs/index.md`
 
-Agents: `AGENTS.md`
+Product context: `solounicorn-master-context/00_START_HERE.md`

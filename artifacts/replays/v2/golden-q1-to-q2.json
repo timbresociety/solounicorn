@@ -4,8 +4,8 @@
   "runId": "run-84022",
   "balanceVersion": "v2-golden.4",
   "contentVersion": "v2-golden.1",
-  "finalTick": 900,
-  "finalHash": "fnv1a32:2abe7704",
+  "finalTick": 3000,
+  "finalHash": "fnv1a32:f1ef3284",
   "actionLog": {
     "schemaVersion": 1,
     "runId": "run-84022",
@@ -142,7 +142,33 @@
         "actionVersion": 1,
         "actionId": "run-84022-action-12",
         "sequence": 12,
-        "atTick": 900,
+        "atTick": 3000,
+        "type": "QUARTER_RESULTS_REVIEWED",
+        "payload": {}
+      },
+      {
+        "actionVersion": 1,
+        "actionId": "run-84022-action-13",
+        "sequence": 13,
+        "atTick": 3000,
+        "type": "QUARTER_RELICS_SKIPPED",
+        "payload": {}
+      },
+      {
+        "actionVersion": 1,
+        "actionId": "run-84022-action-14",
+        "sequence": 14,
+        "atTick": 3000,
+        "type": "QUARTER_STRATEGY_CHOSEN",
+        "payload": {
+          "strategyId": "strategy.product-led"
+        }
+      },
+      {
+        "actionVersion": 1,
+        "actionId": "run-84022-action-15",
+        "sequence": 15,
+        "atTick": 3000,
         "type": "SKILL_RANK_PURCHASED",
         "payload": {
           "skillRankId": "skill.marketing.craft.1"
@@ -150,9 +176,9 @@
       },
       {
         "actionVersion": 1,
-        "actionId": "run-84022-action-13",
-        "sequence": 13,
-        "atTick": 900,
+        "actionId": "run-84022-action-16",
+        "sequence": 16,
+        "atTick": 3000,
         "type": "QUARTER_NEXT_STARTED",
         "payload": {}
       }

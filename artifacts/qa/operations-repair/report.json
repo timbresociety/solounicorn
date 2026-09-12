@@ -1,0 +1,38 @@
+[
+  {
+    "width": 1440,
+    "gesture": "mouse",
+    "claimed": [
+      0,
+      1
+    ],
+    "remainingStrain": 17.91900000000005,
+    "remainingDemandRot": 0.392,
+    "reload": true,
+    "errors": []
+  },
+  {
+    "width": 390,
+    "gesture": "native touch",
+    "claimed": [
+      0,
+      1
+    ],
+    "remainingStrain": 17.817000000000053,
+    "remainingDemandRot": 0.392,
+    "reload": true,
+    "errors": []
+  },
+  {
+    "width": 320,
+    "gesture": "native touch",
+    "claimed": [
+      0,
+      1
+    ],
+    "remainingStrain": 17.834000000000053,
+    "remainingDemandRot": 0.392,
+    "reload": true,
+    "errors": []
+  }
+]

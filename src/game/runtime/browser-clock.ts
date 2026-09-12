@@ -2,7 +2,7 @@ import type { GameRuntime } from './game-runtime';
 
 export type ClockHandle = { stop: () => void; setVisible: (visible: boolean) => void };
 
-export function startBrowserClock(runtime: GameRuntime, ticksPerSecond: number): ClockHandle {
+export function startBrowserClock(runtime: GameRuntime, ticksPerSecond: number, onError?: (error: unknown) => void): ClockHandle {
   let running = true;
   let visible = true;
   let previous = performance.now();
@@ -14,7 +14,10 @@ export function startBrowserClock(runtime: GameRuntime, ticksPerSecond: number):
     if (visible) {
       accumulated += Math.min(250, Math.max(0, now - previous));
       const due = Math.min(8, Math.floor(accumulated / frameDuration));
-      if (due > 0) { runtime.advanceTicks(due); accumulated -= due * frameDuration; }
+      if (due > 0) {
+        try { runtime.advanceTicks(due); accumulated -= due * frameDuration; }
+        catch (error) { running = false; if (onError) onError(error); else throw error; return; }
+      }
     }
     previous = now;
     frame = requestAnimationFrame(loop);

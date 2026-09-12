@@ -39,6 +39,7 @@ export class GameRuntime {
   }
 
   advanceTicks(count = 1): RuntimeSnapshot {
+    if (this.snapshotValue.state.clock.paused || count <= 0) return this.snapshotValue;
     let latestEvents: DomainEvent[] = [];
     for (let index = 0; index < count; index += 1) {
       if (this.snapshotValue.state.clock.paused) break;

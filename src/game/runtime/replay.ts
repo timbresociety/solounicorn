@@ -25,10 +25,12 @@ export function replay(artifact: ReplayArtifact, context: EngineContext = DEFAUL
     if (atTick.length) index += atTick.length;
     const shouldAdvance = state.clock.tick < artifact.finalTick || atTick.length > 0;
     if (!shouldAdvance) break;
+    const previousTick = state.clock.tick;
     const result = step(state, atTick, context);
     state = result.state;
     if (state.clock.paused && !atTick.length && index < actions.length && actions[index].atTick === state.clock.tick) continue;
     if (state.clock.paused && !atTick.length && index >= actions.length) break;
+    if (state.clock.tick === previousTick && !atTick.length) throw new Error('REPLAY_CANNOT_ADVANCE_PAUSED_RUN');
   }
   const hash = hashState(state);
   if (hash !== artifact.finalHash) throw new Error(`REPLAY_HASH_MISMATCH: expected ${artifact.finalHash}, received ${hash}`);

@@ -1,0 +1,13 @@
+{
+  "passed": true,
+  "viewport": "320x568",
+  "nativeTouch": [
+    "recipe drag with edge scrolling",
+    "scratch inspect",
+    "merge drag"
+  ],
+  "keyboard": [
+    "merge selection"
+  ],
+  "errors": []
+}

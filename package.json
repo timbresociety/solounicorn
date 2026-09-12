@@ -16,13 +16,15 @@
     "balance:lock-check": "node scripts/validate-balance.mjs --require-locked",
     "sim:smoke": "node scripts/simulation-smoke.mjs",
     "sim:determinism": "node scripts/check-determinism.mjs",
-    "validate": "npm run contract:check && npm run balance:validate && npm run sim:smoke && npm run sim:determinism && npm run typecheck && npm run lint",
+    "validate": "npm run contract:check && npm run balance:validate && npm run sim:smoke && npm run sim:determinism && npm run test:founder && npm run typecheck && npm run lint",
     "ci": "npm run validate && npm run build",
     "test:unit": "vitest run tests/unit",
     "test:replay": "vitest run tests/replay",
     "test:integration": "vitest run tests/integration",
     "validate:content": "vitest run tests/unit/content-validation.test.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:founder": "vitest run tests/integration/founder-company.test.ts tests/integration/founder-policy.test.ts tests/integration/founder-toys.test.ts",
+    "postbuild": "node scripts/prepare-founder-offline.mjs"
   },
   "dependencies": {
     "next": "16.2.6",

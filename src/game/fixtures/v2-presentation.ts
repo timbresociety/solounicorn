@@ -29,18 +29,19 @@ export const EXPANSION_MODULE_FIXTURES = [
 ] as const;
 
 export const OPERATIONS_EVIDENCE_FIXTURES = [
-  { id: 'trace', label: 'Trace', finding: 'Retry loop is multiplying handoffs.' },
-  { id: 'policy', label: 'Policy', finding: 'No stop condition exists.' },
-  { id: 'handoff', label: 'Handoff', finding: 'Escalations return to the same agent.' },
+  { id: 'trace', label: 'Retry ceiling', finding: 'Stops recursive retries before they multiply handoffs.' },
+  { id: 'policy', label: 'Circuit breaker', finding: 'Adds a stop condition when a worker cannot converge.' },
+  { id: 'handoff', label: 'Escalation route', finding: 'Routes unresolved work to a human instead of the same agent.' },
 ] as const;
 
 export function seedRetentionPresentationFixture(state: RunState): void {
-  if (state.functions.RETENTION.queue.length || !state.cohorts.customers.length) return;
-  const customer = state.cohorts.customers[0];
+  const customer = state.cohorts.customers.at(-1);
+  if (!customer || state.functions.RETENTION.queue.some(item => String(item.sourceEntityId) === String(customer.id))) return;
+  const suffix = customer.id === 'customer-1' && state.clock.quarterIndex === 1 ? '' : `-${customer.id}-q${state.clock.quarterIndex}`;
   state.functions.RETENTION.unlocked = true;
-  state.functions.RETENTION.queue = RETENTION_THREAT_FIXTURES.map((fixture, index) => ({
-    id: asQueueItemId(fixture.id),
-    kind: 'RETENTION_THREAT',
+  state.functions.RETENTION.queue.push(...RETENTION_THREAT_FIXTURES.map((fixture, index) => ({
+    id: asQueueItemId(`${fixture.id}${suffix}`),
+    kind: 'RETENTION_THREAT' as const,
     sourceEntityId: asEntityId(customer.id),
     createdAtTick: state.clock.tick,
     expiresAtTick: tick(state.clock.tick + 80),
@@ -61,35 +62,40 @@ export function seedRetentionPresentationFixture(state: RunState): void {
       prioritized: false,
       resolved: false,
     },
-  }));
+  })));
 }
 
-export function seedExpansionPresentationFixture(state: RunState): void {
-  if (state.functions.EXPANSION.queue.length || !state.cohorts.customers.length) return;
-  const customer = state.cohorts.customers[0];
+export function seedExpansionPresentationFixture(state: RunState, customerId?: string): void {
+  const customer = customerId ? state.cohorts.customers.find(item => item.id === customerId) : state.cohorts.customers.at(-1);
+  if (!customer || state.functions.EXPANSION.queue.some(item => String(item.sourceEntityId) === String(customer.id))) return;
+  const suffix = customer.id === 'customer-1' && state.clock.quarterIndex === 1 ? '' : `-${customer.id}-q${state.clock.quarterIndex}`;
   state.functions.EXPANSION.unlocked = true;
   state.functions.EXPANSION.queue.push({
-    id: asQueueItemId('expansion-fixture-support-scaleup'), kind: 'EXPANSION_NEED', sourceEntityId: asEntityId(customer.id), createdAtTick: state.clock.tick,
+    id: asQueueItemId(`expansion-fixture-support-scaleup${suffix}`), kind: 'EXPANSION_NEED', sourceEntityId: asEntityId(customer.id), createdAtTick: state.clock.tick,
     priority: 1, workRemaining: workUnits(2_000), contentId: asContentId('threat.workflow-broken'), balanceSource: PRESENTATION_FIXTURE_STATUS.balanceSource,
-    metadata: { fixture: true, runtimeReady: false, customerId: customer.id, packageId: 'package-support-scaleup', need: 'Leadership needs intelligence and workflow automation.', mergedOutputs: [], placedItems: [], committed: false },
+    metadata: { fixture: true, runtimeReady: false, customerId: customer.id, packageId: `package-support-scaleup${suffix}`, need: 'Leadership needs intelligence and workflow automation.', mergedOutputs: [], placedItems: [], committed: false },
   });
 }
 
-export function seedOperationsPresentationFixture(state: RunState): void {
-  if (state.functions.OPERATIONS.queue.length) return;
+export function seedOperationsPresentationFixture(state: RunState, sourceId = 'expansion-fixture-support-scaleup'): void {
+  const suffix = sourceId === 'expansion-fixture-support-scaleup' ? '' : `-${sourceId}`;
+  const id = asQueueItemId(`ops-fixture-retry-storm${suffix}`);
+  if (state.functions.OPERATIONS.queue.some(item => item.id === id)) return;
   state.functions.OPERATIONS.unlocked = true;
   state.functions.OPERATIONS.queue.push({
-    id: asQueueItemId('ops-fixture-retry-storm'), kind: 'OPS_OBLIGATION', sourceEntityId: asEntityId('ops-fixture-retry-storm'), createdAtTick: state.clock.tick,
+    id, kind: 'OPS_OBLIGATION', sourceEntityId: asEntityId('ops-fixture-retry-storm'), createdAtTick: state.clock.tick,
     priority: 1, workRemaining: workUnits(2_000), contentId: asContentId('ops.retry-storm'), balanceSource: PRESENTATION_FIXTURE_STATUS.balanceSource,
-    metadata: { fixture: true, runtimeReady: false, label: 'Agent retry storm', revealedCells: [], resolved: false, optimizerId: 'optimizer-fixture-one-line-fix' },
+    metadata: { fixture: true, runtimeReady: false, label: 'Agent retry storm', revealedCells: [], resolved: false, optimizerId: `optimizer-fixture-one-line-fix${suffix}` },
   });
 }
 
-export function seedFinancePresentationFixture(state: RunState): void {
-  if (state.functions.FINANCE.queue.length) return;
+export function seedFinancePresentationFixture(state: RunState, sourceId = 'ops-fixture-retry-storm'): void {
+  const suffix = sourceId === 'ops-fixture-retry-storm' ? '' : `-${sourceId}`;
+  const id = asQueueItemId(`finance-fixture-forward-safe${suffix}`);
+  if (state.functions.FINANCE.queue.some(item => item.id === id)) return;
   state.functions.FINANCE.unlocked = true;
   state.functions.FINANCE.queue.push({
-    id: asQueueItemId('finance-fixture-forward-safe'), kind: 'FINANCE_EVENT', sourceEntityId: asEntityId('finance-fixture-forward-safe'), createdAtTick: state.clock.tick,
+    id, kind: 'FINANCE_EVENT', sourceEntityId: asEntityId('finance-fixture-forward-safe'), createdAtTick: state.clock.tick,
     priority: 1, workRemaining: workUnits(1_000), contentId: asContentId('finance.runway-note'), balanceSource: PRESENTATION_FIXTURE_STATUS.balanceSource,
     metadata: { fixture: true, runtimeReady: false, label: 'Northstar SAFE', checkCents: 1_200_000, dilutionBps: 700, opened: false, resolved: false },
   });

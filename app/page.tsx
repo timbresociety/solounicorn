@@ -1,3 +1,3 @@
-import GameShell from '@/src/components/game/GameShell';
+import FounderGame from '@/src/components/founder/FounderGame';
 
-export default function Home() { return <GameShell />; }
+export default function Home() { return <FounderGame />; }

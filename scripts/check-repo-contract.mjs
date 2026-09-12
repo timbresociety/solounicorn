@@ -7,9 +7,12 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "..");
 
 const required = [
-  "AGENTS.md",
   "ARCHITECTURE.md",
-  "ONE_PERSON_UNICORN_CANONICAL_CONTEXT_V2.md",
+  "solounicorn-master-context/00_START_HERE.md",
+  "solounicorn-master-context/CONTEXT.md",
+  "solounicorn-master-context/ENGINEERING.md",
+  "solounicorn-master-context/DESIGN.md",
+  "solounicorn-master-context/engine/event_contract.json",
   "docs/index.md",
   "docs/BUILD.md",
   "docs/SKILLS.md",
@@ -52,30 +55,6 @@ for (const relative of retiredTopLevelContext) {
   }
 }
 
-const canonicalPath = path.join(root, "ONE_PERSON_UNICORN_CANONICAL_CONTEXT_V2.md");
-if (fs.existsSync(canonicalPath)) {
-  const canonical = fs.readFileSync(canonicalPath, "utf8");
-  if (!canonical.includes("CURRENT PRODUCT TRUTH FOR V2 SYSTEM DESIGN")) {
-    fail("canonical context no longer declares V2 product-truth status");
-  }
-}
-
-const agentsPath = path.join(root, "AGENTS.md");
-if (fs.existsSync(agentsPath)) {
-  const agents = fs.readFileSync(agentsPath, "utf8");
-  for (const needle of [
-    "ONE_PERSON_UNICORN_CANONICAL_CONTEXT_V2.md",
-    "docs/BUILD.md",
-    "ARCHITECTURE.md",
-    "BALANCE_SPEC_V2.md",
-    "balance/v2/registry.json",
-    "docs/design/DESIGN.md",
-    "docs/content/CONTENT.md",
-    "docs/SKILLS.md",
-  ]) {
-    if (!agents.includes(needle)) fail(`AGENTS.md must map to ${needle}`);
-  }
-}
 
 function walk(dir) {
   if (!fs.existsSync(dir)) return [];
@@ -94,7 +73,7 @@ const allFiles = walk(root);
 for (const file of allFiles) {
   const relative = path.relative(root, file).split(path.sep).join("/");
 
-  if (relative !== "AGENTS.md" && path.basename(file) === "AGENTS.md") {
+  if (relative !== "AGENTS.md" && relative !== "solounicorn-master-context/AGENTS.md" && path.basename(file) === "AGENTS.md") {
     fail(`nested AGENTS.md creates competing instruction scope: ${relative}`);
   }
 
@@ -105,6 +84,7 @@ for (const file of allFiles) {
 
 const simulationFiles = [
   ...walk(path.join(root, "simulation")),
+  ...walk(path.join(root, "src", "game", "engine")),
   ...walk(path.join(root, "src", "simulation")),
 ].filter((file) => /\.(?:[cm]?js|tsx?)$/.test(file));
 

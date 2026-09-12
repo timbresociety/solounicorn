@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 
 export default function PwaRegistration(){
   useEffect(()=>{
-    if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(()=>undefined);}
+    if(process.env.NODE_ENV === 'production' && 'serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(()=>undefined);}
   },[]);
   return null;
 }

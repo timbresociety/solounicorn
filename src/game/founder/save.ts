@@ -1,0 +1,7 @@
+import { validateCompany } from './engine';
+import type { Company } from './model';
+export const SAVE_KEY='solounicorn-founder-v1';
+export const HISTORY_KEY='solounicorn-founder-history-v1';
+export function checksum(text:string){let h=2166136261;for(let i=0;i<text.length;i++)h=Math.imul(h^text.charCodeAt(i),16777619);return(h>>>0).toString(16);}
+export function encodeSave(s:Company){const data=JSON.stringify(s);return JSON.stringify({version:1,data,checksum:checksum(data)});}
+export function decodeSave(raw:string):Company{const envelope=JSON.parse(raw);if(envelope.version!==1||typeof envelope.data!=='string'||checksum(envelope.data)!==envelope.checksum)throw new Error('Checkpoint checksum failed.');const s=JSON.parse(envelope.data) as Company;if(s.version==='founder-candidate.2'){s.version='founder-candidate.3';s.ops={id:0,quarter:s.quarter,used:0,active:false,inspected:[],claimed:[],net:0};s.operationsNet=0;s.bankDamage={};s.recipe={id:0,slots:[]};s.package={id:0,merged:[]};s.migratedActions=s.actions;s.actions=[];s.replayBase=JSON.stringify(s);}if(s.version==='founder-candidate.3'){s.version='founder-candidate.4';s.ops={...s.ops,active:false,inspected:[],claimed:[],net:0};s.migratedActions=[...(s.migratedActions??[]),...s.actions];s.actions=[];delete s.replayBase;s.replayBase=JSON.stringify(s);}if(s.version==='founder-candidate.4'){s.version='founder-candidate.5';s.migratedActions=[...(s.migratedActions??[]),...s.actions];s.actions=[];delete s.replayBase;s.replayBase=JSON.stringify(s);}validateCompany(s);return s;}

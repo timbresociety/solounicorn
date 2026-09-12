@@ -22,6 +22,16 @@ function customerRuntime(): GameRuntime {
 }
 
 describe('remaining room fixture contracts', () => {
+  it('permits multiple distinct customer pipelines in the same quarter', () => {
+    const runtime = new GameRuntime(84022);
+    runtime.dispatch('RUN_FOUNDER_HISTORY_SELECTED', { founderHistoryId: asContentId('history.fresh-founder') });
+    runtime.dispatch('RUN_GROWTH_MANDATE_SELECTED', { growthMandateBps: 1_000 as never });
+    runtime.dispatch('RUN_STARTED', {});
+    for (const opportunityId of ['signal.support-tabs', 'signal.finance-sheet', 'signal.agent-studio']) runtime.dispatch('MARKETING_OPPORTUNITY_PURSUED', { opportunityId: asContentId(opportunityId) });
+    expect(runtime.snapshot.state.cohorts.demand).toHaveLength(3);
+    expect(runtime.snapshot.state.functions.PRODUCT.queue).toHaveLength(3);
+  });
+
   it('gates Expansion, Operations, and Finance behind real semantic actions', () => {
     const runtime = customerRuntime();
     const customer = runtime.snapshot.state.cohorts.customers[0];
@@ -29,7 +39,7 @@ describe('remaining room fixture contracts', () => {
     runtime.dispatch('FOUNDER_FUNCTION_ENTERED', { functionId: 'RETENTION' });
     runtime.dispatch('RETENTION_THREAT_PRIORITIZED', { threatId: threat.id, customerId: customer.id });
 
-    let expansion = runtime.snapshot.state.functions.EXPANSION.queue[0];
+    const expansion = runtime.snapshot.state.functions.EXPANSION.queue[0];
     expect(expansion.balanceSource).toBe('NON_AUTHORITATIVE_FIXTURE');
     runtime.dispatch('FOUNDER_FUNCTION_ENTERED', { functionId: 'EXPANSION' });
     runtime.dispatch('EXPANSION_ITEMS_MERGED', { firstItemId: asEntityId('analytics-a'), secondItemId: asEntityId('analytics-b'), cellId: asEntityId('bench') });
@@ -54,10 +64,11 @@ describe('remaining room fixture contracts', () => {
     const ownershipBeforeFinance = runtime.snapshot.state.capital.founderOwnershipBps;
     runtime.dispatch('FOUNDER_FUNCTION_ENTERED', { functionId: 'FINANCE' });
     runtime.dispatch('FINANCE_OFFER_OPENED', { offerId: offer.id });
-    runtime.dispatch('FINANCE_OFFER_ACCEPTED', { offerId: offer.id });
+    runtime.dispatch('FINANCE_OFFER_COUNTERED', { offerId: offer.id, targetDilutionBps: 550 as never });
     expect(runtime.snapshot.state.economy.endingArr).toBe(arrBeforeFinance);
     expect(runtime.snapshot.state.economy.cash).toBeGreaterThan(cashBeforeFinance);
     expect(runtime.snapshot.state.capital.founderOwnershipBps).toBeLessThan(ownershipBeforeFinance);
-    expect(runtime.snapshot.actionLog.actions.map((action) => action.type)).toEqual(expect.arrayContaining(['EXPANSION_PACKAGE_COMMITTED', 'OPERATIONS_RESOLUTION_CHOSEN', 'FINANCE_OFFER_ACCEPTED']));
+    expect(runtime.snapshot.state.functions.FINANCE.queue).toHaveLength(0);
+    expect(runtime.snapshot.actionLog.actions.map((action) => action.type)).toEqual(expect.arrayContaining(['EXPANSION_PACKAGE_COMMITTED', 'OPERATIONS_RESOLUTION_CHOSEN', 'FINANCE_OFFER_COUNTERED']));
   });
 });

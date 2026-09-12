@@ -13,7 +13,7 @@ export const V2_GOLDEN_BALANCE: BalancePack = {
   runtimeReady: false,
   systemOrderVersion: 'v2-order.1',
   ticksPerSecond: calibration(10, 'ticks/second', 'B19', 'Fast enough for timing precision; subject to pacing tests.', 5, 30),
-  ticksPerQuarter: calibration(tick(900), 'ticks/quarter', 'B19', 'Golden slice uses a 90-second Q1 while full pacing remains provisional.', 600, 3_000),
+  ticksPerQuarter: calibration(tick(1_500), 'ticks/quarter', 'B19', 'Golden loop uses the canonical approximately 150-second target while full pacing remains provisional.', 600, 3_000),
   startingArr: calibration(annualDollars(100_000), 'annual dollars', 'B02', 'Representative early company, not final economy tuning.', 0),
   startingCash: calibration(cents(4_800_000), 'cents', 'B07', 'Supports one slice investment while preserving visible tradeoffs.', 0),
   baseOpsCapacity: calibration(pressureUnits(10_000), 'milli-capacity', 'B09', 'Provisional baseline for pressure derivation.', 1),

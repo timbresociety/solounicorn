@@ -1,0 +1,23 @@
+{
+  "passed": true,
+  "viewports": [
+    1440,
+    390,
+    320
+  ],
+  "checks": [
+    "swipe",
+    "touch swipe",
+    "cancel",
+    "recipe drag and failed tests",
+    "ship",
+    "pricing",
+    "matching feature tiers",
+    "bank hits",
+    "scratch peek and apply",
+    "saved reveal",
+    "quarter auto draft",
+    "reduced motion"
+  ],
+  "errors": []
+}

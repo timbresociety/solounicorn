@@ -1,0 +1,21 @@
+{
+  "passed": true,
+  "gestures": [
+    "swipe",
+    "cancel",
+    "component drag",
+    "price tap",
+    "target aim",
+    "module merge",
+    "scratch"
+  ],
+  "saveRestore": true,
+  "viewports": [
+    1440,
+    390,
+    320,
+    768,
+    844
+  ],
+  "errors": []
+}
