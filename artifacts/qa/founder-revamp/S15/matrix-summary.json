@@ -1,0 +1,1155 @@
+{
+  "version": "founder-candidate.15",
+  "profile": {
+    "profile_id": "candidate-2026-09-07.1",
+    "status": "numerically_specified_not_play_balanced",
+    "tick_seconds": 0.1,
+    "ticks_per_month": 600,
+    "months_per_quarter": 3,
+    "score_history_ticks": 1800,
+    "forecast_ticks": 1800,
+    "starting_cash_cents": 150000,
+    "win_valuation_cents": 100000000000,
+    "arr_floor_cents": 1200000,
+    "revenue_floor_cents_per_month": 10000,
+    "growth_knots": [
+      [
+        -1,
+        1
+      ],
+      [
+        -0.5,
+        2
+      ],
+      [
+        0,
+        4
+      ],
+      [
+        0.25,
+        6
+      ],
+      [
+        0.5,
+        8
+      ],
+      [
+        1,
+        12
+      ],
+      [
+        2,
+        18
+      ],
+      [
+        4,
+        26
+      ]
+    ],
+    "burn_weight": 0.4,
+    "shortfall_weight": 1.5,
+    "capital_factor_floor": 0.05,
+    "craft_batch_by_rank": [
+      1,
+      2,
+      4,
+      8,
+      32
+    ],
+    "units_by_scale_rank": [
+      1,
+      2,
+      4,
+      8,
+      16
+    ],
+    "auto_speed_by_rank": [
+      0,
+      0.35,
+      0.8,
+      1.6,
+      3.2
+    ],
+    "auto_upkeep_cents_per_unit_month": [
+      0,
+      3000,
+      7000,
+      18000,
+      50000
+    ],
+    "unit_upkeep_cents_per_month": 1000,
+    "base_company_overhead_cents_per_month": 10000,
+    "queue_slots_per_unit": 12,
+    "strain_speed_coefficient": 0.35,
+    "strain_error_coefficient": 0.08,
+    "rot_error_coefficient": 0.45,
+    "max_error_probability": 0.95,
+    "rework_units_per_failure": 1.5,
+    "rot_per_auto_attempt_base": 0.0008,
+    "rot_per_auto_attempt_rank": 0.0004,
+    "rot_per_configuration_change": 0.025,
+    "rot_recovery_per_maintenance_point": 0.008,
+    "coordination_base_capacity": 12,
+    "coordination_capacity_per_ops_unit": 4,
+    "coordination_pair_load": 0.04,
+    "strain_repair_load_per_maintenance_point": 0.5,
+    "product_capability_gain_per_output": 0.02,
+    "defect_added_per_bad_ship": 0.05,
+    "defect_removed_per_fix_output": 0.02,
+    "incident_added_per_escaped_failure": 0.05,
+    "incident_removed_per_ops_output": 0.02,
+    "luck_mean_per_rank": 0.01,
+    "luck_sd_per_rank": 0.16,
+    "luck_shared_variance_fraction": 0.4,
+    "luck_epoch_ticks": 200,
+    "opportunity_ttl_ticks": 300,
+    "churn_threat_ttl_ticks": 120,
+    "collection_retry_ticks": 120,
+    "collection_grace_ticks": 1200,
+    "collection_attempt_limit": 3,
+    "expansion_maturity_months": 2,
+    "expansion_min_health": 60,
+    "addon_slots_per_customer": 2,
+    "addon_price_fraction": 0.25,
+    "addon_service_cost_fraction": 0.3,
+    "maximum_accepted_price_to_wtp": 2,
+    "health_fit_gain": 12,
+    "health_fit_neutral": 0.6,
+    "health_defect_loss": 15,
+    "health_overpricing_loss": 10,
+    "health_care_gain": 8,
+    "health_incident_loss": 5,
+    "base_churn_monthly": 0.01,
+    "churn_health_weight": 0.12,
+    "churn_overpricing_weight": 0.04,
+    "churn_defect_weight": 0.05,
+    "churn_competition_weight": 0.02,
+    "churn_min": 0.005,
+    "churn_max": 0.35,
+    "competition_start": 0.1,
+    "competition_per_quarter": 0.025,
+    "competition_cap": 0.85,
+    "default_loan_apr_bps": 1800,
+    "default_loan_term_months": 6,
+    "debt_capacity_mrr_multiple": 3,
+    "debt_min_mrr_cents": 10000,
+    "default_vc_growth_bps": 5000,
+    "default_vc_absolute_arr_cents": 1200000,
+    "vc_min_arr_cents": 1200000,
+    "vc_offer_pre_money_arr_multiple": 4,
+    "vc_max_raise_fraction_bps": 2500,
+    "upgrade_base_cents": 30000,
+    "upgrade_cost_ratio": 6,
+    "upgrade_deploy_ticks": 50,
+    "forecast_collection_haircut": 0.8,
+    "functions": {
+      "demand": {
+        "manual_seconds": 2,
+        "unit_load": 1,
+        "base_error": 0.02,
+        "attempt_cost_cents": 100
+      },
+      "product": {
+        "manual_seconds": 6,
+        "unit_load": 1.4,
+        "base_error": 0.03,
+        "attempt_cost_cents": 25
+      },
+      "monetisation": {
+        "manual_seconds": 3,
+        "unit_load": 0.8,
+        "base_error": 0.02,
+        "attempt_cost_cents": 10
+      },
+      "retention": {
+        "manual_seconds": 4,
+        "unit_load": 0.8,
+        "base_error": 0.02,
+        "attempt_cost_cents": 50
+      },
+      "expansion": {
+        "manual_seconds": 6,
+        "unit_load": 1.2,
+        "base_error": 0.03,
+        "attempt_cost_cents": 25
+      },
+      "operations": {
+        "manual_seconds": 5,
+        "unit_load": 0.6,
+        "base_error": 0.02,
+        "attempt_cost_cents": 30,
+        "mode": "maintain"
+      }
+    },
+    "segments": {
+      "creator": {
+        "wtp_cents": 4000,
+        "service_cents_month": 400,
+        "needs": [
+          0.7,
+          0.2,
+          0.1
+        ],
+        "collection_probability": 0.95,
+        "collection_delay_ticks": 60
+      },
+      "team": {
+        "wtp_cents": 15000,
+        "service_cents_month": 1800,
+        "needs": [
+          0.2,
+          0.6,
+          0.2
+        ],
+        "collection_probability": 0.98,
+        "collection_delay_ticks": 120
+      },
+      "enterprise": {
+        "wtp_cents": 80000,
+        "service_cents_month": 12000,
+        "needs": [
+          0.1,
+          0.3,
+          0.6
+        ],
+        "collection_probability": 0.9,
+        "collection_delay_ticks": 240
+      }
+    },
+    "channels": {
+      "community": {
+        "reach_per_attempt": 4,
+        "cost_per_attempt_cents": 100,
+        "segment_weights": [
+          0.7,
+          0.25,
+          0.05
+        ],
+        "pool_per_month": 1000
+      },
+      "paid": {
+        "reach_per_attempt": 12,
+        "cost_per_attempt_cents": 800,
+        "segment_weights": [
+          0.25,
+          0.6,
+          0.15
+        ],
+        "pool_per_month": 6000
+      },
+      "outbound": {
+        "reach_per_attempt": 2,
+        "cost_per_attempt_cents": 200,
+        "segment_weights": [
+          0.05,
+          0.25,
+          0.7
+        ],
+        "pool_per_month": 500
+      }
+    },
+    "pressure_applies_to": [
+      "qualification_probability",
+      "willingness_to_pay",
+      "churn_probability"
+    ],
+    "founder_relic_catalogue": [],
+    "founder_power_policy": "earned_repeat_run_advantage_intended_no_difficulty_normalization",
+    "runtime_precision": {
+      "money": "integer_cents",
+      "time": "integer_ticks",
+      "ratios": "binary64",
+      "score": "Decimal_28_then_floor_to_cents"
+    },
+    "version": "founder-candidate.15",
+    "rewardOverheadFactor": 0.75,
+    "rewardCollectionFactor": 0.5,
+    "rewardDemandFactor": 0.65,
+    "rewardProductFit": 0.12,
+    "rewardCareMonths": 2,
+    "rewardAddonServiceFactor": 0.75,
+    "rewardRotFactor": 0.75,
+    "rewardComputeFactor": 0.75,
+    "rewardMaxCharges": 3,
+    "rewardDraftSize": 3,
+    "vcOwnershipSoldBps": 2000,
+    "financeWarningTicks": 100,
+    "automationRotSlowdown": 2,
+    "marketPerMonth": [
+      24000,
+      16000,
+      9600
+    ],
+    "acquisitionCents": [
+      100,
+      300,
+      1000
+    ],
+    "monthlyPrices": [
+      4000,
+      15000,
+      80000
+    ],
+    "monthlyService": [
+      400,
+      1800,
+      12000
+    ],
+    "collectionDelay": [
+      60,
+      120,
+      240
+    ],
+    "collectionChance": [
+      0.95,
+      0.98,
+      0.9
+    ],
+    "pricingBaseChance": 0.5,
+    "pricingFitChance": 0.48,
+    "pricingFriction": 0.18,
+    "pricingFrictionPower": 2,
+    "pricingQuarterPressure": 0.18,
+    "pricingTimingInside": 1,
+    "pricingTimingNearMiss": 0.78,
+    "pricingTimingMiss": 0.38,
+    "winCashBonus": 15000,
+    "upgradeDraftBase": 15000,
+    "starterTTL": 1200,
+    "bankHits": 3,
+    "pricePeriodTicks": 24,
+    "operationsTicketBasePatches": 4,
+    "operationsTicketPatchesPerScale": 1,
+    "operationsTicketsPerQuarter": 2,
+    "operationsTicketsPerScale": 1,
+    "operationsTicketBasePriceCents": 100,
+    "operationsTicketPricePerPatchCents": 50,
+    "operationsTicketBaseValuesCents": [
+      -500,
+      -200,
+      800,
+      1100
+    ],
+    "operationsTicketLuckSpreadCents": 200,
+    "operationsIncidentBaseMonthlyCostCents": 250
+  },
+  "runCount": 270,
+  "seeds": "15000..15029 shared across each of nine cases",
+  "horizonActiveMinutes": 45,
+  "wins": 122,
+  "failures": 0,
+  "censored": 148,
+  "groups": [
+    {
+      "policy": {
+        "mode": "manual",
+        "capital": "bootstrap",
+        "luck": 0,
+        "ops": "selective",
+        "repeat": false,
+        "family": "bootstrap",
+        "skilled": false
+      },
+      "policyVersion": 2,
+      "runs": 30,
+      "wins": 0,
+      "failures": 0,
+      "censored": 30,
+      "winRateWilson95": [
+        -1.3877787807814457e-17,
+        0.113517091390478
+      ],
+      "winMinutes": {
+        "n": 0,
+        "p10": null,
+        "median": null,
+        "p90": null,
+        "minimum": null,
+        "maximum": null
+      },
+      "firstCustomerSeconds": {
+        "n": 30,
+        "p10": 14,
+        "median": 14,
+        "p90": 16,
+        "minimum": 14,
+        "maximum": 16
+      },
+      "attentionPerMinute": {
+        "n": 30,
+        "p10": 31.22222222222222,
+        "median": 31.244444444444444,
+        "p90": 31.266666666666666,
+        "minimum": 31.22222222222222,
+        "maximum": 31.266666666666666
+      },
+      "commandP95Ms": {
+        "n": 30,
+        "p10": 0.6045788999963406,
+        "median": 0.6606670000001031,
+        "p90": 0.8565537999998014,
+        "minimum": 0.5703750000029686,
+        "maximum": 1.1039999999998145
+      },
+      "terminalValuationDollars": {
+        "n": 30,
+        "p10": 217366363.716,
+        "median": 223952112.12,
+        "p90": 231542308.541,
+        "minimum": 212508485.28,
+        "maximum": 234737726.04
+      },
+      "failureReasons": []
+    },
+    {
+      "policy": {
+        "mode": "manual",
+        "capital": "debt",
+        "luck": 4,
+        "ops": "selective",
+        "repeat": false,
+        "family": "growth",
+        "skilled": false
+      },
+      "policyVersion": 1,
+      "runs": 30,
+      "wins": 0,
+      "failures": 0,
+      "censored": 30,
+      "winRateWilson95": [
+        -1.3877787807814457e-17,
+        0.113517091390478
+      ],
+      "winMinutes": {
+        "n": 0,
+        "p10": null,
+        "median": null,
+        "p90": null,
+        "minimum": null,
+        "maximum": null
+      },
+      "firstCustomerSeconds": {
+        "n": 30,
+        "p10": 20,
+        "median": 20,
+        "p90": 20,
+        "minimum": 20,
+        "maximum": 20
+      },
+      "attentionPerMinute": {
+        "n": 30,
+        "p10": 31.844444444444445,
+        "median": 31.844444444444445,
+        "p90": 31.844444444444445,
+        "minimum": 31.844444444444445,
+        "maximum": 31.844444444444445
+      },
+      "commandP95Ms": {
+        "n": 30,
+        "p10": 0.9666624999947089,
+        "median": 1.4741045000027952,
+        "p90": 2.6559208999995465,
+        "minimum": 0.809041000000434,
+        "maximum": 5.055541999987327
+      },
+      "terminalValuationDollars": {
+        "n": 30,
+        "p10": 121355439.478,
+        "median": 142077766.49,
+        "p90": 159430474.812,
+        "minimum": 112707088.17,
+        "maximum": 163353280.92
+      },
+      "failureReasons": []
+    },
+    {
+      "policy": {
+        "mode": "manual",
+        "capital": "vc",
+        "luck": 0,
+        "ops": "selective",
+        "repeat": true,
+        "family": "durable",
+        "skilled": false
+      },
+      "policyVersion": 1,
+      "runs": 30,
+      "wins": 0,
+      "failures": 0,
+      "censored": 30,
+      "winRateWilson95": [
+        -1.3877787807814457e-17,
+        0.113517091390478
+      ],
+      "winMinutes": {
+        "n": 0,
+        "p10": null,
+        "median": null,
+        "p90": null,
+        "minimum": null,
+        "maximum": null
+      },
+      "firstCustomerSeconds": {
+        "n": 30,
+        "p10": 20,
+        "median": 20,
+        "p90": 20,
+        "minimum": 20,
+        "maximum": 20
+      },
+      "attentionPerMinute": {
+        "n": 30,
+        "p10": 31.288888888888888,
+        "median": 31.288888888888888,
+        "p90": 31.288888888888888,
+        "minimum": 31.288888888888888,
+        "maximum": 31.288888888888888
+      },
+      "commandP95Ms": {
+        "n": 30,
+        "p10": 0.7974201999997603,
+        "median": 1.2698124999969878,
+        "p90": 2.6089167000007363,
+        "minimum": 0.7535420000058366,
+        "maximum": 3.0221660000097472
+      },
+      "terminalValuationDollars": {
+        "n": 30,
+        "p10": 230369873.423,
+        "median": 235987310.55,
+        "p90": 241465460.05100003,
+        "minimum": 225503183.19,
+        "maximum": 250084416.49
+      },
+      "failureReasons": []
+    },
+    {
+      "policy": {
+        "mode": "hybrid",
+        "capital": "bootstrap",
+        "luck": 4,
+        "ops": "selective",
+        "repeat": false,
+        "family": "growth",
+        "skilled": true
+      },
+      "policyVersion": 2,
+      "runs": 30,
+      "wins": 24,
+      "failures": 0,
+      "censored": 6,
+      "winRateWilson95": [
+        0.6269395261897256,
+        0.9049502189759876
+      ],
+      "winMinutes": {
+        "n": 24,
+        "p10": 14.601666666666667,
+        "median": 16.166666666666664,
+        "p90": 39.98,
+        "minimum": 13.916666666666666,
+        "maximum": 43.45
+      },
+      "firstCustomerSeconds": {
+        "n": 30,
+        "p10": 7,
+        "median": 7,
+        "p90": 8,
+        "minimum": 7,
+        "maximum": 8
+      },
+      "attentionPerMinute": {
+        "n": 30,
+        "p10": 61.285811965811966,
+        "median": 61.88068084376608,
+        "p90": 64.11472442057489,
+        "minimum": 61.044444444444444,
+        "maximum": 64.66148723640399
+      },
+      "commandP95Ms": {
+        "n": 30,
+        "p10": 1.1623291999625507,
+        "median": 3.0368124999804422,
+        "p90": 4.085632799996529,
+        "minimum": 0.9729589999769814,
+        "maximum": 4.745084000052884
+      },
+      "terminalValuationDollars": {
+        "n": 30,
+        "p10": 478744862.094,
+        "median": 1006510884.885,
+        "p90": 1046245466.721,
+        "minimum": 378621572.97,
+        "maximum": 1058078634.49
+      },
+      "failureReasons": []
+    },
+    {
+      "policy": {
+        "mode": "hybrid",
+        "capital": "debt",
+        "luck": 0,
+        "ops": "selective",
+        "repeat": false,
+        "family": "durable",
+        "skilled": true
+      },
+      "policyVersion": 1,
+      "runs": 30,
+      "wins": 20,
+      "failures": 0,
+      "censored": 10,
+      "winRateWilson95": [
+        0.48779725813830266,
+        0.807697044731538
+      ],
+      "winMinutes": {
+        "n": 20,
+        "p10": 13.096666666666668,
+        "median": 34.71666666666667,
+        "p90": 44.05166666666667,
+        "minimum": 12.566666666666666,
+        "maximum": 44.583333333333336
+      },
+      "firstCustomerSeconds": {
+        "n": 30,
+        "p10": 15,
+        "median": 15,
+        "p90": 15,
+        "minimum": 15,
+        "maximum": 15
+      },
+      "attentionPerMinute": {
+        "n": 30,
+        "p10": 61.17777777777778,
+        "median": 61.49744108169584,
+        "p90": 62.92568908159833,
+        "minimum": 61.11058376839107,
+        "maximum": 63.740053050397876
+      },
+      "commandP95Ms": {
+        "n": 30,
+        "p10": 1.5667375000135508,
+        "median": 3.558854499977315,
+        "p90": 8.47027150001086,
+        "minimum": 1.119165999989491,
+        "maximum": 13.209417000005487
+      },
+      "terminalValuationDollars": {
+        "n": 30,
+        "p10": 288932440.044,
+        "median": 1001168662.3,
+        "p90": 1028038100.4139999,
+        "minimum": 153336457.95,
+        "maximum": 1044657164.42
+      },
+      "failureReasons": []
+    },
+    {
+      "policy": {
+        "mode": "hybrid",
+        "capital": "vc",
+        "luck": 4,
+        "ops": "selective",
+        "repeat": true,
+        "family": "automation",
+        "skilled": true
+      },
+      "policyVersion": 1,
+      "runs": 30,
+      "wins": 24,
+      "failures": 0,
+      "censored": 6,
+      "winRateWilson95": [
+        0.6269395261897256,
+        0.9049502189759876
+      ],
+      "winMinutes": {
+        "n": 24,
+        "p10": 12.273333333333333,
+        "median": 29.875,
+        "p90": 39.235,
+        "minimum": 11.8,
+        "maximum": 44.733333333333334
+      },
+      "firstCustomerSeconds": {
+        "n": 30,
+        "p10": 15,
+        "median": 15,
+        "p90": 15,
+        "minimum": 15,
+        "maximum": 15
+      },
+      "attentionPerMinute": {
+        "n": 30,
+        "p10": 61.528888888888886,
+        "median": 62.227583999242555,
+        "p90": 65.84325279036582,
+        "minimum": 61.33022170361727,
+        "maximum": 66.69491525423729
+      },
+      "commandP95Ms": {
+        "n": 30,
+        "p10": 1.2982791999937036,
+        "median": 3.8004369999398477,
+        "p90": 5.837687200010991,
+        "minimum": 1.0865840000333264,
+        "maximum": 11.868124999993597
+      },
+      "terminalValuationDollars": {
+        "n": 30,
+        "p10": 604961240.6520001,
+        "median": 1007678269.11,
+        "p90": 1033682203.63,
+        "minimum": 466836817.01,
+        "maximum": 1096440312.19
+      },
+      "failureReasons": []
+    },
+    {
+      "policy": {
+        "mode": "automation",
+        "capital": "bootstrap",
+        "luck": 0,
+        "ops": "automatic",
+        "repeat": false,
+        "family": "durable",
+        "skilled": false
+      },
+      "policyVersion": 2,
+      "runs": 30,
+      "wins": 17,
+      "failures": 0,
+      "censored": 13,
+      "winRateWilson95": [
+        0.3919700954540873,
+        0.7262276256938489
+      ],
+      "winMinutes": {
+        "n": 17,
+        "p10": 35.416666666666664,
+        "median": 39.766666666666666,
+        "p90": 43.95,
+        "minimum": 32.35,
+        "maximum": 44.45
+      },
+      "firstCustomerSeconds": {
+        "n": 30,
+        "p10": 14,
+        "median": 14,
+        "p90": 16,
+        "minimum": 14,
+        "maximum": 16
+      },
+      "attentionPerMinute": {
+        "n": 30,
+        "p10": 3.6644444444444444,
+        "median": 3.903010060063247,
+        "p90": 4.46988534365659,
+        "minimum": 3.6,
+        "maximum": 4.976816074188562
+      },
+      "commandP95Ms": {
+        "n": 30,
+        "p10": 1.9110540999985461,
+        "median": 2.5921875000058208,
+        "p90": 3.3825753000099215,
+        "minimum": 1.1769159999676049,
+        "maximum": 3.9215830000466667
+      },
+      "terminalValuationDollars": {
+        "n": 30,
+        "p10": 587989508.107,
+        "median": 1001975362.5799999,
+        "p90": 1009937537.801,
+        "minimum": 482885807.36,
+        "maximum": 1017491219.05
+      },
+      "failureReasons": []
+    },
+    {
+      "policy": {
+        "mode": "automation",
+        "capital": "debt",
+        "luck": 4,
+        "ops": "automatic",
+        "repeat": false,
+        "family": "automation",
+        "skilled": false
+      },
+      "policyVersion": 1,
+      "runs": 30,
+      "wins": 20,
+      "failures": 0,
+      "censored": 10,
+      "winRateWilson95": [
+        0.48779725813830266,
+        0.807697044731538
+      ],
+      "winMinutes": {
+        "n": 20,
+        "p10": 17.096666666666668,
+        "median": 31.950000000000003,
+        "p90": 38.94666666666667,
+        "minimum": 16.85,
+        "maximum": 44.81666666666667
+      },
+      "firstCustomerSeconds": {
+        "n": 30,
+        "p10": 20,
+        "median": 20,
+        "p90": 20,
+        "minimum": 20,
+        "maximum": 20
+      },
+      "attentionPerMinute": {
+        "n": 30,
+        "p10": 3.108888888888889,
+        "median": 3.772014249884344,
+        "p90": 6.874044259044789,
+        "minimum": 3.088888888888889,
+        "maximum": 7.389162561576354
+      },
+      "commandP95Ms": {
+        "n": 30,
+        "p10": 1.8742161000089257,
+        "median": 3.9648124999948777,
+        "p90": 6.527649699998438,
+        "minimum": 1.1578330000629649,
+        "maximum": 13.817000000002736
+      },
+      "terminalValuationDollars": {
+        "n": 30,
+        "p10": 820831795.462,
+        "median": 1001898282.525,
+        "p90": 1013176585.427,
+        "minimum": 694854815.14,
+        "maximum": 1030147815
+      },
+      "failureReasons": []
+    },
+    {
+      "policy": {
+        "mode": "automation",
+        "capital": "vc",
+        "luck": 0,
+        "ops": "automatic",
+        "repeat": true,
+        "family": "bootstrap",
+        "skilled": false
+      },
+      "policyVersion": 1,
+      "runs": 30,
+      "wins": 17,
+      "failures": 0,
+      "censored": 13,
+      "winRateWilson95": [
+        0.3919700954540873,
+        0.7262276256938489
+      ],
+      "winMinutes": {
+        "n": 17,
+        "p10": 34.36333333333334,
+        "median": 39.1,
+        "p90": 43.586666666666666,
+        "minimum": 32.2,
+        "maximum": 44.083333333333336
+      },
+      "firstCustomerSeconds": {
+        "n": 30,
+        "p10": 20,
+        "median": 20,
+        "p90": 20,
+        "minimum": 20,
+        "maximum": 20
+      },
+      "attentionPerMinute": {
+        "n": 30,
+        "p10": 2.533333333333333,
+        "median": 2.653955213028937,
+        "p90": 3.09175193141559,
+        "minimum": 2.533333333333333,
+        "maximum": 3.291925465838509
+      },
+      "commandP95Ms": {
+        "n": 30,
+        "p10": 2.7174455000218587,
+        "median": 3.6703959999977087,
+        "p90": 4.2817540999931225,
+        "minimum": 2.5161250000237487,
+        "maximum": 4.994000000006054
+      },
+      "terminalValuationDollars": {
+        "n": 30,
+        "p10": 661570858.553,
+        "median": 1000406810.46,
+        "p90": 1009206999.7870001,
+        "minimum": 528561880.78,
+        "maximum": 1014393888.87
+      },
+      "failureReasons": []
+    }
+  ],
+  "winningMinutes": {
+    "n": 122,
+    "p10": 14.715,
+    "median": 34.30833333333334,
+    "p90": 43.26,
+    "minimum": 11.8,
+    "maximum": 44.81666666666667
+  },
+  "demonstratedEngine15to20": [
+    {
+      "seed": 15002,
+      "policy": {
+        "mode": "hybrid",
+        "capital": "bootstrap",
+        "luck": 4,
+        "ops": "selective",
+        "repeat": false,
+        "family": "growth",
+        "skilled": true
+      },
+      "minutes": 15.316666666666666
+    },
+    {
+      "seed": 15006,
+      "policy": {
+        "mode": "hybrid",
+        "capital": "bootstrap",
+        "luck": 4,
+        "ops": "selective",
+        "repeat": false,
+        "family": "growth",
+        "skilled": true
+      },
+      "minutes": 15.016666666666667
+    },
+    {
+      "seed": 15007,
+      "policy": {
+        "mode": "hybrid",
+        "capital": "bootstrap",
+        "luck": 4,
+        "ops": "selective",
+        "repeat": false,
+        "family": "growth",
+        "skilled": true
+      },
+      "minutes": 15.05
+    },
+    {
+      "seed": 15011,
+      "policy": {
+        "mode": "hybrid",
+        "capital": "bootstrap",
+        "luck": 4,
+        "ops": "selective",
+        "repeat": false,
+        "family": "growth",
+        "skilled": true
+      },
+      "minutes": 15.133333333333333
+    },
+    {
+      "seed": 15013,
+      "policy": {
+        "mode": "hybrid",
+        "capital": "bootstrap",
+        "luck": 4,
+        "ops": "selective",
+        "repeat": false,
+        "family": "growth",
+        "skilled": true
+      },
+      "minutes": 16.833333333333332
+    },
+    {
+      "seed": 15017,
+      "policy": {
+        "mode": "hybrid",
+        "capital": "bootstrap",
+        "luck": 4,
+        "ops": "selective",
+        "repeat": false,
+        "family": "growth",
+        "skilled": true
+      },
+      "minutes": 15.5
+    },
+    {
+      "seed": 15018,
+      "policy": {
+        "mode": "hybrid",
+        "capital": "bootstrap",
+        "luck": 4,
+        "ops": "selective",
+        "repeat": false,
+        "family": "growth",
+        "skilled": true
+      },
+      "minutes": 15.016666666666667
+    },
+    {
+      "seed": 15019,
+      "policy": {
+        "mode": "hybrid",
+        "capital": "bootstrap",
+        "luck": 4,
+        "ops": "selective",
+        "repeat": false,
+        "family": "growth",
+        "skilled": true
+      },
+      "minutes": 15.016666666666667
+    },
+    {
+      "seed": 15023,
+      "policy": {
+        "mode": "hybrid",
+        "capital": "bootstrap",
+        "luck": 4,
+        "ops": "selective",
+        "repeat": false,
+        "family": "growth",
+        "skilled": true
+      },
+      "minutes": 15.183333333333334
+    },
+    {
+      "seed": 15002,
+      "policy": {
+        "mode": "hybrid",
+        "capital": "vc",
+        "luck": 4,
+        "ops": "selective",
+        "repeat": true,
+        "family": "automation",
+        "skilled": true
+      },
+      "minutes": 15
+    },
+    {
+      "seed": 15012,
+      "policy": {
+        "mode": "hybrid",
+        "capital": "vc",
+        "luck": 4,
+        "ops": "selective",
+        "repeat": true,
+        "family": "automation",
+        "skilled": true
+      },
+      "minutes": 17.933333333333334
+    },
+    {
+      "seed": 15002,
+      "policy": {
+        "mode": "automation",
+        "capital": "debt",
+        "luck": 4,
+        "ops": "automatic",
+        "repeat": false,
+        "family": "automation",
+        "skilled": false
+      },
+      "minutes": 16.916666666666668
+    },
+    {
+      "seed": 15004,
+      "policy": {
+        "mode": "automation",
+        "capital": "debt",
+        "luck": 4,
+        "ops": "automatic",
+        "repeat": false,
+        "family": "automation",
+        "skilled": false
+      },
+      "minutes": 17.95
+    },
+    {
+      "seed": 15006,
+      "policy": {
+        "mode": "automation",
+        "capital": "debt",
+        "luck": 4,
+        "ops": "automatic",
+        "repeat": false,
+        "family": "automation",
+        "skilled": false
+      },
+      "minutes": 19.783333333333335
+    },
+    {
+      "seed": 15023,
+      "policy": {
+        "mode": "automation",
+        "capital": "debt",
+        "luck": 4,
+        "ops": "automatic",
+        "repeat": false,
+        "family": "automation",
+        "skilled": false
+      },
+      "minutes": 17.116666666666667
+    },
+    {
+      "seed": 15025,
+      "policy": {
+        "mode": "automation",
+        "capital": "debt",
+        "luck": 4,
+        "ops": "automatic",
+        "repeat": false,
+        "family": "automation",
+        "skilled": false
+      },
+      "minutes": 16.85
+    }
+  ],
+  "relicAssociations": {
+    "relic:clean-terms": {
+      "runs": 228,
+      "wins": 80
+    },
+    "relic:ramen-budget": {
+      "runs": 228,
+      "wins": 81
+    },
+    "relic:signal-ledger": {
+      "runs": 255,
+      "wins": 107
+    },
+    "relic:care-calendar": {
+      "runs": 243,
+      "wins": 95
+    },
+    "relic:regression-suite": {
+      "runs": 256,
+      "wins": 108
+    },
+    "relic:shared-infrastructure": {
+      "runs": 249,
+      "wins": 101
+    },
+    "relic:context-checksum": {
+      "runs": 164,
+      "wins": 106
+    },
+    "relic:reserved-instances": {
+      "runs": 164,
+      "wins": 106
+    }
+  },
+  "limitations": [
+    "No UI or human runs",
+    "Nine stratified cases, not full factorial; Luck/repeat/Operations/build confounded",
+    "Winning-time statistics exclude censored/failed runs; no overall median time-to-win claim",
+    "Recipe solutions and pricing centers known perfectly; actions per minute exclude agent actions",
+    "Seed confidence intervals describe these policies only, not players or all build choices",
+    "Relic associations are observational, not causal attribution",
+    "Default final-rank Craft 32 is candidate, not locked",
+    "Earlier bootstrap overinvestment failures preserved in matrix-v1"
+  ]
+}

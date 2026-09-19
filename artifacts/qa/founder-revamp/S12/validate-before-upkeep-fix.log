@@ -1,0 +1,56 @@
+
+> sites-project@0.1.0 validate
+> npm run contract:check && npm run balance:validate && npm run sim:smoke && npm run sim:determinism && npm run test:founder && npm run typecheck && npm run lint
+
+
+> sites-project@0.1.0 contract:check
+> node scripts/check-repo-contract.mjs
+
+repository contract passed
+
+> sites-project@0.1.0 balance:validate
+> node scripts/validate-balance.mjs
+
+balance v2-alpha.0: missing=32 calibration=1 provisional=8 candidate=0 locked=5; required unresolved=41; runtimeReady=false
+
+> sites-project@0.1.0 sim:smoke
+> node scripts/simulation-smoke.mjs
+
+simulation smoke passed
+
+> sites-project@0.1.0 sim:determinism
+> node scripts/check-determinism.mjs
+
+simulation determinism passed
+
+> sites-project@0.1.0 test:founder
+> vitest run tests/integration/founder-content.test.ts tests/integration/founder-finance.test.ts tests/integration/founder-automation.test.ts tests/integration/founder-state-save.test.ts tests/integration/founder-company.test.ts tests/integration/founder-policy.test.ts tests/integration/founder-toys.test.ts
+
+
+ RUN  v3.2.4 /Users/deepsheth/Documents/GitHub/solounicorn
+
+ ✓ tests/integration/founder-state-save.test.ts (9 tests) 294ms
+ ✓ tests/integration/founder-content.test.ts (18 tests) 1087ms
+   ✓ S12 build catalogue and draft > offers only relevant effects, never owned/full rewards or same-effect alternatives; seeds persist  407ms
+ ✓ tests/integration/founder-finance.test.ts (17 tests) 1401ms
+   ✓ S11 approved survival and financing > funds only once, creates no ARR, charges interest monthly and principal only at maturity  474ms
+   ✓ S11 approved survival and financing > does not kill a run for an unaffordable optional payoff and keeps exact carry across save/reload  442ms
+   ✓ S11 approved survival and financing > captures VC baseline after the partial quarter and freezes all schedules during the draft  316ms
+ ✓ tests/integration/founder-company.test.ts (19 tests) 1427ms
+   ✓ founder company candidate > replays exactly and time rebatching does not reroll work  300ms
+ ✓ tests/integration/founder-toys.test.ts (29 tests) 2175ms
+   ✓ tactile founder state and accounting > measures random rank-zero and wider Luck tickets after price and automation upkeep, with all sixteen ranks defined  1634ms
+ ✓ tests/integration/founder-automation.test.ts (14 tests) 2223ms
+   ✓ S10 integrated company automation > installs every one of the 96 named ranks once and replays the commitments  379ms
+   ✓ S10 integrated company automation > keeps the in-progress merge board until it is served, then fills the second slot  817ms
+   ✓ S10 integrated company automation > runs all six real workflows and freezes them across quarter drafts and reloads  622ms
+Policy debt/77: tick 1800, quarter-draft, 384 actions
+Policy debt/77: tick 3600, quarter-draft, 760 actions
+Policy debt/77: tick 5400, quarter-draft, 1092 actions
+Policy debt/77: tick 7200, quarter-draft, 1383 actions
+Policy debt/77: tick 9000, quarter-draft, 1640 actions
+Policy debt/77: tick 10800, quarter-draft, 1922 actions
+Policy debt/77: tick 12600, quarter-draft, 2227 actions
+Policy debt/77: tick 14400, quarter-draft, 2562 actions
+Policy debt/77: tick 16200, quarter-draft, 2896 actions
+Policy debt/77: tick 18000, quarter-draft, 3258 actions

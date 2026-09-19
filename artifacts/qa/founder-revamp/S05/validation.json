@@ -1,0 +1,37 @@
+{
+  "task": "S05",
+  "base_commit": "70d8b0e550126849a524573098d051f288fcc706",
+  "diff_identity": "uncommitted S00-S05 worktree",
+  "scenarios": [
+    {
+      "name": "quarter-settlement-order",
+      "seed": 77,
+      "assertions": [
+        "a due receipt settles before the simultaneous operating bill",
+        "the quarter report records ARR, cash delta, eligible ARR, multiple, stability and valuation after settlement",
+        "an unaffordable due bill fails before a draft or $1B victory can be created"
+      ]
+    },
+    {
+      "name": "persistent-typed-draft",
+      "seed": 79,
+      "assertions": [
+        "the deterministic relic and consumable offers survive save/reload unchanged",
+        "selection or skip resolves exactly once and requires explicit Continue",
+        "draft and manual pause freeze tick, expiry, interest and random work",
+        "the Customer firebreak consumable protects one live threat without creating ARR or cash"
+      ]
+    }
+  ],
+  "commands": [
+    {"command": "npm run test:founder", "outcome": "passed, 42 tests"},
+    {"command": "npm run validate", "outcome": "passed; balance registry remains runtimeReady=false with 41 required unresolved entries"},
+    {"command": "npm run build", "outcome": "passed; offline package 24 immutable files, build ea970bc51129"},
+    {"command": "git diff --check", "outcome": "passed"}
+  ],
+  "non_execution": [
+    "No browser or computer-use invocation was performed.",
+    "Visual, device, reduced-motion and real interaction acceptance remain pending by owner instruction.",
+    "No deployment, publication, or external asset generation was performed."
+  ]
+}

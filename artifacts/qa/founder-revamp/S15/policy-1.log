@@ -1,0 +1,14 @@
+
+> sites-project@0.1.0 balance:founder-matrix
+> vitest run tests/simulation/founder-matrix.test.ts
+
+
+ RUN  v3.2.4 /Users/deepsheth/Documents/GitHub/solounicorn
+
+ ✓ tests/simulation/founder-matrix.test.ts (1 test) 3ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  04:11:30
+   Duration  971ms (transform 231ms, setup 0ms, collect 268ms, tests 3ms, environment 0ms, prepare 126ms)
+

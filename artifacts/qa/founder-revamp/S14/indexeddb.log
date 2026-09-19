@@ -1,0 +1,10 @@
+
+ RUN  v3.2.4 /Users/deepsheth/Documents/GitHub/solounicorn
+
+ ✓ tests/integration/founder-checkpoint-db.test.ts (4 tests) 102ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  04:12:52
+   Duration  801ms (transform 195ms, setup 0ms, collect 239ms, tests 102ms, environment 0ms, prepare 79ms)
+

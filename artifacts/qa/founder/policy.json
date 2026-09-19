@@ -2,302 +2,223 @@
   {
     "seed": 19,
     "capital": "bootstrap",
-    "status": "won",
-    "tick": 8720,
-    "quarter": 5,
-    "failure": "",
-    "valuation": 101017661482,
-    "cash": 201452662,
+    "status": "failure",
+    "outcome": "failure",
+    "horizonTicks": 27000,
+    "elapsedMs": 197,
+    "tick": 600,
+    "quarter": 1,
+    "failure": "Monthly operating bill required $664.00; only $465.75 was liquid. Keep a reserve or raise capital before the due date.",
+    "valuation": 119496980,
+    "cash": 46575,
     "ranks": {
       "demand": {
-        "craft": 4,
-        "scale": 4,
-        "automate": 4,
+        "craft": 0,
+        "scale": 0,
+        "automate": 1,
         "luck": 0
       },
       "product": {
-        "craft": 4,
-        "scale": 4,
-        "automate": 4,
+        "craft": 0,
+        "scale": 0,
+        "automate": 1,
         "luck": 0
       },
       "monetisation": {
-        "craft": 4,
-        "scale": 4,
-        "automate": 4,
+        "craft": 1,
+        "scale": 0,
+        "automate": 0,
         "luck": 0
       },
       "retention": {
-        "craft": 4,
-        "scale": 4,
-        "automate": 4,
+        "craft": 0,
+        "scale": 0,
+        "automate": 0,
         "luck": 0
       },
       "expansion": {
-        "craft": 4,
-        "scale": 4,
-        "automate": 4,
+        "craft": 0,
+        "scale": 0,
+        "automate": 0,
         "luck": 0
       },
       "operations": {
-        "craft": 4,
-        "scale": 4,
-        "automate": 4,
+        "craft": 0,
+        "scale": 0,
+        "automate": 0,
         "luck": 0
       }
     },
-    "checkpoints": [
-      {
-        "tick": 1800,
-        "quarter": 2,
-        "cash": 235149,
-        "arr": 9984000,
-        "contractualArr": 9984000,
-        "mrr": 832000,
-        "cost": 172000,
-        "nextBill": 172000,
-        "forecastMinimum": 235149,
-        "growth": 8.32,
-        "multiple": 26,
-        "stability": 0.977803852547179,
-        "valuation": 253822235,
-        "receivables": 657062,
-        "unbilled": 0,
-        "load": 6.159999999999999,
-        "capacity": 16,
-        "overload": 0,
-        "speed": 1,
-        "rot": 0.045399999999999996,
-        "ranks": {
-          "demand": {
-            "craft": 0,
-            "scale": 0,
-            "automate": 1,
-            "luck": 0
-          },
-          "product": {
-            "craft": 0,
-            "scale": 0,
-            "automate": 1,
-            "luck": 0
-          },
-          "monetisation": {
-            "craft": 1,
-            "scale": 0,
-            "automate": 0,
-            "luck": 0
-          },
-          "retention": {
-            "craft": 0,
-            "scale": 0,
-            "automate": 0,
-            "luck": 0
-          },
-          "expansion": {
-            "craft": 0,
-            "scale": 0,
-            "automate": 0,
-            "luck": 0
-          },
-          "operations": {
-            "craft": 0,
-            "scale": 0,
-            "automate": 0,
-            "luck": 0
-          }
-        }
-      },
-      {
-        "tick": 3600,
-        "quarter": 3,
-        "cash": 1245240,
-        "arr": 38784000,
-        "contractualArr": 38784000,
-        "mrr": 3232000,
-        "cost": 665600,
-        "nextBill": 665600,
-        "forecastMinimum": 1245240,
-        "growth": 2.8846153846153846,
-        "multiple": 21.53846153846154,
-        "stability": 0.977803852547179,
-        "valuation": 816806191,
-        "receivables": 2616767,
-        "unbilled": 0,
-        "load": 14.12,
-        "capacity": 22,
-        "overload": 0,
-        "speed": 1,
-        "rot": 0.045399999999999996,
-        "ranks": {
-          "demand": {
-            "craft": 2,
-            "scale": 1,
-            "automate": 2,
-            "luck": 0
-          },
-          "product": {
-            "craft": 2,
-            "scale": 1,
-            "automate": 1,
-            "luck": 0
-          },
-          "monetisation": {
-            "craft": 1,
-            "scale": 1,
-            "automate": 1,
-            "luck": 0
-          },
-          "retention": {
-            "craft": 1,
-            "scale": 1,
-            "automate": 1,
-            "luck": 0
-          },
-          "expansion": {
-            "craft": 1,
-            "scale": 1,
-            "automate": 1,
-            "luck": 0
-          },
-          "operations": {
-            "craft": 1,
-            "scale": 1,
-            "automate": 1,
-            "luck": 0
-          }
-        }
-      },
-      {
-        "tick": 5400,
-        "quarter": 4,
-        "cash": 4657106,
-        "arr": 170496000,
-        "contractualArr": 170496000,
-        "mrr": 14208000,
-        "cost": 2928200,
-        "nextBill": 2928200,
-        "forecastMinimum": 4657106,
-        "growth": 3.396039603960396,
-        "multiple": 23.584158415841586,
-        "stability": 0.9976643458296593,
-        "valuation": 4011612996,
-        "receivables": 11692923,
-        "unbilled": 0,
-        "load": 33.64,
-        "capacity": 36,
-        "overload": 0.00891111111111106,
-        "speed": 0.9999722080069842,
-        "rot": 0.0020089111111111107,
-        "ranks": {
-          "demand": {
-            "craft": 3,
-            "scale": 2,
-            "automate": 3,
-            "luck": 0
-          },
-          "product": {
-            "craft": 2,
-            "scale": 2,
-            "automate": 2,
-            "luck": 0
-          },
-          "monetisation": {
-            "craft": 2,
-            "scale": 2,
-            "automate": 2,
-            "luck": 0
-          },
-          "retention": {
-            "craft": 2,
-            "scale": 2,
-            "automate": 2,
-            "luck": 0
-          },
-          "expansion": {
-            "craft": 2,
-            "scale": 2,
-            "automate": 2,
-            "luck": 0
-          },
-          "operations": {
-            "craft": 2,
-            "scale": 2,
-            "automate": 2,
-            "luck": 0
-          }
-        }
-      },
-      {
-        "tick": 7200,
-        "quarter": 5,
-        "cash": 24641822,
-        "arr": 1011456000,
-        "contractualArr": 1011456000,
-        "mrr": 84288000,
-        "cost": 16693800,
-        "nextBill": 16693800,
-        "forecastMinimum": 24641822,
-        "growth": 4.9324324324324325,
-        "multiple": 26,
-        "stability": 0.8925297478045185,
-        "valuation": 23471618783,
-        "receivables": 64632267,
-        "unbilled": 0,
-        "load": 66.76,
-        "capacity": 40,
-        "overload": 0.6882250000000001,
-        "speed": 0.8577956805465667,
-        "rot": 0.03435417000000001,
-        "ranks": {
-          "demand": {
-            "craft": 3,
-            "scale": 3,
-            "automate": 3,
-            "luck": 0
-          },
-          "product": {
-            "craft": 3,
-            "scale": 3,
-            "automate": 3,
-            "luck": 0
-          },
-          "monetisation": {
-            "craft": 3,
-            "scale": 3,
-            "automate": 3,
-            "luck": 0
-          },
-          "retention": {
-            "craft": 3,
-            "scale": 3,
-            "automate": 3,
-            "luck": 0
-          },
-          "expansion": {
-            "craft": 3,
-            "scale": 2,
-            "automate": 3,
-            "luck": 0
-          },
-          "operations": {
-            "craft": 3,
-            "scale": 2,
-            "automate": 3,
-            "luck": 0
-          }
-        }
-      }
-    ]
+    "checkpoints": []
   },
   {
     "seed": 77,
     "capital": "bootstrap",
-    "status": "won",
-    "tick": 9290,
-    "quarter": 6,
+    "status": "failure",
+    "outcome": "failure",
+    "horizonTicks": 27000,
+    "elapsedMs": 171,
+    "tick": 600,
+    "quarter": 1,
+    "failure": "Monthly operating bill required $664.00; only $463.75 was liquid. Keep a reserve or raise capital before the due date.",
+    "valuation": 119496980,
+    "cash": 46375,
+    "ranks": {
+      "demand": {
+        "craft": 0,
+        "scale": 0,
+        "automate": 1,
+        "luck": 0
+      },
+      "product": {
+        "craft": 0,
+        "scale": 0,
+        "automate": 1,
+        "luck": 0
+      },
+      "monetisation": {
+        "craft": 1,
+        "scale": 0,
+        "automate": 0,
+        "luck": 0
+      },
+      "retention": {
+        "craft": 0,
+        "scale": 0,
+        "automate": 0,
+        "luck": 0
+      },
+      "expansion": {
+        "craft": 0,
+        "scale": 0,
+        "automate": 0,
+        "luck": 0
+      },
+      "operations": {
+        "craft": 0,
+        "scale": 0,
+        "automate": 0,
+        "luck": 0
+      }
+    },
+    "checkpoints": []
+  },
+  {
+    "seed": 84022,
+    "capital": "bootstrap",
+    "status": "failure",
+    "outcome": "failure",
+    "horizonTicks": 27000,
+    "elapsedMs": 122,
+    "tick": 600,
+    "quarter": 1,
+    "failure": "Monthly operating bill required $664.00; only $487.75 was liquid. Keep a reserve or raise capital before the due date.",
+    "valuation": 119496980,
+    "cash": 48775,
+    "ranks": {
+      "demand": {
+        "craft": 0,
+        "scale": 0,
+        "automate": 1,
+        "luck": 0
+      },
+      "product": {
+        "craft": 0,
+        "scale": 0,
+        "automate": 1,
+        "luck": 0
+      },
+      "monetisation": {
+        "craft": 1,
+        "scale": 0,
+        "automate": 0,
+        "luck": 0
+      },
+      "retention": {
+        "craft": 0,
+        "scale": 0,
+        "automate": 0,
+        "luck": 0
+      },
+      "expansion": {
+        "craft": 0,
+        "scale": 0,
+        "automate": 0,
+        "luck": 0
+      },
+      "operations": {
+        "craft": 0,
+        "scale": 0,
+        "automate": 0,
+        "luck": 0
+      }
+    },
+    "checkpoints": []
+  },
+  {
+    "seed": 19,
+    "capital": "debt",
+    "status": "failure",
+    "outcome": "failure",
+    "horizonTicks": 27000,
+    "elapsedMs": 408,
+    "tick": 1360,
+    "quarter": 1,
+    "failure": "Loan interest required $57.60; only $26.28 was liquid. Keep a reserve or raise capital before the due date.",
+    "valuation": 696760686,
+    "cash": 2628,
+    "ranks": {
+      "demand": {
+        "craft": 1,
+        "scale": 1,
+        "automate": 1,
+        "luck": 0
+      },
+      "product": {
+        "craft": 1,
+        "scale": 1,
+        "automate": 1,
+        "luck": 0
+      },
+      "monetisation": {
+        "craft": 1,
+        "scale": 1,
+        "automate": 1,
+        "luck": 0
+      },
+      "retention": {
+        "craft": 1,
+        "scale": 0,
+        "automate": 1,
+        "luck": 0
+      },
+      "expansion": {
+        "craft": 0,
+        "scale": 0,
+        "automate": 0,
+        "luck": 0
+      },
+      "operations": {
+        "craft": 1,
+        "scale": 0,
+        "automate": 0,
+        "luck": 0
+      }
+    },
+    "checkpoints": []
+  },
+  {
+    "seed": 77,
+    "capital": "debt",
+    "status": "quarter-draft",
+    "outcome": "horizon-censored",
+    "horizonTicks": 27000,
+    "elapsedMs": 42133,
+    "tick": 27000,
+    "quarter": 16,
     "failure": "",
-    "valuation": 104101333262,
-    "cash": 337058364,
+    "valuation": 5536445062,
+    "cash": 13032426646,
     "ranks": {
       "demand": {
         "craft": 4,
@@ -340,45 +261,45 @@
       {
         "tick": 1800,
         "quarter": 2,
-        "cash": 223972,
-        "arr": 8448000,
-        "contractualArr": 8448000,
-        "mrr": 704000,
-        "cost": 148000,
-        "nextBill": 148000,
-        "forecastMinimum": 223972,
-        "growth": 7.04,
+        "cash": 1043253,
+        "arr": 40704000,
+        "contractualArr": 40704000,
+        "mrr": 3392000,
+        "cost": 663000,
+        "nextBill": 663000,
+        "forecastMinimum": 1037493,
+        "growth": 33.92,
         "multiple": 26,
-        "stability": 0.978952520802741,
-        "valuation": 215024963,
-        "receivables": 567464,
+        "stability": 0.9804882831650161,
+        "valuation": 1037654672,
+        "receivables": 2752000,
         "unbilled": 0,
-        "load": 6.159999999999999,
-        "capacity": 16,
+        "load": 9.2,
+        "capacity": 17,
         "overload": 0,
         "speed": 1,
-        "rot": 0.043,
+        "rot": 0.03979999999999991,
         "ranks": {
           "demand": {
-            "craft": 0,
-            "scale": 0,
+            "craft": 1,
+            "scale": 1,
             "automate": 1,
             "luck": 0
           },
           "product": {
-            "craft": 0,
-            "scale": 0,
+            "craft": 1,
+            "scale": 1,
             "automate": 1,
             "luck": 0
           },
           "monetisation": {
             "craft": 1,
             "scale": 0,
-            "automate": 0,
+            "automate": 1,
             "luck": 0
           },
           "retention": {
-            "craft": 0,
+            "craft": 1,
             "scale": 0,
             "automate": 0,
             "luck": 0
@@ -390,7 +311,7 @@
             "luck": 0
           },
           "operations": {
-            "craft": 0,
+            "craft": 1,
             "scale": 0,
             "automate": 0,
             "luck": 0
@@ -400,59 +321,59 @@
       {
         "tick": 3600,
         "quarter": 3,
-        "cash": 1178437,
-        "arr": 37248000,
-        "contractualArr": 37248000,
-        "mrr": 3104000,
-        "cost": 637600,
-        "nextBill": 637600,
-        "forecastMinimum": 1178437,
-        "growth": 3.409090909090909,
-        "multiple": 23.636363636363637,
-        "stability": 0.9797190226585596,
-        "valuation": 862551752,
-        "receivables": 2419648,
+        "cash": 4665951,
+        "arr": 152064000,
+        "contractualArr": 152064000,
+        "mrr": 12672000,
+        "cost": 2544100,
+        "nextBill": 2544100,
+        "forecastMinimum": 4276191,
+        "growth": 2.7358490566037736,
+        "multiple": 20.943396226415096,
+        "stability": 0.8863724696085958,
+        "valuation": 2822862848,
+        "receivables": 11029968,
         "unbilled": 0,
-        "load": 13.819999999999999,
-        "capacity": 22,
-        "overload": 0,
-        "speed": 1,
-        "rot": 0.04140162,
+        "load": 33.04,
+        "capacity": 36,
+        "overload": 0.03448148148148227,
+        "speed": 0.9995840327029913,
+        "rot": 0.2460433254545455,
         "ranks": {
           "demand": {
-            "craft": 2,
-            "scale": 1,
-            "automate": 1,
+            "craft": 3,
+            "scale": 2,
+            "automate": 2,
             "luck": 0
           },
           "product": {
-            "craft": 2,
-            "scale": 1,
-            "automate": 1,
+            "craft": 3,
+            "scale": 2,
+            "automate": 2,
             "luck": 0
           },
           "monetisation": {
-            "craft": 1,
-            "scale": 1,
-            "automate": 1,
+            "craft": 2,
+            "scale": 2,
+            "automate": 2,
             "luck": 0
           },
           "retention": {
-            "craft": 1,
-            "scale": 1,
-            "automate": 1,
+            "craft": 2,
+            "scale": 2,
+            "automate": 2,
             "luck": 0
           },
           "expansion": {
-            "craft": 1,
-            "scale": 1,
-            "automate": 1,
+            "craft": 2,
+            "scale": 2,
+            "automate": 2,
             "luck": 0
           },
           "operations": {
-            "craft": 1,
-            "scale": 1,
-            "automate": 1,
+            "craft": 2,
+            "scale": 2,
+            "automate": 2,
             "luck": 0
           }
         }
@@ -460,59 +381,59 @@
       {
         "tick": 5400,
         "quarter": 4,
-        "cash": 5575039,
-        "arr": 190080000,
-        "contractualArr": 190080000,
-        "mrr": 15840000,
-        "cost": 3191200,
-        "nextBill": 3191200,
-        "forecastMinimum": 5575039,
-        "growth": 4.103092783505154,
+        "cash": 47603880,
+        "arr": 1533696000,
+        "contractualArr": 1533696000,
+        "mrr": 127808000,
+        "cost": 25297750,
+        "nextBill": 25297750,
+        "forecastMinimum": 47603880,
+        "growth": 9.085858585858587,
         "multiple": 26,
-        "stability": 0.9982269404352706,
-        "valuation": 4933317397,
-        "receivables": 12508873,
+        "stability": 0.5570074610330272,
+        "valuation": 22211282988,
+        "receivables": 115782806,
         "unbilled": 0,
-        "load": 33.04,
-        "capacity": 36,
-        "overload": 0.006494444444444358,
-        "speed": 0.9999852379848957,
-        "rot": 0.0016040844444444443,
+        "load": 129.39,
+        "capacity": 68,
+        "overload": 1.9687205882353036,
+        "speed": 0.42434892685704,
+        "rot": 1,
         "ranks": {
           "demand": {
-            "craft": 3,
-            "scale": 2,
-            "automate": 2,
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
             "luck": 0
           },
           "product": {
-            "craft": 2,
-            "scale": 2,
-            "automate": 2,
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
             "luck": 0
           },
           "monetisation": {
-            "craft": 2,
-            "scale": 2,
-            "automate": 2,
+            "craft": 3,
+            "scale": 3,
+            "automate": 3,
             "luck": 0
           },
           "retention": {
-            "craft": 2,
-            "scale": 2,
-            "automate": 2,
+            "craft": 3,
+            "scale": 3,
+            "automate": 3,
             "luck": 0
           },
           "expansion": {
-            "craft": 2,
-            "scale": 2,
-            "automate": 2,
+            "craft": 3,
+            "scale": 3,
+            "automate": 3,
             "luck": 0
           },
           "operations": {
-            "craft": 2,
-            "scale": 2,
-            "automate": 2,
+            "craft": 3,
+            "scale": 3,
+            "automate": 3,
             "luck": 0
           }
         }
@@ -520,59 +441,59 @@
       {
         "tick": 7200,
         "quarter": 5,
-        "cash": 24275599,
-        "arr": 827904000,
-        "contractualArr": 827904000,
-        "mrr": 68992000,
-        "cost": 13968000,
-        "nextBill": 13968000,
-        "forecastMinimum": 24275599,
-        "growth": 3.3555555555555556,
-        "multiple": 23.422222222222224,
-        "stability": 0.7366078192775994,
-        "valuation": 14283821116,
-        "receivables": 54600247,
+        "cash": 327063190,
+        "arr": 3656448000,
+        "contractualArr": 3656448000,
+        "mrr": 304704000,
+        "cost": 60333000,
+        "nextBill": 60333000,
+        "forecastMinimum": 327063190,
+        "growth": 1.384076114171257,
+        "multiple": 14.304456685027542,
+        "stability": 0.528990147889118,
+        "valuation": 27668037277,
+        "receivables": 292258981,
         "unbilled": 0,
-        "load": 75.48,
-        "capacity": 40,
-        "overload": 0.9181533333333334,
-        "speed": 0.7721698017944044,
-        "rot": 0.43970302185185195,
+        "load": 206.77999999999994,
+        "capacity": 140,
+        "overload": 2.6026291666665804,
+        "speed": 0.29666657990002987,
+        "rot": 1,
         "ranks": {
           "demand": {
-            "craft": 3,
-            "scale": 3,
-            "automate": 3,
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
             "luck": 0
           },
           "product": {
-            "craft": 3,
-            "scale": 3,
-            "automate": 3,
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
             "luck": 0
           },
           "monetisation": {
-            "craft": 3,
-            "scale": 3,
-            "automate": 3,
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
             "luck": 0
           },
           "retention": {
-            "craft": 3,
-            "scale": 3,
-            "automate": 3,
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
             "luck": 0
           },
           "expansion": {
-            "craft": 3,
-            "scale": 3,
-            "automate": 3,
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
             "luck": 0
           },
           "operations": {
-            "craft": 3,
-            "scale": 2,
-            "automate": 3,
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
             "luck": 0
           }
         }
@@ -580,23 +501,916 @@
       {
         "tick": 9000,
         "quarter": 6,
-        "cash": 93007274,
-        "arr": 4512384000,
-        "contractualArr": 4512384000,
-        "mrr": 376032000,
-        "cost": 74913600,
-        "nextBill": 74913600,
-        "forecastMinimum": 93007274,
-        "growth": 4.450371057513915,
-        "multiple": 26,
-        "stability": 0.6065902841795667,
-        "valuation": 71166375615,
-        "receivables": 274250170,
+        "cash": 1025785674,
+        "arr": 4504320000,
+        "contractualArr": 4504320000,
+        "mrr": 375360000,
+        "cost": 73580500,
+        "nextBill": 73580500,
+        "forecastMinimum": 1025785674,
+        "growth": 0.2318840579710145,
+        "multiple": 5.855072463768116,
+        "stability": 0.4784236283178044,
+        "valuation": 12617523760,
+        "receivables": 364089169,
         "unbilled": 0,
-        "load": 150,
+        "load": 206.07999999999996,
+        "capacity": 140,
+        "overload": 3.934651785714424,
+        "speed": 0.15579916502269223,
+        "rot": 1,
+        "ranks": {
+          "demand": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "product": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "monetisation": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "retention": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "expansion": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "operations": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          }
+        }
+      },
+      {
+        "tick": 10800,
+        "quarter": 7,
+        "cash": 1946916435,
+        "arr": 5315328000,
+        "contractualArr": 5315328000,
+        "mrr": 442944000,
+        "cost": 86252750,
+        "nextBill": 86252750,
+        "forecastMinimum": 1946916435,
+        "growth": 0.18005115089514068,
+        "multiple": 5.440409207161125,
+        "stability": 0.436631393477502,
+        "valuation": 12626314252,
+        "receivables": 433250130,
+        "unbilled": 0,
+        "load": 206.42999999999998,
+        "capacity": 140,
+        "overload": 5.268408928571864,
+        "speed": 0.0933301912608135,
+        "rot": 1,
+        "ranks": {
+          "demand": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "product": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "monetisation": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "retention": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "expansion": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "operations": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          }
+        }
+      },
+      {
+        "tick": 12600,
+        "quarter": 8,
+        "cash": 3043764779,
+        "arr": 6074496000,
+        "contractualArr": 6074496000,
+        "mrr": 506208000,
+        "cost": 96268250,
+        "nextBill": 96268250,
+        "forecastMinimum": 3043764779,
+        "growth": 0.14282618118768964,
+        "multiple": 5.142609449501517,
+        "stability": 0.3994369223299273,
+        "valuation": 12477914363,
+        "receivables": 494286941,
+        "unbilled": 0,
+        "load": 208.52999999999994,
+        "capacity": 140,
+        "overload": 6.690161309524933,
+        "speed": 0.06000459483404296,
+        "rot": 1,
+        "ranks": {
+          "demand": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "product": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "monetisation": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "retention": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "expansion": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "operations": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          }
+        }
+      },
+      {
+        "tick": 14400,
+        "quarter": 9,
+        "cash": 4276664014,
+        "arr": 6167616000,
+        "contractualArr": 6167616000,
+        "mrr": 513968000,
+        "cost": 96685150,
+        "nextBill": 96685150,
+        "forecastMinimum": 4276664014,
+        "growth": 0.01532966685631203,
+        "multiple": 4.122637334850496,
+        "stability": 0.36733382908093515,
+        "valuation": 9340139963,
+        "receivables": 505714558,
+        "unbilled": 0,
+        "load": 209.23,
+        "capacity": 140,
+        "overload": 8.148795833333914,
+        "speed": 0.04125241381742773,
+        "rot": 1,
+        "ranks": {
+          "demand": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "product": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "monetisation": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "retention": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "expansion": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "operations": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          }
+        }
+      },
+      {
+        "tick": 16200,
+        "quarter": 10,
+        "cash": 5521373848,
+        "arr": 6264729600,
+        "contractualArr": 6264729600,
+        "mrr": 522060800,
+        "cost": 98083050,
+        "nextBill": 98083050,
+        "forecastMinimum": 5521373848,
+        "growth": 0.015745727360458237,
+        "multiple": 4.125965818883666,
+        "stability": 0.34023972379582124,
+        "valuation": 8794536861,
+        "receivables": 512017065,
+        "unbilled": 0,
+        "load": 209.92999999999998,
+        "capacity": 140,
+        "overload": 9.59402797619055,
+        "speed": 0.0301060813522193,
+        "rot": 1,
+        "ranks": {
+          "demand": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "product": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "monetisation": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "retention": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "expansion": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "operations": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          }
+        }
+      },
+      {
+        "tick": 18000,
+        "quarter": 11,
+        "cash": 6793760280,
+        "arr": 6377702400,
+        "contractualArr": 6377702400,
+        "mrr": 531475200,
+        "cost": 100448750,
+        "nextBill": 100448750,
+        "forecastMinimum": 6793760280,
+        "growth": 0.01803314862943167,
+        "multiple": 4.144265189035453,
+        "stability": 0.3162725473028705,
+        "valuation": 8359364921,
+        "receivables": 523716372,
+        "unbilled": 0,
+        "load": 210.62999999999997,
+        "capacity": 140,
+        "overload": 11.07886607142826,
+        "speed": 0.022748239521123446,
+        "rot": 1,
+        "ranks": {
+          "demand": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "product": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "monetisation": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "retention": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "expansion": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "operations": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          }
+        }
+      },
+      {
+        "tick": 19800,
+        "quarter": 12,
+        "cash": 8092247096,
+        "arr": 6255897600,
+        "contractualArr": 6255897600,
+        "mrr": 521324800,
+        "cost": 97166650,
+        "nextBill": 97166650,
+        "forecastMinimum": 8092247096,
+        "growth": -0.01909853931095938,
+        "multiple": 3.9236058427561624,
+        "stability": 0.295045467428555,
+        "valuation": 7242090559,
+        "receivables": 512861652,
+        "unbilled": 0,
+        "load": 211.32999999999996,
+        "capacity": 140,
+        "overload": 12.59538749999945,
+        "speed": 0.01769118526124747,
+        "rot": 1,
+        "ranks": {
+          "demand": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "product": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "monetisation": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "retention": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "expansion": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "operations": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          }
+        }
+      },
+      {
+        "tick": 21600,
+        "quarter": 13,
+        "cash": 9352747823,
+        "arr": 6015979200,
+        "contractualArr": 6015979200,
+        "mrr": 501331600,
+        "cost": 93422150,
+        "nextBill": 93422150,
+        "forecastMinimum": 9352747823,
+        "growth": -0.038350755613391116,
+        "multiple": 3.8465969775464357,
+        "stability": 0.2774903701550685,
+        "valuation": 6421417810,
+        "receivables": 495926175,
+        "unbilled": 0,
+        "load": 210.62999999999997,
+        "capacity": 140,
+        "overload": 14.024857738094362,
+        "speed": 0.014317658597727146,
+        "rot": 1,
+        "ranks": {
+          "demand": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "product": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "monetisation": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "retention": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "expansion": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "operations": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          }
+        }
+      },
+      {
+        "tick": 23400,
+        "quarter": 14,
+        "cash": 10575739644,
+        "arr": 6193943040,
+        "contractualArr": 6193943040,
+        "mrr": 516161920,
+        "cost": 95926950,
+        "nextBill": 95926950,
+        "forecastMinimum": 10575739644,
+        "growth": 0.029581857596848074,
+        "multiple": 4.2366548607747845,
+        "stability": 0.26219277766117344,
+        "valuation": 6880357702,
+        "receivables": 510711025,
+        "unbilled": 0,
+        "load": 207.82999999999996,
+        "capacity": 140,
+        "overload": 15.426583928569798,
+        "speed": 0.011863406339051644,
+        "rot": 1,
+        "ranks": {
+          "demand": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "product": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "monetisation": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "retention": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "expansion": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "operations": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          }
+        }
+      },
+      {
+        "tick": 25200,
+        "quarter": 15,
+        "cash": 11829548344,
+        "arr": 5871508800,
+        "contractualArr": 5871508800,
+        "mrr": 489292400,
+        "cost": 91078450,
+        "nextBill": 91078450,
+        "forecastMinimum": 11829548344,
+        "growth": -0.05205637796759591,
+        "multiple": 3.7917744881296165,
+        "stability": 0.2487062445497087,
+        "valuation": 5537055875,
+        "receivables": 480328157,
+        "unbilled": 0,
+        "load": 207.12999999999997,
+        "capacity": 140,
+        "overload": 16.805385119046363,
+        "speed": 0.010015289425986427,
+        "rot": 1,
+        "ranks": {
+          "demand": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "product": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "monetisation": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "retention": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "expansion": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "operations": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          }
+        }
+      },
+      {
+        "tick": 27000,
+        "quarter": 16,
+        "cash": 13032426646,
+        "arr": 5863634880,
+        "contractualArr": 5863634880,
+        "mrr": 488636240,
+        "cost": 91079450,
+        "nextBill": 91079450,
+        "forecastMinimum": 13032426646,
+        "growth": -0.0013410386100417664,
+        "multiple": 3.994635845559833,
+        "stability": 0.23636702032590062,
+        "valuation": 5536445062,
+        "receivables": 480587539,
+        "unbilled": 0,
+        "load": 208.52999999999994,
+        "capacity": 140,
+        "overload": 18.204724404761418,
+        "speed": 0.008547432504872488,
+        "rot": 1,
+        "ranks": {
+          "demand": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "product": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "monetisation": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "retention": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "expansion": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "operations": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          }
+        }
+      }
+    ]
+  },
+  {
+    "seed": 84022,
+    "capital": "debt",
+    "status": "quarter-draft",
+    "outcome": "horizon-censored",
+    "horizonTicks": 27000,
+    "elapsedMs": 34782,
+    "tick": 27000,
+    "quarter": 16,
+    "failure": "",
+    "valuation": 9062677347,
+    "cash": 15492044477,
+    "ranks": {
+      "demand": {
+        "craft": 4,
+        "scale": 4,
+        "automate": 4,
+        "luck": 0
+      },
+      "product": {
+        "craft": 4,
+        "scale": 4,
+        "automate": 4,
+        "luck": 0
+      },
+      "monetisation": {
+        "craft": 4,
+        "scale": 4,
+        "automate": 4,
+        "luck": 0
+      },
+      "retention": {
+        "craft": 4,
+        "scale": 4,
+        "automate": 4,
+        "luck": 0
+      },
+      "expansion": {
+        "craft": 4,
+        "scale": 4,
+        "automate": 4,
+        "luck": 0
+      },
+      "operations": {
+        "craft": 4,
+        "scale": 4,
+        "automate": 4,
+        "luck": 0
+      }
+    },
+    "checkpoints": [
+      {
+        "tick": 1800,
+        "quarter": 2,
+        "cash": 1044087,
+        "arr": 40704000,
+        "contractualArr": 40704000,
+        "mrr": 3392000,
+        "cost": 663000,
+        "nextBill": 663000,
+        "forecastMinimum": 1038327,
+        "growth": 33.92,
+        "multiple": 26,
+        "stability": 0.9804882831650161,
+        "valuation": 1037654672,
+        "receivables": 2752000,
+        "unbilled": 0,
+        "load": 9.2,
+        "capacity": 17,
+        "overload": 0,
+        "speed": 1,
+        "rot": 0.03979999999999991,
+        "ranks": {
+          "demand": {
+            "craft": 1,
+            "scale": 1,
+            "automate": 1,
+            "luck": 0
+          },
+          "product": {
+            "craft": 1,
+            "scale": 1,
+            "automate": 1,
+            "luck": 0
+          },
+          "monetisation": {
+            "craft": 1,
+            "scale": 0,
+            "automate": 1,
+            "luck": 0
+          },
+          "retention": {
+            "craft": 1,
+            "scale": 0,
+            "automate": 0,
+            "luck": 0
+          },
+          "expansion": {
+            "craft": 0,
+            "scale": 0,
+            "automate": 0,
+            "luck": 0
+          },
+          "operations": {
+            "craft": 1,
+            "scale": 0,
+            "automate": 0,
+            "luck": 0
+          }
+        }
+      },
+      {
+        "tick": 3600,
+        "quarter": 3,
+        "cash": 4977615,
+        "arr": 155904000,
+        "contractualArr": 155904000,
+        "mrr": 12992000,
+        "cost": 2641400,
+        "nextBill": 2641400,
+        "forecastMinimum": 4587855,
+        "growth": 2.830188679245283,
+        "multiple": 21.32075471698113,
+        "stability": 0.8065542564591087,
+        "valuation": 2680979043,
+        "receivables": 11706131,
+        "unbilled": 0,
+        "load": 31.68,
+        "capacity": 24,
+        "overload": 0.5778888888888911,
+        "speed": 0.8953477695077291,
+        "rot": 0.3063177240404041,
+        "ranks": {
+          "demand": {
+            "craft": 3,
+            "scale": 2,
+            "automate": 3,
+            "luck": 0
+          },
+          "product": {
+            "craft": 2,
+            "scale": 2,
+            "automate": 2,
+            "luck": 0
+          },
+          "monetisation": {
+            "craft": 2,
+            "scale": 2,
+            "automate": 2,
+            "luck": 0
+          },
+          "retention": {
+            "craft": 2,
+            "scale": 2,
+            "automate": 2,
+            "luck": 0
+          },
+          "expansion": {
+            "craft": 2,
+            "scale": 2,
+            "automate": 2,
+            "luck": 0
+          },
+          "operations": {
+            "craft": 2,
+            "scale": 1,
+            "automate": 2,
+            "luck": 0
+          }
+        }
+      },
+      {
+        "tick": 5400,
+        "quarter": 4,
+        "cash": 16095769,
+        "arr": 456960000,
+        "contractualArr": 456960000,
+        "mrr": 38080000,
+        "cost": 7486800,
+        "nextBill": 7486800,
+        "forecastMinimum": 16095769,
+        "growth": 1.9310344827586208,
+        "multiple": 17.586206896551722,
+        "stability": 0.6290504518120182,
+        "valuation": 5055170902,
+        "receivables": 32778233,
+        "unbilled": 0,
+        "load": 81.41999999999999,
+        "capacity": 68,
+        "overload": 0.5979840686274462,
+        "speed": 0.8887666489381502,
+        "rot": 1,
+        "ranks": {
+          "demand": {
+            "craft": 4,
+            "scale": 3,
+            "automate": 3,
+            "luck": 0
+          },
+          "product": {
+            "craft": 3,
+            "scale": 3,
+            "automate": 3,
+            "luck": 0
+          },
+          "monetisation": {
+            "craft": 3,
+            "scale": 3,
+            "automate": 3,
+            "luck": 0
+          },
+          "retention": {
+            "craft": 3,
+            "scale": 3,
+            "automate": 3,
+            "luck": 0
+          },
+          "expansion": {
+            "craft": 3,
+            "scale": 3,
+            "automate": 3,
+            "luck": 0
+          },
+          "operations": {
+            "craft": 3,
+            "scale": 3,
+            "automate": 3,
+            "luck": 0
+          }
+        }
+      },
+      {
+        "tick": 7200,
+        "quarter": 5,
+        "cash": 45158698,
+        "arr": 1493760000,
+        "contractualArr": 1493760000,
+        "mrr": 124480000,
+        "cost": 25365050,
+        "nextBill": 25365050,
+        "forecastMinimum": 45158698,
+        "growth": 2.26890756302521,
+        "multiple": 19.07563025210084,
+        "stability": 0.5197393678037364,
+        "valuation": 14809668430,
+        "receivables": 103697913,
+        "unbilled": 0,
+        "load": 149.61,
         "capacity": 76,
-        "overload": 0.9903947368421052,
-        "speed": 0.7444305758663549,
+        "overload": 2.8269418859649065,
+        "speed": 0.26336164313320554,
         "rot": 1,
         "ranks": {
           "demand": {
@@ -626,7 +1440,7 @@
           "expansion": {
             "craft": 4,
             "scale": 3,
-            "automate": 4,
+            "automate": 3,
             "luck": 0
           },
           "operations": {
@@ -636,621 +1450,663 @@
             "luck": 0
           }
         }
-      }
-    ]
-  },
-  {
-    "seed": 84022,
-    "capital": "bootstrap",
-    "status": "won",
-    "tick": 8720,
-    "quarter": 5,
-    "failure": "",
-    "valuation": 100390498214,
-    "cash": 201429602,
-    "ranks": {
-      "demand": {
-        "craft": 4,
-        "scale": 4,
-        "automate": 4,
-        "luck": 0
       },
-      "product": {
-        "craft": 4,
-        "scale": 4,
-        "automate": 4,
-        "luck": 0
-      },
-      "monetisation": {
-        "craft": 4,
-        "scale": 4,
-        "automate": 4,
-        "luck": 0
-      },
-      "retention": {
-        "craft": 4,
-        "scale": 4,
-        "automate": 4,
-        "luck": 0
-      },
-      "expansion": {
-        "craft": 4,
-        "scale": 4,
-        "automate": 4,
-        "luck": 0
-      },
-      "operations": {
-        "craft": 4,
-        "scale": 4,
-        "automate": 4,
-        "luck": 0
-      }
-    },
-    "checkpoints": [
       {
-        "tick": 1800,
-        "quarter": 2,
-        "cash": 220497,
-        "arr": 9984000,
-        "contractualArr": 9984000,
-        "mrr": 832000,
-        "cost": 172000,
-        "nextBill": 172000,
-        "forecastMinimum": 220497,
-        "growth": 8.32,
-        "multiple": 26,
-        "stability": 0.9783757316737047,
-        "valuation": 253970685,
-        "receivables": 710398,
+        "tick": 9000,
+        "quarter": 6,
+        "cash": 368834474,
+        "arr": 3447552000,
+        "contractualArr": 3447552000,
+        "mrr": 287296000,
+        "cost": 49604500,
+        "nextBill": 49604500,
+        "forecastMinimum": 368834474,
+        "growth": 1.307969151670951,
+        "multiple": 13.847814910025706,
+        "stability": 0.5170043659172242,
+        "valuation": 24682337481,
+        "receivables": 270058663,
         "unbilled": 0,
-        "load": 6.159999999999999,
-        "capacity": 16,
-        "overload": 0,
-        "speed": 1,
-        "rot": 0.044204425,
+        "load": 206.07999999999996,
+        "capacity": 140,
+        "overload": 2.894797619047659,
+        "speed": 0.2542621558793056,
+        "rot": 1,
         "ranks": {
           "demand": {
-            "craft": 0,
-            "scale": 0,
-            "automate": 1,
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
             "luck": 0
           },
           "product": {
-            "craft": 0,
-            "scale": 0,
-            "automate": 1,
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
             "luck": 0
           },
           "monetisation": {
-            "craft": 1,
-            "scale": 0,
-            "automate": 0,
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
             "luck": 0
           },
           "retention": {
-            "craft": 0,
-            "scale": 0,
-            "automate": 0,
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
             "luck": 0
           },
           "expansion": {
-            "craft": 0,
-            "scale": 0,
-            "automate": 0,
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
             "luck": 0
           },
           "operations": {
-            "craft": 0,
-            "scale": 0,
-            "automate": 0,
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
             "luck": 0
           }
         }
       },
       {
-        "tick": 3600,
-        "quarter": 3,
-        "cash": 1263410,
-        "arr": 41088000,
-        "contractualArr": 41088000,
-        "mrr": 3424000,
-        "cost": 693600,
-        "nextBill": 693600,
-        "forecastMinimum": 1263410,
-        "growth": 3.1153846153846154,
-        "multiple": 22.46153846153846,
-        "stability": 0.979718709013765,
-        "valuation": 904182095,
-        "receivables": 2895808,
+        "tick": 10800,
+        "quarter": 7,
+        "cash": 1120157594,
+        "arr": 4826880000,
+        "contractualArr": 4826880000,
+        "mrr": 402240000,
+        "cost": 62759500,
+        "nextBill": 62759500,
+        "forecastMinimum": 1120157594,
+        "growth": 0.4000891067052796,
+        "multiple": 7.200712853642237,
+        "stability": 0.4669182967187313,
+        "valuation": 16228668434,
+        "receivables": 384328530,
         "unbilled": 0,
-        "load": 13.819999999999999,
-        "capacity": 22,
-        "overload": 0,
-        "speed": 1,
-        "rot": 0.04140227352941176,
+        "load": 206.07999999999996,
+        "capacity": 140,
+        "overload": 4.278015476190743,
+        "speed": 0.1350348490394781,
+        "rot": 1,
         "ranks": {
           "demand": {
-            "craft": 2,
-            "scale": 1,
-            "automate": 1,
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
             "luck": 0
           },
           "product": {
-            "craft": 2,
-            "scale": 1,
-            "automate": 1,
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
             "luck": 0
           },
           "monetisation": {
-            "craft": 1,
-            "scale": 1,
-            "automate": 1,
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
             "luck": 0
           },
           "retention": {
-            "craft": 1,
-            "scale": 1,
-            "automate": 1,
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
             "luck": 0
           },
           "expansion": {
-            "craft": 1,
-            "scale": 1,
-            "automate": 1,
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
             "luck": 0
           },
           "operations": {
-            "craft": 1,
-            "scale": 1,
-            "automate": 1,
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
             "luck": 0
           }
         }
       },
       {
-        "tick": 5400,
-        "quarter": 4,
-        "cash": 5508596,
-        "arr": 204672000,
-        "contractualArr": 204672000,
-        "mrr": 17056000,
-        "cost": 3378800,
-        "nextBill": 3378800,
-        "forecastMinimum": 5508596,
-        "growth": 3.9813084112149535,
-        "multiple": 25.925233644859816,
-        "stability": 0.9747329571229462,
-        "valuation": 5172098210,
-        "receivables": 13289375,
+        "tick": 12600,
+        "quarter": 8,
+        "cash": 2153544064,
+        "arr": 5756044800,
+        "contractualArr": 5756044800,
+        "mrr": 479670400,
+        "cost": 74337500,
+        "nextBill": 74337500,
+        "forecastMinimum": 2153544064,
+        "growth": 0.19249801113762927,
+        "multiple": 5.539984089101035,
+        "stability": 0.4253195782956174,
+        "valuation": 13562759397,
+        "receivables": 467979729,
         "unbilled": 0,
-        "load": 27.56,
-        "capacity": 24,
-        "overload": 0.1612944444444443,
-        "speed": 0.9909765989250635,
-        "rot": 0.0034556977777777777,
+        "load": 207.48,
+        "capacity": 140,
+        "overload": 5.674488095238858,
+        "speed": 0.08150002225323148,
+        "rot": 1,
         "ranks": {
           "demand": {
-            "craft": 3,
-            "scale": 2,
-            "automate": 2,
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
             "luck": 0
           },
           "product": {
-            "craft": 2,
-            "scale": 2,
-            "automate": 2,
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
             "luck": 0
           },
           "monetisation": {
-            "craft": 2,
-            "scale": 2,
-            "automate": 2,
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
             "luck": 0
           },
           "retention": {
-            "craft": 2,
-            "scale": 2,
-            "automate": 2,
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
             "luck": 0
           },
           "expansion": {
-            "craft": 2,
-            "scale": 1,
-            "automate": 2,
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
             "luck": 0
           },
           "operations": {
-            "craft": 2,
-            "scale": 1,
-            "automate": 2,
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
             "luck": 0
           }
         }
       },
       {
-        "tick": 7200,
-        "quarter": 5,
-        "cash": 30248725,
-        "arr": 1041024000,
-        "contractualArr": 1041024000,
-        "mrr": 86752000,
-        "cost": 17302200,
-        "nextBill": 17302200,
-        "forecastMinimum": 30248725,
-        "growth": 4.086303939962477,
-        "multiple": 26,
-        "stability": 0.9721446253840687,
-        "valuation": 26312673048,
-        "receivables": 66069071,
+        "tick": 14400,
+        "quarter": 9,
+        "cash": 3399056704,
+        "arr": 6683404800,
+        "contractualArr": 6683404800,
+        "mrr": 556950400,
+        "cost": 85895900,
+        "nextBill": 85895900,
+        "forecastMinimum": 3399056704,
+        "growth": 0.16111062929878517,
+        "multiple": 5.288885034390281,
+        "stability": 0.3898624349512499,
+        "valuation": 13780763637,
+        "receivables": 547146289,
         "unbilled": 0,
-        "load": 80.71999999999998,
-        "capacity": 68,
-        "overload": 0.19102352941176443,
-        "speed": 0.9873895581327019,
-        "rot": 0,
+        "load": 207.48,
+        "capacity": 140,
+        "overload": 7.100048809525074,
+        "speed": 0.05363729924317308,
+        "rot": 1,
         "ranks": {
           "demand": {
-            "craft": 3,
-            "scale": 3,
-            "automate": 3,
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
             "luck": 0
           },
           "product": {
-            "craft": 3,
-            "scale": 3,
-            "automate": 3,
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
             "luck": 0
           },
           "monetisation": {
-            "craft": 3,
-            "scale": 3,
-            "automate": 3,
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
             "luck": 0
           },
           "retention": {
-            "craft": 3,
-            "scale": 3,
-            "automate": 3,
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
             "luck": 0
           },
           "expansion": {
-            "craft": 3,
-            "scale": 3,
-            "automate": 3,
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
             "luck": 0
           },
           "operations": {
-            "craft": 3,
-            "scale": 3,
-            "automate": 3,
-            "luck": 0
-          }
-        }
-      }
-    ]
-  },
-  {
-    "seed": 19,
-    "capital": "debt",
-    "status": "failed",
-    "tick": 1200,
-    "quarter": 1,
-    "failure": "Monthly operating bill required $1895.20; only $1369.00 was liquid. Keep a reserve or raise capital before the due date.",
-    "valuation": 352687665,
-    "cash": 136900,
-    "ranks": {
-      "demand": {
-        "craft": 1,
-        "scale": 1,
-        "automate": 1,
-        "luck": 0
-      },
-      "product": {
-        "craft": 1,
-        "scale": 1,
-        "automate": 1,
-        "luck": 0
-      },
-      "monetisation": {
-        "craft": 1,
-        "scale": 1,
-        "automate": 1,
-        "luck": 0
-      },
-      "retention": {
-        "craft": 1,
-        "scale": 0,
-        "automate": 1,
-        "luck": 0
-      },
-      "expansion": {
-        "craft": 0,
-        "scale": 0,
-        "automate": 0,
-        "luck": 0
-      },
-      "operations": {
-        "craft": 1,
-        "scale": 0,
-        "automate": 0,
-        "luck": 0
-      }
-    },
-    "checkpoints": []
-  },
-  {
-    "seed": 77,
-    "capital": "debt",
-    "status": "failed",
-    "tick": 1200,
-    "quarter": 1,
-    "failure": "Monthly operating bill required $1780.00; only $1578.32 was liquid. Keep a reserve or raise capital before the due date.",
-    "valuation": 350213126,
-    "cash": 157832,
-    "ranks": {
-      "demand": {
-        "craft": 1,
-        "scale": 1,
-        "automate": 1,
-        "luck": 0
-      },
-      "product": {
-        "craft": 1,
-        "scale": 1,
-        "automate": 1,
-        "luck": 0
-      },
-      "monetisation": {
-        "craft": 1,
-        "scale": 1,
-        "automate": 1,
-        "luck": 0
-      },
-      "retention": {
-        "craft": 1,
-        "scale": 0,
-        "automate": 0,
-        "luck": 0
-      },
-      "expansion": {
-        "craft": 0,
-        "scale": 0,
-        "automate": 0,
-        "luck": 0
-      },
-      "operations": {
-        "craft": 1,
-        "scale": 0,
-        "automate": 0,
-        "luck": 0
-      }
-    },
-    "checkpoints": []
-  },
-  {
-    "seed": 84022,
-    "capital": "debt",
-    "status": "won",
-    "tick": 6280,
-    "quarter": 4,
-    "failure": "",
-    "valuation": 100585690515,
-    "cash": 90731408,
-    "ranks": {
-      "demand": {
-        "craft": 4,
-        "scale": 4,
-        "automate": 4,
-        "luck": 0
-      },
-      "product": {
-        "craft": 4,
-        "scale": 4,
-        "automate": 4,
-        "luck": 0
-      },
-      "monetisation": {
-        "craft": 4,
-        "scale": 4,
-        "automate": 4,
-        "luck": 0
-      },
-      "retention": {
-        "craft": 4,
-        "scale": 4,
-        "automate": 4,
-        "luck": 0
-      },
-      "expansion": {
-        "craft": 4,
-        "scale": 4,
-        "automate": 4,
-        "luck": 0
-      },
-      "operations": {
-        "craft": 4,
-        "scale": 4,
-        "automate": 4,
-        "luck": 0
-      }
-    },
-    "checkpoints": [
-      {
-        "tick": 1800,
-        "quarter": 2,
-        "cash": 393288,
-        "arr": 29952000,
-        "contractualArr": 29952000,
-        "mrr": 2496000,
-        "cost": 509000,
-        "nextBill": 509000,
-        "forecastMinimum": 393288,
-        "growth": 24.96,
-        "multiple": 26,
-        "stability": 0.984930562395351,
-        "valuation": 767016645,
-        "receivables": 2055675,
-        "unbilled": 0,
-        "load": 11.409999999999998,
-        "capacity": 17,
-        "overload": 0,
-        "speed": 1,
-        "rot": 0.030599999999999995,
-        "ranks": {
-          "demand": {
-            "craft": 1,
-            "scale": 1,
-            "automate": 1,
-            "luck": 0
-          },
-          "product": {
-            "craft": 1,
-            "scale": 1,
-            "automate": 1,
-            "luck": 0
-          },
-          "monetisation": {
-            "craft": 1,
-            "scale": 1,
-            "automate": 1,
-            "luck": 0
-          },
-          "retention": {
-            "craft": 1,
-            "scale": 1,
-            "automate": 1,
-            "luck": 0
-          },
-          "expansion": {
-            "craft": 0,
-            "scale": 0,
-            "automate": 0,
-            "luck": 0
-          },
-          "operations": {
-            "craft": 1,
-            "scale": 0,
-            "automate": 1,
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
             "luck": 0
           }
         }
       },
       {
-        "tick": 3600,
-        "quarter": 3,
-        "cash": 3068054,
-        "arr": 114432000,
-        "contractualArr": 114432000,
-        "mrr": 9536000,
-        "cost": 1993800,
-        "nextBill": 1993800,
-        "forecastMinimum": 3068054,
-        "growth": 2.8205128205128207,
-        "multiple": 21.282051282051285,
-        "stability": 0.9975432401632331,
-        "valuation": 2429364627,
-        "receivables": 7141700,
+        "tick": 16200,
+        "quarter": 10,
+        "cash": 4840728745,
+        "arr": 7388236800,
+        "contractualArr": 7388236800,
+        "mrr": 615686400,
+        "cost": 94323500,
+        "nextBill": 94323500,
+        "forecastMinimum": 4840728745,
+        "growth": 0.10546001942004171,
+        "multiple": 4.8436801553603335,
+        "stability": 0.3606295097202832,
+        "valuation": 12905579945,
+        "receivables": 612199838,
         "unbilled": 0,
-        "load": 33.04,
-        "capacity": 36,
-        "overload": 0.011055555555555482,
-        "speed": 0.9999572229719278,
-        "rot": 0.0016089540740740742,
+        "load": 207.48,
+        "capacity": 140,
+        "overload": 8.486192857144625,
+        "speed": 0.038160053166465,
+        "rot": 1,
         "ranks": {
           "demand": {
-            "craft": 2,
-            "scale": 2,
-            "automate": 2,
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
             "luck": 0
           },
           "product": {
-            "craft": 2,
-            "scale": 2,
-            "automate": 2,
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
             "luck": 0
           },
           "monetisation": {
-            "craft": 2,
-            "scale": 2,
-            "automate": 2,
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
             "luck": 0
           },
           "retention": {
-            "craft": 2,
-            "scale": 2,
-            "automate": 2,
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
             "luck": 0
           },
           "expansion": {
-            "craft": 2,
-            "scale": 2,
-            "automate": 2,
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
             "luck": 0
           },
           "operations": {
-            "craft": 2,
-            "scale": 2,
-            "automate": 2,
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
             "luck": 0
           }
         }
       },
       {
-        "tick": 5400,
-        "quarter": 4,
-        "cash": 13477354,
-        "arr": 483840000,
-        "contractualArr": 483840000,
-        "mrr": 40320000,
-        "cost": 8338800,
-        "nextBill": 8338800,
-        "forecastMinimum": 13477354,
-        "growth": 3.228187919463087,
-        "multiple": 22.91275167785235,
-        "stability": 0.9252552793387286,
-        "valuation": 10257477892,
-        "receivables": 29553244,
+        "tick": 18000,
+        "quarter": 11,
+        "cash": 6412420274,
+        "arr": 7557964800,
+        "contractualArr": 7557964800,
+        "mrr": 629830400,
+        "cost": 94318700,
+        "nextBill": 94318700,
+        "forecastMinimum": 6412420274,
+        "growth": 0.02297273417116246,
+        "multiple": 4.183781873369299,
+        "stability": 0.33580441407702655,
+        "valuation": 10618429781,
+        "receivables": 622648104,
         "unbilled": 0,
-        "load": 60.35999999999999,
-        "capacity": 40,
-        "overload": 0.5301183333333332,
-        "speed": 0.9104492111098643,
-        "rot": 0.002530118333333333,
+        "load": 207.48,
+        "capacity": 140,
+        "overload": 9.852826190478464,
+        "speed": 0.02858991858753675,
+        "rot": 1,
         "ranks": {
           "demand": {
-            "craft": 3,
-            "scale": 3,
-            "automate": 3,
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
             "luck": 0
           },
           "product": {
-            "craft": 3,
-            "scale": 3,
-            "automate": 3,
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
             "luck": 0
           },
           "monetisation": {
-            "craft": 3,
-            "scale": 3,
-            "automate": 3,
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
             "luck": 0
           },
           "retention": {
-            "craft": 3,
-            "scale": 2,
-            "automate": 3,
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
             "luck": 0
           },
           "expansion": {
-            "craft": 3,
-            "scale": 2,
-            "automate": 3,
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
             "luck": 0
           },
           "operations": {
-            "craft": 3,
-            "scale": 2,
-            "automate": 3,
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          }
+        }
+      },
+      {
+        "tick": 19800,
+        "quarter": 12,
+        "cash": 8041729036,
+        "arr": 8214566400,
+        "contractualArr": 8214566400,
+        "mrr": 684547200,
+        "cost": 103446100,
+        "nextBill": 103446100,
+        "forecastMinimum": 8041729036,
+        "growth": 0.08687545091503998,
+        "multiple": 4.69500360732032,
+        "stability": 0.31360809359763897,
+        "valuation": 12095054710,
+        "receivables": 679813650,
+        "unbilled": 0,
+        "load": 207.48,
+        "capacity": 140,
+        "overload": 11.257954761907513,
+        "speed": 0.0220460785143709,
+        "rot": 1,
+        "ranks": {
+          "demand": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "product": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "monetisation": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "retention": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "expansion": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "operations": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          }
+        }
+      },
+      {
+        "tick": 21600,
+        "quarter": 13,
+        "cash": 9802794913,
+        "arr": 8625408000,
+        "contractualArr": 8625408000,
+        "mrr": 718784000,
+        "cost": 109276200,
+        "nextBill": 109276200,
+        "forecastMinimum": 9802794913,
+        "growth": 0.05001379013748066,
+        "multiple": 4.400110321099845,
+        "stability": 0.2939630539884236,
+        "valuation": 11156705346,
+        "receivables": 713036192,
+        "unbilled": 0,
+        "load": 208.17999999999998,
+        "capacity": 140,
+        "overload": 12.678586904765261,
+        "speed": 0.017463802494567145,
+        "rot": 1,
+        "ranks": {
+          "demand": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "product": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "monetisation": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "retention": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "expansion": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "operations": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          }
+        }
+      },
+      {
+        "tick": 23400,
+        "quarter": 14,
+        "cash": 11643226407,
+        "arr": 9046041600,
+        "contractualArr": 9046041600,
+        "mrr": 753836800,
+        "cost": 115248800,
+        "nextBill": 115248800,
+        "forecastMinimum": 11643226407,
+        "growth": 0.048766806161517226,
+        "multiple": 4.3901344492921375,
+        "stability": 0.2776370449918823,
+        "valuation": 11025894047,
+        "receivables": 745747196,
+        "unbilled": 0,
+        "load": 206.77999999999994,
+        "capacity": 140,
+        "overload": 14.012165476194252,
+        "speed": 0.014343236099319737,
+        "rot": 1,
+        "ranks": {
+          "demand": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "product": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "monetisation": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "retention": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "expansion": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "operations": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          }
+        }
+      },
+      {
+        "tick": 25200,
+        "quarter": 15,
+        "cash": 13553430529,
+        "arr": 9168051840,
+        "contractualArr": 9168051840,
+        "mrr": 764004320,
+        "cost": 117269950,
+        "nextBill": 117269950,
+        "forecastMinimum": 13553430529,
+        "growth": 0.013487693888120081,
+        "multiple": 4.107901551104961,
+        "stability": 0.26261425361367857,
+        "valuation": 9890434730,
+        "receivables": 759982207,
+        "unbilled": 0,
+        "load": 206.42999999999998,
+        "capacity": 140,
+        "overload": 15.3857761904795,
+        "speed": 0.01192566900176727,
+        "rot": 1,
+        "ranks": {
+          "demand": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "product": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "monetisation": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "retention": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "expansion": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "operations": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          }
+        }
+      },
+      {
+        "tick": 27000,
+        "quarter": 16,
+        "cash": 15492044477,
+        "arr": 9118460160,
+        "contractualArr": 9118460160,
+        "mrr": 759871680,
+        "cost": 116368750,
+        "nextBill": 116368750,
+        "forecastMinimum": 15492044477,
+        "growth": -0.005409184073723562,
+        "multiple": 3.9783632637051056,
+        "stability": 0.2498219405271471,
+        "valuation": 9062677347,
+        "receivables": 751421993,
+        "unbilled": 0,
+        "load": 206.42999999999998,
+        "capacity": 140,
+        "overload": 16.685673214287714,
+        "speed": 0.010158049940630926,
+        "rot": 1,
+        "ranks": {
+          "demand": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "product": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "monetisation": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "retention": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "expansion": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
+            "luck": 0
+          },
+          "operations": {
+            "craft": 4,
+            "scale": 4,
+            "automate": 4,
             "luck": 0
           }
         }

@@ -1,5 +1,5 @@
-import type { Company, Lead } from './model';
-import { AXES, FUNCTIONS, NAMES, P, UPGRADES, type Axis, type Work } from './profile';
+import type { Company, Lead, OperationsPatch, OperationsPatchEffect } from './model';
+import { FUNCTIONS, P } from './profile';
 
 export function toyRoll(seed:number,...keys:(string|number)[]){let h=seed>>>0;for(const c of keys.join(':')){h=Math.imul(h^c.charCodeAt(0),16777619);h^=h>>>13;}h=Math.imul(h^(h>>>16),2246822507);h=Math.imul(h^(h>>>13),3266489909);return ((h^(h>>>16))>>>0)/4294967296;}
 export const COMPONENTS=[
@@ -26,29 +26,73 @@ export type MergeTile={family:number;tier:number};
 export const initialBoard=():Array<MergeTile|null>=>Array.from({length:16},(_,i)=>i<8?{family:i%2,tier:1}:null);
 export const mergeOrder=(addons:number)=>[{family:0,tier:3+addons},{family:1,tier:3+addons}];
 export const mergeNames=[['Event','Report','Intelligence suite','Decision platform'],['Step','Workflow','Automation suite','Orchestration platform']];
+export const expansionBoardSlots=(s:Company)=>Math.min(16,8+s.ranks.expansion.scale*2);
+export const packageMass=(board:Array<MergeTile|null>,family:number)=>board.reduce((total,tile)=>total+(tile?.family===family?2**(tile.tier-1):0),0);
+export const packageNeeds=(addons:number)=>mergeOrder(addons).map(target=>({...target,mass:2**(target.tier-1)}));
+export const packageComplete=(s:Company,account:{addons:number},board:Array<MergeTile|null>)=>mergeOrder(account.addons).every(target=>board.some(tile=>tile?.family===target.family&&tile.tier===target.tier));
 export const bankHits=(s:Company)=>Math.max(1,P.bankHits-Math.floor(s.ranks.retention.craft/2));
-export function opsOutcomes(s:Company){
- const points=P.craft_batch_by_rank[s.ranks.operations.craft]*(s.upgrades.includes('maintenance')?1.5:1);
- return [
-  {target:'strain' as const,label:'Untangle handoffs',amount:points*P.strain_repair_load_per_maintenance_point},
-  ...FUNCTIONS.map(target=>({target,label:`Refresh ${NAMES[target]}`,amount:points*P.rot_recovery_per_maintenance_point})),
- ];
+export const RETENTION_PROBLEMS=[
+ {kind:'handoff' as const,label:'Approval handoff stalled',detail:'The next owner cannot clear a real customer approval.'},
+ {kind:'reliability' as const,label:'Workflow failed mid-run',detail:'A customer workflow stopped before its promised outcome.'},
+ {kind:'adoption' as const,label:'Team stopped using the loop',detail:'The account needs a concrete recovery before habits harden.'},
+ {kind:'trust' as const,label:'Trust is eroding',detail:'A visible reliability promise needs an accountable response.'},
+] as const;
+export function retentionProblemContent(seed:number,accountId:number){return RETENTION_PROBLEMS[Math.floor(toyRoll(seed,'retention-problem',accountId)*RETENTION_PROBLEMS.length)]!;}
+export const OPERATIONS_TICKET_STREAM='operations-ticket-v1';
+export const operationsTicketPatchCount=(scaleRank:number)=>P.operationsTicketBasePatches+Math.max(0,Math.min(4,scaleRank))*P.operationsTicketPatchesPerScale;
+export const operationsTicketSupply=(scaleRank:number)=>P.operationsTicketsPerQuarter+Math.max(0,Math.min(4,scaleRank))*P.operationsTicketsPerScale;
+export const operationsTicketPrice=(scaleRank:number)=>P.operationsTicketBasePriceCents+operationsTicketPatchCount(scaleRank)*P.operationsTicketPricePerPatchCents;
+export function operationsAutomationUpkeepPerTicket(automateRank:number,computeFactor=1){
+ if(automateRank<=0)return 0;
+ const upkeep=P.auto_upkeep_cents_per_unit_month[automateRank]??0,speed=P.auto_speed_by_rank[automateRank]??0;
+ return Math.round(upkeep*computeFactor*(P.functions.operations.manual_seconds*10)/(Math.max(.001,speed)*P.ticks_per_month));
+}
+const OPS_LABELS={
+ cash:{positive:'Vendor service credit',negative:'Emergency vendor invoice'},
+ strain:{positive:'Untangle the handoff',negative:'Escalation loop'},
+ rot:{positive:'Refresh the runbook',negative:'Stale configuration copied'},
+ incident:{positive:'Close a live incident',negative:'Production incident escaped'},
+} as const;
+function ticketValue(seed:number,ticketId:number,patchId:number,luckRank:number){
+ const values=P.operationsTicketBaseValuesCents,index=Math.floor(toyRoll(seed,OPERATIONS_TICKET_STREAM,ticketId,patchId,'base')*values.length);
+ const shared=toyRoll(seed,OPERATIONS_TICKET_STREAM,ticketId,'shared')<.5?-1:1;
+ const local=toyRoll(seed,OPERATIONS_TICKET_STREAM,ticketId,patchId,'local')<.5?-1:1;
+ return Math.round(values[index]+luckRank*P.operationsTicketLuckSpreadCents*(Math.sqrt(.4)*shared+Math.sqrt(.6)*local));
+}
+export function operationsTicketPatches(seed:number,ticketId:number,scaleRank:number,luckRank:number,craftRank:number):OperationsPatch[]{
+ const count=operationsTicketPatchCount(scaleRank),craftMultiplier=1+.25*Math.max(0,Math.min(4,craftRank));
+ return Array.from({length:count},(_,id)=>{
+  const valueCents=ticketValue(seed,ticketId,id,luckRank),sentiment=valueCents>=0?'positive':'negative',magnitude=Math.max(100,Math.abs(valueCents));
+  const kinds=['cash','strain','rot','incident'] as const,kind=kinds[id%kinds.length];
+  const target=FUNCTIONS[Math.floor(toyRoll(seed,OPERATIONS_TICKET_STREAM,ticketId,id,'target')*FUNCTIONS.length)];
+  const positive=sentiment==='positive';
+  let effect:OperationsPatchEffect;
+  if(kind==='cash')effect={kind:'cash',cents:valueCents};
+  else if(kind==='strain')effect={kind:'strain',direction:positive?'repair':'add',amount:Number((magnitude/1000*(positive?craftMultiplier:1)).toFixed(4))};
+  else if(kind==='rot')effect={kind:'rot',direction:positive?'repair':'add',target,amount:Number((magnitude/100000*(positive?craftMultiplier:1)).toFixed(6))};
+  else effect={kind:'incident',mode:positive?'resolve':'open',target,severity:(magnitude>=1100?3:magnitude>=600?2:1),monthlyCostCents:P.operationsIncidentBaseMonthlyCostCents*Math.max(1,Math.round(magnitude/500))};
+  return {id,label:OPS_LABELS[kind][sentiment],sentiment,valueCents,effect};
+ });
+}
+export const opsOutcomes=(s:Company)=>s.ops.patches;
+export type OperationsDistributionMeasurement={samples:number;scaleRank:number;luckRank:number;automateRank:number;manual:{meanAfterPrice:number;lossRate:number};automated:{meanAfterPrice:number;meanAfterPriceAndUpkeep:number;lossRate:number;variance:number;minimum:number;maximum:number};ticket:{price:number;patches:number;supplyPerQuarter:number;upkeepPerTicket:number}};
+export function measureOperationsTickets(samples:number,scaleRank:number,luckRank:number,automateRank:number,discountCompute=false):OperationsDistributionMeasurement{
+ const price=operationsTicketPrice(scaleRank),upkeep=operationsAutomationUpkeepPerTicket(automateRank,discountCompute?P.rewardComputeFactor:1);let manual=0,manualLoss=0,auto=0,autoLoss=0,sumSq=0,minimum=Infinity,maximum=-Infinity;
+ for(let seed=1;seed<=samples;seed++){
+  const patches=operationsTicketPatches(seed,1,scaleRank,luckRank,0),manualNet=patches.reduce((n,p)=>n+Math.max(0,p.valueCents),0)-price,autoNet=patches.reduce((n,p)=>n+p.valueCents,0)-price;
+  manual+=manualNet;if(manualNet<0)manualLoss++;auto+=autoNet;if(autoNet-upkeep<0)autoLoss++;sumSq+=autoNet*autoNet;minimum=Math.min(minimum,autoNet-upkeep);maximum=Math.max(maximum,autoNet-upkeep);
+ }
+ const autoMean=auto/samples;
+ return {samples,scaleRank,luckRank,automateRank,manual:{meanAfterPrice:manual/samples,lossRate:manualLoss/samples},automated:{meanAfterPrice:autoMean,meanAfterPriceAndUpkeep:autoMean-upkeep,lossRate:autoLoss/samples,variance:sumSq/samples-autoMean*autoMean,minimum,maximum},ticket:{price,patches:operationsTicketPatchCount(scaleRank),supplyPerQuarter:operationsTicketSupply(scaleRank),upkeepPerTicket:upkeep}};
 }
 
-// Once the strategy pool thins, ordinary capability ranks keep quarters useful.
-// These use the existing rank economics, not a second upgrade multiplier system.
-export type DraftOption={id:string;name:string;text:string;cost:number;available:boolean;work?:Work;axis?:Axis;rank?:number};
-export function draftOption(s:Company,id:string,quarter:number):DraftOption|undefined {
- const strategy=UPGRADES.find(u=>u.id===id);
- if(strategy)return {...strategy,cost:P.upgradeDraftBase*quarter,available:!s.upgrades.includes(id)};
- const [kind,work,axis,rawRank]=id.split(':');const rank=Number(rawRank);
- if(kind!=='capability'||!FUNCTIONS.includes(work as Work)||!AXES.includes(axis as Axis)||!Number.isInteger(rank)||rank<1||rank>4)return;
- const f=work as Work,a=axis as Axis;
- const effect=a==='craft'?`Up to ${P.craft_batch_by_rank[rank]} outputs per attempt${f==='retention'?`; ${Math.max(1,P.bankHits-Math.floor(rank/2))} hits per bank`:''}.`:a==='scale'?`${P.units_by_scale_rank[rank]} work lanes. Extra lanes add upkeep and coordination load.`:a==='automate'?`${P.auto_speed_by_rank[rank]}× manual speed per lane. Compute upkeep and context rot apply.`:'Wider output swings with slightly negative long-run expected output. Exposure starts enabled.';
- return {id,name:`${NAMES[f]}: ${a} ${rank}`,text:`${effect} Installs in 5 seconds.`,cost:Math.round(P.upgrade_base_cents*P.upgrade_cost_ratio**(rank-1)),available:s.ranks[f][a]+1===rank,work:f,axis:a,rank};
-}
+// S12 owns the authored catalogue; preserve imports used by older room adapters.
+export { draftOption } from './rewards';
+import { rewardPool, buildAffinity } from './rewards';
 export function quarterChoices(s:Company):string[]{
- const strategies=UPGRADES.filter(u=>!s.upgrades.includes(u.id)).map(u=>u.id as string).sort((a,b)=>toyRoll(s.seed,'draft',s.quarter,a)-toyRoll(s.seed,'draft',s.quarter,b));
- const ranks=FUNCTIONS.flatMap(f=>AXES.filter(a=>s.ranks[f][a]<4).map(a=>`capability:${f}:${a}:${s.ranks[f][a]+1}`)).sort((a,b)=>toyRoll(s.seed,'capability-draft',s.quarter,a)-toyRoll(s.seed,'capability-draft',s.quarter,b));
- return [...strategies.slice(0,3),...ranks.slice(0,Math.max(0,3-strategies.length))];
+ const pool=rewardPool(s).sort((a,b)=>(toyRoll(s.seed,'quarter-reward',s.quarter,a.id)-Math.min(1,buildAffinity(s,a.family)/100))-(toyRoll(s.seed,'quarter-reward',s.quarter,b.id)-Math.min(1,buildAffinity(s,b.family)/100)));
+ const chosen:typeof pool=[];
+ for(const option of pool)if(!chosen.some(r=>r.family===option.family||r.effect===option.effect)&&chosen.length<P.rewardDraftSize)chosen.push(option);
+ for(const option of pool)if(!chosen.some(r=>r.effect===option.effect)&&chosen.length<P.rewardDraftSize)chosen.push(option);
+ return chosen.map(r=>r.id);
 }

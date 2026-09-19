@@ -1,0 +1,42 @@
+
+ RUN  v3.2.4 /Users/deepsheth/Documents/GitHub/solounicorn
+
+ ❯ tests/integration/founder-state-save.test.ts (9 tests | 1 failed) 67ms
+   ✓ founder authoritative state and save boundary > uses one explicit phase table and freezes draft and pause time without RNG work 25ms
+   ✓ founder authoritative state and save boundary > defines duplicate, stale, cancelled, expired, unaffordable and out-of-phase outcomes without double charge 3ms
+   × founder authoritative state and save boundary > persists partial ownership, versions, inventory, pending draft and exact replay identity 20ms
+     → expected { relics: [], consumables: {}, …(1) } to deeply equal { relics: [], consumables: {} }
+   ✓ founder authoritative state and save boundary > migrates candidate.5 explicitly and recovers from a corrupt primary with a last-known-good save 4ms
+   ✓ founder authoritative state and save boundary > rebases a checksummed candidate.5 v2 save before replaying later rank and Retention rules 1ms
+   ✓ founder authoritative state and save boundary > deliberately migrates candidate.6 Retention damage into finite customer-problem work 2ms
+   ✓ founder authoritative state and save boundary > rebases candidate.8 repair-sheet saves onto paid ticket state without changing company money 5ms
+   ✓ founder authoritative state and save boundary > keeps owner-approved cash death tied to mandatory obligations 1ms
+   ✓ founder authoritative state and save boundary > commits the visible Demand profile deterministically and persists its cash-to-Product consequence 6ms
+ ✓ tests/integration/founder-finance.test.ts (17 tests) 311ms
+ ✓ tests/integration/founder-company.test.ts (19 tests) 361ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/integration/founder-state-save.test.ts > founder authoritative state and save boundary > persists partial ownership, versions, inventory, pending draft and exact replay identity
+AssertionError: expected { relics: [], consumables: {}, …(1) } to deeply equal { relics: [], consumables: {} }
+
+- Expected
++ Received
+
+  {
++   "active": [],
+    "consumables": {},
+    "relics": [],
+  }
+
+ ❯ tests/integration/founder-state-save.test.ts:42:158
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 2 passed (3)
+      Tests  1 failed | 44 passed (45)
+   Start at  15:31:02
+   Duration  893ms (transform 300ms, setup 0ms, collect 483ms, tests 738ms, environment 0ms, prepare 245ms)
+

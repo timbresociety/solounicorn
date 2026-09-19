@@ -1,0 +1,227 @@
+{
+  "seeds": "15000..15029",
+  "ticketsPerSeed": 100,
+  "warning": "Modeled operational utility is not liquid cash. Finite repair saturation and whole-company bills must be assessed separately; samples do not issue extra in-game tickets.",
+  "rows": [
+    {
+      "scale": 0,
+      "luck": 0,
+      "samples": 3000,
+      "price": 300,
+      "wholeTicket": {
+        "mean": 913.2,
+        "p01": -2000,
+        "p05": -1400,
+        "p50": 900,
+        "p95": 3200,
+        "p99": 3800,
+        "minimum": -2300,
+        "maximum": 4100,
+        "lossRate": 0.2906666666666667,
+        "variance": 1738532.426666531
+      },
+      "manualSelectiveModeledMean": 1610.7,
+      "cashOnlyMean": -2.066666666666667,
+      "automationRank1AllocatedCompute": 714,
+      "automationRank4AllocatedCompute": 1302
+    },
+    {
+      "scale": 0,
+      "luck": 1,
+      "samples": 3000,
+      "price": 300,
+      "wholeTicket": {
+        "mean": 902.4853333333333,
+        "p01": -2506,
+        "p05": -1506,
+        "p50": 797,
+        "p95": 3306,
+        "p99": 4306,
+        "minimum": -3124,
+        "maximum": 4924,
+        "lossRate": 0.24933333333333332,
+        "variance": 2084242.608451548
+      },
+      "manualSelectiveModeledMean": 1627.135,
+      "cashOnlyMean": -8.144333333333334,
+      "automationRank1AllocatedCompute": 714,
+      "automationRank4AllocatedCompute": 1302
+    },
+    {
+      "scale": 0,
+      "luck": 2,
+      "samples": 3000,
+      "price": 300,
+      "wholeTicket": {
+        "mean": 891.7253333333333,
+        "p01": -3032,
+        "p05": -2032,
+        "p50": 888,
+        "p95": 3832,
+        "p99": 4832,
+        "minimum": -4252,
+        "maximum": 6052,
+        "lossRate": 0.3253333333333333,
+        "variance": 3152826.943224896
+      },
+      "manualSelectiveModeledMean": 1708.4316666666666,
+      "cashOnlyMean": -14.255333333333333,
+      "automationRank1AllocatedCompute": 714,
+      "automationRank4AllocatedCompute": 1302
+    },
+    {
+      "scale": 0,
+      "luck": 3,
+      "samples": 3000,
+      "price": 300,
+      "wholeTicket": {
+        "mean": 881.0106666666667,
+        "p01": -4076,
+        "p05": -2847,
+        "p50": 889,
+        "p95": 4647,
+        "p99": 5876,
+        "minimum": -5376,
+        "maximum": 7176,
+        "lossRate": 0.361,
+        "variance": 4940420.446552953
+      },
+      "manualSelectiveModeledMean": 1854.32,
+      "cashOnlyMean": -20.333,
+      "automationRank1AllocatedCompute": 714,
+      "automationRank4AllocatedCompute": 1302
+    },
+    {
+      "scale": 0,
+      "luck": 4,
+      "samples": 3000,
+      "price": 300,
+      "wholeTicket": {
+        "mean": 870.2506666666667,
+        "p01": -4964,
+        "p05": -3664,
+        "p50": 776,
+        "p95": 5464,
+        "p99": 6764,
+        "minimum": -6504,
+        "maximum": 8304,
+        "lossRate": 0.38166666666666665,
+        "variance": 7453500.897166207
+      },
+      "manualSelectiveModeledMean": 2065.884,
+      "cashOnlyMean": -26.444,
+      "automationRank1AllocatedCompute": 714,
+      "automationRank4AllocatedCompute": 1302
+    },
+    {
+      "scale": 4,
+      "luck": 0,
+      "samples": 3000,
+      "price": 500,
+      "wholeTicket": {
+        "mean": 1943.1,
+        "p01": -2300,
+        "p05": -1000,
+        "p50": 1900,
+        "p95": 4800,
+        "p99": 6100,
+        "minimum": -4200,
+        "maximum": 7700,
+        "lossRate": 0.14666666666666667,
+        "variance": 3470472.3899999782
+      },
+      "manualSelectiveModeledMean": 3334.2,
+      "cashOnlyMean": 98.23333333333333,
+      "automationRank1AllocatedCompute": 714,
+      "automationRank4AllocatedCompute": 1302
+    },
+    {
+      "scale": 4,
+      "luck": 1,
+      "samples": 3000,
+      "price": 500,
+      "wholeTicket": {
+        "mean": 1921.0526666666667,
+        "p01": -3230,
+        "p05": -1703,
+        "p50": 1912,
+        "p95": 5494,
+        "p99": 6721,
+        "minimum": -4539,
+        "maximum": 9030,
+        "lossRate": 0.193,
+        "variance": 4605443.16989289
+      },
+      "manualSelectiveModeledMean": 3363.051,
+      "cashOnlyMean": 90.816,
+      "automationRank1AllocatedCompute": 714,
+      "automationRank4AllocatedCompute": 1302
+    },
+    {
+      "scale": 4,
+      "luck": 2,
+      "samples": 3000,
+      "price": 500,
+      "wholeTicket": {
+        "mean": 1898.9106666666667,
+        "p01": -4584,
+        "p05": -2744,
+        "p50": 1884,
+        "p95": 6524,
+        "p99": 8064,
+        "minimum": -6484,
+        "maximum": 10904,
+        "lossRate": 0.2786666666666667,
+        "variance": 8214701.720019546
+      },
+      "manualSelectiveModeledMean": 3522.749,
+      "cashOnlyMean": 83.36266666666667,
+      "automationRank1AllocatedCompute": 714,
+      "automationRank4AllocatedCompute": 1302
+    },
+    {
+      "scale": 4,
+      "luck": 3,
+      "samples": 3000,
+      "price": 500,
+      "wholeTicket": {
+        "mean": 1876.8633333333332,
+        "p01": -5923,
+        "p05": -4152,
+        "p50": 1778,
+        "p95": 7836,
+        "p99": 9394,
+        "minimum": -8423,
+        "maximum": 13152,
+        "lossRate": 0.355,
+        "variance": 14290960.833988933
+      },
+      "manualSelectiveModeledMean": 3812.4963333333335,
+      "cashOnlyMean": 75.94533333333334,
+      "automationRank1AllocatedCompute": 714,
+      "automationRank4AllocatedCompute": 1302
+    },
+    {
+      "scale": 4,
+      "luck": 4,
+      "samples": 3000,
+      "price": 500,
+      "wholeTicket": {
+        "mean": 1854.7213333333334,
+        "p01": -7468,
+        "p05": -5388,
+        "p50": 1868,
+        "p95": 9128,
+        "p99": 11028,
+        "minimum": -10368,
+        "maximum": 15408,
+        "lossRate": 0.4053333333333333,
+        "variance": 22846703.202344906
+      },
+      "manualSelectiveModeledMean": 4238.843333333333,
+      "cashOnlyMean": 68.492,
+      "automationRank1AllocatedCompute": 714,
+      "automationRank4AllocatedCompute": 1302
+    }
+  ]
+}

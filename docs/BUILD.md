@@ -1,6 +1,6 @@
 # ONE PERSON UNICORN — Build Contract
 
-Status: BINDING IMPLEMENTATION CONTRACT FOR V2
+Status: HISTORICAL V2 BUILD CONTRACT. Current work follows the [2026-09-16 revamp](exec-plans/active/2026-09-16-founder-revamp/README.md); package.json owns actual tool versions. S00 reconciles obsolete paths and enforcement. Reusable PWA/state-separation requirements remain applicable when consistent with latest owner decisions.
 
 This file defines how the canonical product is built. It does not invent product mechanics or balance numbers.
 
@@ -30,7 +30,7 @@ Current baseline includes:
 
 - React + App Router presentation;
 - TypeScript;
-- Vite/vinext build path;
+- Next production build/start and Vinext development server;
 - PWA manifest + service worker;
 - Cloudflare-compatible/OpenAI Sites hosting configuration;
 - deterministic standalone simulation modules;

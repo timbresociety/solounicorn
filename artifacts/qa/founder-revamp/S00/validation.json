@@ -1,0 +1,27 @@
+{
+  "task": "S00",
+  "base_commit": "70d8b0e550126849a524573098d051f288fcc706",
+  "branch": "main",
+  "commands": [
+    {
+      "command": "npm run validate",
+      "outcome": "passed",
+      "details": "Contract check, simulation smoke/determinism, 30 Founder tests, source typecheck, and lint passed. Legacy balance validation reports runtimeReady=false with 41 required unresolved entries without failing the active-app gate."
+    },
+    {
+      "command": "npm run build",
+      "outcome": "passed",
+      "details": "Next production build completed and postbuild produced an offline package with 24 immutable files (build 12c5e560fa58)."
+    },
+    {
+      "command": "git diff --check",
+      "outcome": "passed"
+    }
+  ],
+  "scope": {
+    "shipping_roots": ["app", "src", "tests"],
+    "preserved_reference_roots": ["solounicorn_exec"],
+    "reference_root_behavior": "Excluded from root TypeScript, ESLint, and repository-instruction scans; it remains present as user-supplied reference content."
+  },
+  "visual_device_human_verification": "not run: browser/computer-use remains disabled by owner instruction"
+}

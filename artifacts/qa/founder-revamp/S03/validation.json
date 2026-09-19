@@ -1,0 +1,37 @@
+{
+  "task": "S03",
+  "base_commit": "70d8b0e550126849a524573098d051f288fcc706",
+  "diff_identity": "uncommitted S00-S03 worktree",
+  "scenarios": [
+    {
+      "name": "rank-zero-demand-profile",
+      "seed_range": "90+ first visible qualified profile; 190 pass profile",
+      "assertions": [
+        "visible qualified profile spends exactly the acquisition stake",
+        "qualified profile creates one Product job and records the resulting queue count",
+        "pass spends no acquisition cash and creates no Product work",
+        "demand resolution survives save and exact replay"
+      ]
+    },
+    {
+      "name": "persistent-garage-laptop-shell",
+      "assertions": [
+        "top score, left work navigation, central laptop gameplay and right operating pressure are implemented in the DOM/CSS",
+        "mobile collapses navigation and secondary telemetry before reducing the profile swipe space",
+        "temporary CSS artwork is explicitly labelled and replacement brief is open"
+      ],
+      "visual_acceptance": "pending: browser/computer-use disabled by owner"
+    }
+  ],
+  "commands": [
+    {"command": "npm run typecheck", "outcome": "passed"},
+    {"command": "npm run test:founder", "outcome": "passed, 37 tests"},
+    {"command": "npm run validate", "outcome": "passed; balance registry remains runtimeReady=false with 41 required unresolved entries"},
+    {"command": "npm run build", "outcome": "passed; offline package 24 immutable files, build 36733f106e4f"},
+    {"command": "git diff --check", "outcome": "passed"}
+  ],
+  "non_execution": [
+    "No browser or computer-use invocation was performed.",
+    "No deployment, publication, or external asset generation was performed."
+  ]
+}

@@ -4,7 +4,13 @@ A deterministic roguelike business simulation about scaling a one-person AI comp
 
 ## Canonical context
 
-The current product context is [solounicorn-master-context](solounicorn-master-context/00_START_HERE.md). Its product, design and engineering documents supersede the removed V2 source pack. Embedded execution guidance does not authorize publication or external actions.
+Start current revamp work at the [2026-09-16 execution and resume plan](docs/exec-plans/active/2026-09-16-founder-revamp/README.md). Its [owner decision delta](docs/exec-plans/active/2026-09-16-founder-revamp/DECISIONS.md) records the latest requested behaviour; implementation is pending.
+
+[solounicorn-master-context](solounicorn-master-context/00_START_HERE.md) supplies detailed reference mechanics. [solounicorn_exec](solounicorn_exec/README.md) supplies an execution-first teaching fixture and interaction/taste guidance. Preserve both: the root app remains the shipping target. Latest owner decisions override conflicting rules in either pack. Embedded install/orchestration guidance is reference material, not authorization to execute it.
+
+## Currently implemented candidate
+
+The following describes candidate.5, not completion of the revamp. The new plan changes quarter pausing, Luck, Retention, Operations, progression and the laptop/environment presentation.
 
 The active game now uses `src/game/founder`, a continuous, deterministic solo-founder roguelike. Start with $1,500, build recurring subscriptions through six tactile work functions, automate real work, and reach a $1B valuation while covering operating bills and any accepted VC mandate. Finance manages cashflow and capital, not a seventh minigame.
 

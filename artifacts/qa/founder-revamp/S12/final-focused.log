@@ -1,0 +1,12 @@
+
+ RUN  v3.2.4 /Users/deepsheth/Documents/GitHub/solounicorn
+
+ ✓ tests/integration/founder-content.test.ts (18 tests) 472ms
+ ✓ tests/integration/founder-toys.test.ts (29 tests) 1087ms
+   ✓ tactile founder state and accounting > measures random rank-zero and wider Luck tickets after price and automation upkeep, with all sixteen ranks defined  760ms
+
+ Test Files  2 passed (2)
+      Tests  47 passed (47)
+   Start at  15:46:18
+   Duration  1.92s (transform 372ms, setup 0ms, collect 799ms, tests 1.56s, environment 1ms, prepare 216ms)
+

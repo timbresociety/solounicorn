@@ -8,9 +8,9 @@
   "scripts": {
     "dev": "vinext dev",
     "build": "next build",
-    "start": "vinext start",
+    "start": "next start",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit -p tsconfig.typecheck.json",
     "contract:check": "node scripts/check-repo-contract.mjs",
     "balance:validate": "node scripts/validate-balance.mjs",
     "balance:lock-check": "node scripts/validate-balance.mjs --require-locked",
@@ -23,8 +23,11 @@
     "test:integration": "vitest run tests/integration",
     "validate:content": "vitest run tests/unit/content-validation.test.ts",
     "test": "vitest run",
-    "test:founder": "vitest run tests/integration/founder-company.test.ts tests/integration/founder-policy.test.ts tests/integration/founder-toys.test.ts",
-    "postbuild": "node scripts/prepare-founder-offline.mjs"
+    "test:founder": "vitest run tests/integration/founder-content.test.ts tests/integration/founder-finance.test.ts tests/integration/founder-automation.test.ts tests/integration/founder-state-save.test.ts tests/integration/founder-company.test.ts tests/integration/founder-policy.test.ts tests/integration/founder-toys.test.ts tests/integration/founder-presentation.test.ts tests/integration/founder-resilience.test.ts tests/integration/founder-checkpoint-db.test.ts",
+    "postbuild": "node scripts/prepare-founder-offline.mjs",
+    "balance:founder-matrix": "RUN_FOUNDER_MATRIX=1 vitest run tests/simulation/founder-matrix.test.ts",
+    "pwa:check": "node scripts/check-founder-offline.mjs",
+    "test:founder-earned": "vitest run tests/simulation/founder-earned-run.test.ts"
   },
   "dependencies": {
     "next": "16.2.6",

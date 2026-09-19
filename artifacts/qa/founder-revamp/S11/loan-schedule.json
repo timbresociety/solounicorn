@@ -1,0 +1,70 @@
+{
+  "profile": "founder-candidate.15",
+  "seed": 711,
+  "scenario": "Synthetic eligible company; six dated interest-only payments, then principal; not balance certification",
+  "offer": {
+    "kind": "debt",
+    "available": true,
+    "principal": 300000,
+    "aprBps": 1800,
+    "months": 6,
+    "interest": 4500,
+    "key": "loan:300000:1800:6:interest-only"
+  },
+  "loan": {
+    "id": 501,
+    "principal": 300000,
+    "months": 6,
+    "due": 700,
+    "remainder": 0,
+    "mode": "interest-only",
+    "aprBps": 1800,
+    "acceptedAt": 100,
+    "lastPaymentAt": 100,
+    "maturity": 3700
+  },
+  "payments": [
+    {
+      "principal": 0,
+      "interest": 4500,
+      "total": 4500,
+      "remainder": 0,
+      "at": 700
+    },
+    {
+      "principal": 0,
+      "interest": 4500,
+      "total": 4500,
+      "remainder": 0,
+      "at": 1300
+    },
+    {
+      "principal": 0,
+      "interest": 4500,
+      "total": 4500,
+      "remainder": 0,
+      "at": 1900
+    },
+    {
+      "principal": 0,
+      "interest": 4500,
+      "total": 4500,
+      "remainder": 0,
+      "at": 2500
+    },
+    {
+      "principal": 0,
+      "interest": 4500,
+      "total": 4500,
+      "remainder": 0,
+      "at": 3100
+    },
+    {
+      "principal": 300000,
+      "interest": 4500,
+      "total": 304500,
+      "remainder": 0,
+      "at": 3700
+    }
+  ]
+}

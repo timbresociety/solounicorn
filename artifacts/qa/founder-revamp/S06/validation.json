@@ -1,0 +1,26 @@
+{
+  "task": "S06",
+  "checkpoint": "core-rank registry, deterministic base work, resolver parity, and visible capacity",
+  "base": "70d8b0e550126849a524573098d051f288fcc706",
+  "diff": "8773aea23d1a8fbf7577064aa295e611543bcf63",
+  "versions": {
+    "state": "founder-state.1",
+    "balance": "founder-candidate.6",
+    "saveEnvelope": 2
+  },
+  "scenarios": [
+    "48 named Demand/Product/Monetisation rank purchases, one-time duplicate guard, save and replay",
+    "finite capped Luck distributions with rank-four positive raw candidate expectation",
+    "manual versus automated Demand, Product and Monetisation on equivalent finite inputs",
+    "rank-zero deterministic work output and automated Monetisation through pricing resolver"
+  ],
+  "commands": [
+    {"command": "npm run typecheck", "result": "passed"},
+    {"command": "npm run test:founder", "result": "passed, 45 tests after direct candidate.5 envelope migration coverage"},
+    {"command": "npm run validate", "result": "passed: contract, balance validation, smoke, determinism, 44 Founder tests, typecheck and lint; legacy balance remains runtimeReady=false with 41 required unresolved entries"},
+    {"command": "npm run build", "result": "passed; offline package: 24 immutable files, build c414df12b674"},
+    {"command": "git diff --check", "result": "passed"}
+  ],
+  "visualAcceptance": "pending: browser/computer-use disabled by owner instruction",
+  "postBuildRegression": "npm run test:founder passed 45 tests and npm run typecheck passed after the final save-migration test addition"
+}

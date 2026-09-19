@@ -1,0 +1,666 @@
+--- a/src/game/founder/engine.ts
++++ b/src/game/founder/engine.ts
+@@ -1,7 +1,7 @@
+ import { AXES, FUNCTIONS, NAMES, P, skillRank, type Axis, type Work } from './profile';
+ import { draftOption, quarterChoices, expansionBoardSlots, initialBoard, mergeOrder, operationsAutomationUpkeepPerTicket, operationsTicketPatches, operationsTicketPrice, operationsTicketSupply, packageComplete, packageMass, packageNeeds, productBrief, retentionProblemContent, type RewardEffect } from './toys';
+ import { CASH_DEATH_POLICY, FOUNDER_CONTENT_VERSION, FOUNDER_CONTRACT_VERSION, phaseAdvancesTime, phaseAllows, type ActionReason } from './contracts';
+-import type { Account, ActionRecord, ActionResult, Command, Company, Lead, OperationsPatch, OperationsReturnBucket, OperationsTicketState, PricingResolution, ProductResolution, QuantitySnapshot, RetentionProblem, RetentionResolution } from './model';
++import type { Account, ActionRecord, ActionResult, Command, Company, Lead, OperationsPatch, OperationsReturnBucket, OperationsTicketState, PricingResolution, QuantitySnapshot, RetentionProblem, RetentionResolution } from './model';
+ 
+ const clamp = (n:number, low=0, high=1) => Math.max(low, Math.min(high,n));
+ const empty = <T>(make:()=>T) => Object.fromEntries(FUNCTIONS.map(f=>[f,make()])) as Record<Work,T>;
+@@ -34,6 +34,7 @@
+ export const operationsJobId=(id:number)=>`operations:${id}`;
+ const reservation=(s:Company,jobId:string)=>s.jobs.reservations.find(r=>r.jobId===jobId);
+ const reserve=(s:Company,jobId:string,owner:'founder'|`agent:${Work}`,actionId:string)=>{
++  if(s.jobs.closed[jobId]?.reason==='completed'&&jobId.startsWith('expansion:'))delete s.jobs.closed[jobId];
+   const existing=reservation(s,jobId);if(existing)return existing.owner===owner;
+   s.jobs.reservations.push({jobId,owner,actionId,reservedAt:s.tick});return true;
+ };
+@@ -41,6 +42,11 @@
+   s.jobs.reservations=s.jobs.reservations.filter(r=>r.jobId!==jobId);s.jobs.closed[jobId]={reason,tick:s.tick};
+ };
+ const handoff=(s:Company,jobId:string)=>{s.jobs.reservations=s.jobs.reservations.filter(r=>r.jobId!==jobId);};
++const jobWork=(jobId:string)=>jobId.startsWith('lead:')?'product':jobId.startsWith('trial:')?'monetisation':jobId.split(':')[0] as Work;
++function releaseOffscreenFounderJobs(s:Company,f:Work){
++  if(s.focus===f||!s.enabled[f]||!s.ranks[f].automate)return;
++  for(const held of [...s.jobs.reservations])if(held.owner==='founder'&&jobWork(held.jobId)===f)handoff(s,held.jobId);
++}
+ const quantities=(s:Company):QuantitySnapshot=>({tick:s.tick,cash:s.cash,arr:arr(s),leads:count(s.leads),trials:count(s.trials),customers:s.accounts.filter(a=>a.active).reduce((n,a)=>n+a.count,0),strain:s.strain,quarter:s.quarter});
+ export function evaluateCashDeath(s:Company){void s;return CASH_DEATH_POLICY;}
+ export function eligibleArr(s:Company):number {
+@@ -124,10 +130,10 @@
+   const target=priceTarget(s,trial),distance=Math.abs(position-target.center),half=target.width/2;
+   const timing=auto||distance<=half;
+   const price=Math.round(P.monthlyPrices[trial.segment]*(plan==='premium'?1.3:.8));
+-  return {price,chance:timing?1:0,fit:trial.fit,valid:timing,baseArr:price*trial.count*12,target};
+-}
+-export const expansionAccount=(s:Company)=>s.accounts.find(a=>a.active&&a.addons<2&&a.health>=60&&s.tick-a.born>=P.expansion_maturity_months*P.ticks_per_month&&!a.threat);
+-const expansionAccounts=(s:Company,includeFounderReserved=false)=>s.accounts.filter(a=>a.active&&a.addons<P.addon_slots_per_customer&&a.health>=P.expansion_min_health&&s.tick-a.born>=P.expansion_maturity_months*P.ticks_per_month&&!a.threat&&!s.jobs.closed[accountJobId('expansion',a.id)]&&(!includeFounderReserved||reservation(s,accountJobId('expansion',a.id))?.owner!=='founder')).sort((a,b)=>a.addons-b.addons||b.basePrice-a.basePrice||a.id-b.id);
++  return {price,chance:timing?1:0,fit:trial.fit,valid:timing,baseArr:price*Math.min(trial.count,batch(s,'monetisation'))*12,target};
++}
++export const expansionAccount=(s:Company)=>s.package.id?expansionAccounts(s).find(a=>a.id===s.package.id):expansionAccounts(s)[0];
++const expansionAccounts=(s:Company,includeFounderReserved=false)=>s.accounts.filter(a=>a.active&&a.addons<P.addon_slots_per_customer&&a.health>=P.expansion_min_health&&s.tick-a.born>=P.expansion_maturity_months*P.ticks_per_month&&!a.threat&&(!s.jobs.closed[accountJobId('expansion',a.id)]||s.jobs.closed[accountJobId('expansion',a.id)].reason==='completed')&&(!includeFounderReserved||reservation(s,accountJobId('expansion',a.id))?.owner!=='founder')).sort((a,b)=>a.addons-b.addons||b.basePrice-a.basePrice||a.id-b.id);
+ export function ready(s:Company,f:Work){return s.tick-s.lastManual[f]>=P.functions[f].manual_seconds*10;}
+ export function unlocked(s:Company,f:Work){return f==='demand'||f==='operations'||f==='product'&&(s.leads.length>0||s.completed.product>0)||f==='monetisation'&&(s.trials.length>0||s.completed.monetisation>0)||['retention','expansion'].includes(f)&&s.accounts.length>0;}
+ function spend(s:Company,cents:number){if(s.cash<cents){note(s,'Not enough liquid cash. Preserve runway or inspect Finance.','bad');return false;}s.cash-=cents;return true;}
+@@ -194,13 +200,12 @@
+   if(!reserve(s,job,'agent:operations',actionId))return false;
+   return settleOperationsPatches(s,remainingOperationsPatches(s),'automated',actionId,'auto-resolved');
+ }
+-function drawBatch(s:Company,f:Work,auto:boolean){
++function drawBatch(s:Company,f:Work){
+   const attempt=++s.attempts[f],r=s.risky[f]?s.ranks[f].luck:0,p=pressure(s);
+   // D05/S06: rank-zero work never takes an invisible output/error lottery.
+   // Operations has its separately documented ticket exception and does not use
+   // this resolver for scratch-card outcomes.
+   if(!r){
+-    if(auto)s.rot[f]=clamp(s.rot[f]+(P.rot_per_auto_attempt_base+P.rot_per_auto_attempt_rank*s.ranks[f].automate)*(1+.5*p.overload));
+     return batch(s,f);
+   }
+   const shared=random(s.seed,'shared',Math.floor(s.tick/P.luck_epoch_ticks))<.5?-1:1;
+@@ -208,10 +213,9 @@
+   const luck=1+P.luck_mean_per_rank*r+P.luck_sd_per_rank*r*(Math.sqrt(.4)*shared+Math.sqrt(.6)*local);
+   const raw=batch(s,f)*Math.max(0,luck),quantity=Math.floor(raw)+(random(s.seed,f,attempt,'round')<raw%1?1:0);
+   const error=clamp(P.functions[f].base_error+.08*p.overload**2+.45*s.rot[f]**2,0,.95);
+-  if(auto)s.rot[f]=clamp(s.rot[f]+(P.rot_per_auto_attempt_base+P.rot_per_auto_attempt_rank*s.ranks[f].automate)*(1+.5*p.overload));
+   if(random(s.seed,f,attempt,'error')<error){s.strain+=.1;return 0;}return quantity;
+ }
+-function take(jobs:Lead[],amount:number,index=0):Lead|undefined {const job=jobs[index];if(!job)return;const n=Math.min(job.count,amount);if(n<=0)return;const out={...job,count:n};job.count-=n;if(!job.count)jobs.splice(index,1);return out;}
++function take(s:Company,jobs:Lead[],amount:number,index=0):Lead|undefined {const job=jobs[index];if(!job)return;const n=Math.min(job.count,amount);if(n<=0)return;const out={...job,count:n};job.count-=n;if(!job.count)jobs.splice(index,1);else job.id=++s.serial;return out;}
+ function billAccount(s:Company,a:Account){if(a.earned>0){s.invoices.push({id:++s.serial,account:a.id,cents:a.earned,due:s.tick+Math.round(P.collectionDelay[a.segment]*((has(s,'terms')||hasRewardEffect(s,'faster-collections'))?.5:1)),attempts:0});a.earned=0;}}
+ const retentionProblem=(a:Account)=>a.problem&&a.active&&a.threat===a.problem.deadline?a.problem:undefined;
+ const activeRetentionAccounts=(s:Company, includeFounderReserved=false)=>s.accounts.filter(a=>{
+@@ -226,14 +230,14 @@
+   const deadline=s.tick+P.churn_threat_ttl_ticks;
+   const workRequired=severity*4;
+   const problem:RetentionProblem={id:++s.serial,kind:content.kind,label:content.label,detail:content.detail,openedAt:s.tick,deadline,severity,workRequired,workCompleted:0,exposedArr:a.price*a.count*12};
+-  a.problem=problem;a.threat=deadline;
++  delete s.jobs.closed[accountJobId('retention',a.id)];a.problem=problem;a.threat=deadline;
+   note(s,`${a.count} customer${a.count===1?'':'s'}: ${problem.label}. ${Math.ceil((deadline-s.tick)/10)} seconds to protect $${Math.floor(problem.exposedArr/100).toLocaleString()} existing ARR.`,'bad');
+ }
+ function resolveRetentionProblem(s:Company,a:Account,actionId:string):RetentionResolution|undefined {
+   const problem=retentionProblem(a);if(!problem)return;
+   const workAdded=Math.min(batch(s,'retention'),Math.max(0,problem.workRequired-problem.workCompleted));
+   if(!workAdded)return;
+-  problem.workCompleted+=workAdded;s.attempts.retention++;s.lastManual.retention=s.tick;
++  problem.workCompleted+=workAdded;s.attempts.retention++;
+   if(problem.workCompleted<problem.workRequired){
+     const progress:RetentionResolution={actionId,accountId:a.id,problemId:problem.id,outcome:'progress',workAdded,workCompleted:problem.workCompleted,workRequired:problem.workRequired,protectedArr:0,healthDelta:0,concessionArrDelta:0,luckRank:0,luckDelta:0};
+     s.retentionResolution=progress;return progress;
+@@ -257,16 +261,16 @@
+   return outcome;
+ }
+ function resolvePricing(s:Company,plan:'fair'|'premium',timing:number,actionId:string,auto=false){
+-  const trial=s.trials[0];if(!trial)return false;
++  const trial=s.trials[0];if(!trial||s.deployed.monetisation>s.tick)return false;
+   const quote=pricingQuote(s,plan,auto,timing),target=priceTarget(s,trial);
+   const luckRank=s.risky.monetisation?s.ranks.monetisation.luck:0;
+   // Luck is an explicit pricing-only stream. Rank zero consumes no pricing RNG.
+   const luckRoll=luckRank?random(s.seed,'monetisation','pricing-luck',s.attempts.monetisation+1):.5;
+   const luckDelta=luckRank?(luckRoll<.30?-luckRank:luckRoll>.65?luckRank:0):0;
+   const contractPrice=Math.round(quote.price*(1+luckDelta*.04));
+-  const committed=take(s.trials,Math.min(trial.count,batch(s,'monetisation')));if(!committed)return false;
++  const committed=take(s,s.trials,Math.min(trial.count,batch(s,'monetisation')));if(!committed)return false;
+   const sold=quote.valid?committed.count:0,arrDelta=sold*contractPrice*12;
+-  s.attempts.monetisation++;s.lastManual.monetisation=s.tick;
++  s.attempts.monetisation++;if(!auto)s.lastManual.monetisation=s.tick;release(s,trialJobId(committed.id),'completed');
+   let collectionDue:number|null=null;
+   if(sold){
+     const id=++s.serial;const a:Account={id,origin:id,segment:committed.segment,count:sold,price:contractPrice,basePrice:contractPrice,fit:committed.fit,health:70,defects:Math.max(0,.7-committed.fit),born:s.tick,caredUntil:0,addons:0,threat:0,earned:0,remainder:0,active:true};
+@@ -279,7 +283,7 @@
+ }
+ function work(s:Company,f:Work,auto=false,option:Record<string,number|string|boolean>={}) {
+   // A manual station owns its current object; other functions continue running.
+-  if(auto&&s.focus===f&&(f==='demand'||f==='monetisation'||f==='operations'&&s.ops.active||f==='expansion'&&s.package.id!==0||f==='retention'&&activeRetentionAccounts(s).some(a=>reservation(s,accountJobId('retention',a.id))?.owner==='founder')))return false;
++  if(auto&&s.focus===f&&f!=='retention')return false;
+   if(s.deployed[f]>s.tick){if(!auto)note(s,`${NAMES[f]} is installing. Online in ${Math.ceil((s.deployed[f]-s.tick)/10)} seconds.`);return false;}
+   // Scratching is finite maintenance output; it cannot be replayed instantly.
+   // Other room gestures already embody the founder work and stay responsive.
+@@ -295,8 +299,8 @@
+   const deterministicManual=!auto&&!s.risky[f]&&(f==='demand'||f==='product');
+   // Retention Luck belongs to the disclosed recovery/concession receipt, not
+   // an invisible chance for a valid squash to do no customer work.
+-  const amount=f==='retention'?(auto&&(s.rot[f]=clamp(s.rot[f]+(P.rot_per_auto_attempt_base+P.rot_per_auto_attempt_rank*s.ranks[f].automate)*(1+.5*pressure(s).overload))),batch(s,f)):deterministicManual?(s.attempts[f]++,batch(s,f)):drawBatch(s,f,auto);if(!auto)s.lastManual[f]=s.tick;
+-  if(!amount){if(!auto)note(s,`${NAMES[f]} produced rework. Costs were paid; no output was booked.`,'bad');return true;}
++  const amount=f==='retention'||f==='expansion'?batch(s,f):deterministicManual?(s.attempts[f]++,batch(s,f)):drawBatch(s,f);if(!auto)s.lastManual[f]=s.tick;
++  if(!amount){note(s,`${NAMES[f]} Luck ${s.ranks[f].luck} produced rework. Costs paid; no output. Pressure ${Math.round(pressure(s).overload*100)}% · context rot ${Math.round(s.rot[f]*100)}%.`,'bad');return true;}
+   if(f==='demand'){
+     const candidate=signal(s),signalId=s.signal;
+     // Rank-zero triage is a decision against the already-visible profile. It
+@@ -306,29 +310,28 @@
+       s.leads.push({id:++s.serial,segment:s.channel,count:n,expires:s.tick+(s.quarter===1?P.starterTTL:P.opportunity_ttl_ticks),fit:candidate.fit});s.completed[f]+=n;
+       if(!auto)note(s,`${n} qualified opportunity${n===1?'':'ies'} → Product. Acquisition cash paid.`,'good');
+     } else if(!auto)note(s,`${candidate.quality==='uncertain'?'Exploratory':'Poor-fit'} profile declined. The acquisition stake was spent, but no Product job was created.`,'bad');
+-    const actionId=`${s.seed}:${s.actionCursor+1}`;
++    const actionId=String(option.actionId??`${s.seed}:${s.actionCursor+1}`);
+     s.demandResolution={actionId,signal:signalId,channel:s.channel,profile:candidate,outcome:candidate.quality==='qualified'?'qualified':'declined',acquisitionCost:Math.round(P.acquisitionCents[s.channel]*((has(s,'community')||hasRewardEffect(s,'demand-stake-reduction'))?.65:1)),productJobs:candidate.quality==='qualified'?n:0,productQueueAfter:count(s.leads)};
+   }else if(f==='product'){
+-    const lead=take(s.leads,Math.min(amount,queueCap(s,'monetisation')-count(s.trials)),productIndex);if(!lead)return false;
++    const lead=take(s,s.leads,Math.min(amount,queueCap(s,'monetisation')-count(s.trials)),productIndex);if(!lead)return false;
+     const fit=clamp(lead.fit*.8+.02*s.ranks.product.craft+(has(s,'quality')?.12:0)-(option.early?.18:0),.15,1);
+     s.trials.push({...lead,id:++s.serial,fit,expires:s.tick+P.starterTTL});s.completed[f]+=lead.count;
+     if(!s.leads.length||s.recipe.id!==s.leads[0].id)s.recipe={id:0,slots:[]};
++    s.productResolution={actionId:String(option.actionId??`${s.seed}:${s.actionCursor+1}`),leadId:lead.id,trialId:s.trials.at(-1)!.id,trialsCreated:lead.count,arrDelta:0,outcome:'shipped'};
++    release(s,leadJobId(lead.id),'completed');
+     if(!auto)note(s,`${lead.count} verified trial${lead.count===1?'':'s'} → Monetisation. No ARR until somebody pays.`,'good');
+-  }else if(f==='monetisation'){
+-    const {price,chance}=pricingQuote(s,option.plan==='premium'?'premium':'fair',auto,typeof option.timing==='number'?option.timing:priceCursor(s));
+-    const trial=take(s.trials,amount);if(!trial)return false;
+-    let sold=0;for(let i=0;i<trial.count;i++)if(random(s.seed,'sale',s.attempts[f],i)<chance)sold++;
+-    const target=priceTarget(s,trial),landed=Math.abs(Number(option.timing??priceCursor(s))-target.center)<=target.width/2;
+-    if(sold){const id=++s.serial;const a:Account={id,origin:id,segment:trial.segment,count:sold,price,basePrice:price,fit:trial.fit,health:70,defects:Math.max(0,.7-trial.fit),born:s.tick,caredUntil:0,addons:0,threat:0,earned:0,remainder:0,active:true};s.accounts.push(a);s.newArr+=sold*price*12;s.completed[f]+=sold;note(s,`${!auto&&landed?'Sweet spot. ':''}${sold} subscription${sold===1?'':'s'} signed. Service accrues now; cash arrives after billing.`,'good');}
+-    else if(!auto)note(s,landed?'Sweet spot, tough room. They passed. Better product fit or a fairer price can help.':'The offer missed its window. Read this customer’s range, then time the moving marker.','bad');
+   }else if(f==='retention'&&target){
+     // The manual squash and agent both commit the same finite problem work.
+     // `amount` above is intentionally unused: Retention batch is resolved in
+     // the shared resolver so the receipt remains exact.
+-    void amount;resolveRetentionProblem(s,target,String(option.actionId??`work:${f}:${s.tick}`));
++    void amount;const actionId=String(option.actionId??`work:${f}:${s.tick}`);
++    if(auto)reserve(s,accountJobId('retention',target.id),'agent:retention',actionId);
++    resolveRetentionProblem(s,target,actionId);
++    if(!target.problem)release(s,accountJobId('retention',target.id),'completed');
+   }else if(f==='expansion'&&target){
+     const board=s.package.id===target.id?s.package.board:undefined;
+     if(!board||!packageComplete(s,target,board))return false;
++    s.attempts.expansion++;
+     const luckRank=s.risky.expansion?s.ranks.expansion.luck:0;
+     const luckRoll=luckRank?random(s.seed,'expansion','package-luck',target.id,target.addons):.5;
+     const luckDelta=luckRank?(luckRoll<.30?-luckRank:luckRoll>.65?luckRank:0):0;
+@@ -345,7 +348,7 @@
+   return true;
+ }
+ function installRank(s:Company,f:Work,a:Axis){
+- s.ranks[f][a]++;if(a==='luck')s.risky[f]=true;s.deployed[f]=s.tick+P.upgrade_deploy_ticks;if(a==='automate')s.rot[f]=clamp(s.rot[f]+P.rot_per_configuration_change);
++ s.ranks[f][a]++;if(a==='automate')releaseOffscreenFounderJobs(s,f);if(a==='luck')s.risky[f]=true;s.deployed[f]=s.tick+P.upgrade_deploy_ticks;if(a==='automate')s.rot[f]=clamp(s.rot[f]+P.rot_per_configuration_change);
+  note(s,`${NAMES[f]} ${a} ${s.ranks[f][a]} installing. Online in 5 seconds.`,'good');
+ }
+ function resolve(current:Company,c:Command,actionId:string):Company {
+@@ -354,13 +357,18 @@
+   if(c.type==='continue'){if(current.phase==='unicorn'){s.phase='continuation';s.resumePhase='continuation';}else s.phase=s.resumePhase;return s;}
+   if(c.type==='pause'){s.resumePhase=current.phase==='continuation'?'continuation':'active';s.phase='paused';return s;}
+   if(c.type==='focus'){
+-    if(s.ops.active){const job=operationsJobId(s.ops.id),held=reservation(s,job);if(c.work==='operations'&&held?.owner==='agent:operations'){handoff(s,job);reserve(s,job,'founder',actionId);}else if(c.work!=='operations'&&held?.owner==='founder')handoff(s,job);}
++    for(const held of [...s.jobs.reservations]){
++      const workName=jobWork(held.jobId);
++      if(workName===c.work&&held.owner!=='founder'){handoff(s,held.jobId);reserve(s,held.jobId,'founder',actionId);}
++      else if(workName===s.focus&&c.work!==s.focus&&held.owner==='founder'&&s.enabled[workName as Work]&&s.ranks[workName as Work].automate>0)handoff(s,held.jobId);
++    }
++    if(FUNCTIONS.includes(c.work as Work))s.credits[c.work as Work]=0;
+     s.focus=c.work;return s;
+   }
+   switch(c.type){
+     case 'cancel-job':{
+       const owned=reservation(s,c.job);if(!owned||owned.owner!=='founder')break;
+-      if(c.job===leadJobId(s.recipe.id))s.recipe={id:0,slots:[]};
++      if(c.job===leadJobId(s.recipe.id)){s.leads=s.leads.filter(j=>j.id!==s.recipe.id);s.recipe={id:0,slots:[]};}
+       if(c.job===accountJobId('expansion',s.package.id))s.package={id:0,merged:[]};
+       if(c.job.startsWith('retention:')){const account=s.accounts.find(a=>a.id===Number(c.job.split(':')[1]));if(account?.problem)account.problem.workCompleted=0;}
+       if(c.job===operationsJobId(s.ops.id)){abandonOperationsTicket(s,actionId);break;}
+@@ -369,8 +377,8 @@
+     case 'channel':if(Number.isInteger(c.channel)&&c.channel>=0&&c.channel<3){s.channel=c.channel;s.signal++;}break;
+     case 'demand':if(s.focus==='demand'&&c.signal===s.signal){if(c.pursue)work(s,'demand');else{const profile=signal(s);s.demandResolution={actionId,signal:s.signal,channel:s.channel,profile,outcome:'passed',acquisitionCost:0,productJobs:0,productQueueAfter:count(s.leads)};s.signal++;note(s,'Passed. Protect your attention and acquisition cash.');}}break;
+     case 'part':{const lead=s.leads[0];if(s.focus!=='product'||!lead||lead.id!==c.job||!Number.isInteger(c.slot)||c.slot<0||c.slot>=productBrief(s,lead).parts.length||!Number.isInteger(c.part)||c.part<0||c.part>5)break;if(!reserve(s,leadJobId(lead.id),'founder',actionId))break;if(s.recipe.id!==lead.id)s.recipe={id:lead.id,slots:[]};s.recipe.slots[c.slot]=c.part;s.recipe.tested=false;s.recipe.verification='incomplete';break;}
+-    case 'test-build':{const lead=s.leads[0];if(s.focus!=='product'||lead?.id!==c.job||s.recipe.id!==c.job)break;const brief=productBrief(s,lead);s.recipe.tested=brief.parts.every((p,i)=>s.recipe.slots[i]===p);s.recipe.verification=s.recipe.tested?'verified':'incorrect';note(s,s.recipe.tested?'Tests green. The demo can finally survive a customer.':'Tests found a mismatch. Follow the failed step back to its ingredient.',s.recipe.tested?'good':'bad');break;}
+-    case 'ship':if(s.focus==='product'&&s.leads[0]?.id===c.job&&s.recipe.id===c.job&&s.recipe.tested&&s.recipe.verification==='verified'&&productBrief(s,s.leads[0]).parts.every((p,i)=>s.recipe.slots[i]===p)){const lead=s.leads[0],trialCount=s.trials.length;if(work(s,'product',false,{early:c.early})){const trial=s.trials.at(-1);if(!trial||s.trials.length!==trialCount+1)throw new Error('Product shipping must create exactly one trial cohort.');const product:ProductResolution={actionId,leadId:lead.id,trialId:trial.id,trialsCreated:trial.count,arrDelta:0,outcome:'shipped'};s.productResolution=product;release(s,leadJobId(c.job),'completed');}}break;
++    case 'test-build':{const lead=s.leads[0];if(s.focus!=='product'||lead?.id!==c.job||s.recipe.id!==c.job)break;verifyRecipe(s,lead);note(s,s.recipe.tested?'Tests green. The demo can finally survive a customer.':'Tests found a mismatch. Follow the failed step back to its ingredient.',s.recipe.tested?'good':'bad');break;}
++    case 'ship':if(s.focus==='product'&&s.leads[0]?.id===c.job&&s.recipe.id===c.job&&s.recipe.tested&&s.recipe.verification==='verified'&&productBrief(s,s.leads[0]).parts.every((p,i)=>s.recipe.slots[i]===p))work(s,'product',false,{early:c.early,actionId});break;
+     case 'price':if(s.focus==='monetisation'&&s.trials[0]?.id===c.job&&(c.timing===undefined||Number.isFinite(c.timing)&&c.timing>=0&&c.timing<=1))resolvePricing(s,c.plan,c.timing??priceCursor(s),actionId);break;
+     case 'squash-problem':{const a=s.accounts.find(a=>a.id===c.account&&a.active&&a.problem?.id===c.problem);const problem=a&&retentionProblem(a);if(s.focus!=='retention'||!a||!problem||c.expected!==problem.workCompleted||!reserve(s,accountJobId('retention',a.id),'founder',actionId))break;const result=work(s,'retention',false,{account:a.id,actionId});if(result&&a.problem===undefined)release(s,accountJobId('retention',a.id),'completed');break;}
+     // Candidate.6 UI commands are deliberately not replayed into the new
+@@ -398,7 +406,7 @@
+       const cost=skillCost(s,c.work,c.axis);if(!spend(s,cost))break;
+       installRank(s,c.work,c.axis);break;
+     }
+-    case 'automation':if(FUNCTIONS.includes(c.work)){s.enabled[c.work]=!s.enabled[c.work];if((c.work==='expansion'||c.work==='operations')&&!s.enabled[c.work])for(const held of s.jobs.reservations.filter(r=>r.owner===`agent:${c.work}`))handoff(s,held.jobId);}break;
++    case 'automation':if(FUNCTIONS.includes(c.work)){s.enabled[c.work]=!s.enabled[c.work];s.credits[c.work]=0;releaseOffscreenFounderJobs(s,c.work);if(!s.enabled[c.work])for(const held of s.jobs.reservations.filter(r=>r.owner===`agent:${c.work}`))handoff(s,held.jobId);}break;
+     case 'risk':if(FUNCTIONS.includes(c.work)&&s.ranks[c.work].luck>0)s.risky[c.work]=!s.risky[c.work];break;
+     case 'draft-skip':{const report=s.reports.find(r=>r.quarter===c.quarter);if(report&&!report.chosen){report.chosen='passed';s.pendingDraftQuarter=null;s.phase='paused';note(s,'Quarter choice passed. The next quarter waits for Continue.');}break;}
+     case 'draft':{
+@@ -407,7 +415,7 @@
+       if(option.kind==='relic')s.inventory.relics.push(option.id);else s.inventory.consumables[option.id]=(s.inventory.consumables[option.id]??0)+1;
+       report.chosen=c.id;s.pendingDraftQuarter=null;s.phase='paused';note(s,`${option.name} added to this run. Continue when ready.`,'good');break;
+     }
+-    case 'consume':{if(c.id!=='consumable:customer-firebreak'||!(s.inventory.consumables[c.id]??0))break;const account=s.accounts.find(a=>a.id===c.account&&a.active&&a.threat);if(!account)break;account.threat=0;account.caredUntil=s.tick+P.ticks_per_month;s.inventory.consumables[c.id]--;note(s,'Customer firebreak deployed. Existing ARR was protected; no ARR or cash was created.','good');break;}
++    case 'consume':{if(c.id!=='consumable:customer-firebreak'||!(s.inventory.consumables[c.id]??0))break;const account=s.accounts.find(a=>a.id===c.account&&a.active&&a.threat);if(!account)break;account.threat=0;delete account.problem;release(s,accountJobId('retention',account.id),'completed');account.caredUntil=s.tick+P.ticks_per_month;s.inventory.consumables[c.id]--;note(s,'Customer firebreak deployed. Existing ARR was protected; no ARR or cash was created.','good');break;}
+     case 'borrow':{const mrr=Math.floor(eligibleArr(s)/12);if(s.debt||mrr<P.debt_min_mrr_cents){note(s,'Debt needs at least $100 eligible MRR and no active loan.');break;}const principal=mrr*P.debt_capacity_mrr_multiple;s.cash+=principal;s.debt={principal,months:6,due:s.tick+600,remainder:0};note(s,'Loan funded. Six monthly payments at 18% APR. No growth mandate.');break;}
+     case 'raise':{const a=eligibleArr(s);if(s.vc||a<P.vc_min_arr_cents){note(s,'VC needs $12,000 eligible ARR and is available once per run.');break;}s.cash+=a;s.ownership=Math.floor(s.ownership*.8);s.vc={baseline:a,target:Math.ceil(a*1.5),due:s.tick+1800};note(s,'Round funded. Deliver 50% ARR growth in three months or the run ends.');break;}
+   }
+@@ -423,8 +431,10 @@
+ }
+ function preflight(s:Company,c:Command):ActionReason {
+   if(!phaseAllows(s.phase,c.type))return 'phase-not-allowed';
++  const workName=c.type==='ship'?'product':c.type==='price'?'monetisation':c.type==='squash-problem'?'retention':c.type==='expand'?'expansion':undefined;
++  if(workName&&s.deployed[workName]>s.tick)return 'invalid-command';
+   const jobId=commandJobId(c),closed=jobId?s.jobs.closed[jobId]:undefined;
+-  if(closed)return closed.reason==='expired'?'expired-job':closed.reason==='cancelled'?'cancelled-job':'stale-job';
++  if(closed&&!(closed.reason==='completed'&&(c.type==='supply'||c.type==='merge')))return closed.reason==='expired'?'expired-job':closed.reason==='cancelled'?'cancelled-job':'stale-job';
+   const held=jobId?reservation(s,jobId):undefined;
+   if(held&&held.owner!=='founder')return 'job-reserved';
+   if(c.type==='cancel-job')return held?.owner==='founder'?'committed':'stale-job';
+@@ -456,8 +466,8 @@
+   }
+   if(c.type==='consume'&&(!(s.inventory.consumables[c.id]??0)||!s.accounts.some(a=>a.id===c.account&&a.active&&a.threat)))return 'stale-job';
+   if(c.type==='demand'&&c.pursue&&s.cash<Math.round(P.acquisitionCents[s.channel]*((has(s,'community')||hasRewardEffect(s,'demand-stake-reduction'))?.65:1)))return 'unaffordable';
+-  if(['ship','price','squash-problem','expand'].includes(c.type)){
+-    const workName=c.type==='ship'?'product':c.type==='price'?'monetisation':c.type==='squash-problem'?'retention':'expansion';
++  if(['ship','squash-problem','expand'].includes(c.type)){
++    const workName=c.type==='ship'?'product':c.type==='squash-problem'?'retention':'expansion';
+     if(s.cash<P.functions[workName as Work].attempt_cost_cents)return 'unaffordable';
+   }
+   return 'committed';
+@@ -499,8 +509,44 @@
+ }
+ function fail(s:Company,why:string){s.failure=why;s.phase='failure';note(s,why,'bad');}
+ function settle(s:Company,cents:number,label:string){if(s.cash<cents){fail(s,`${label} required $${(cents/100).toFixed(2)}; only $${(s.cash/100).toFixed(2)} was liquid. Keep a reserve or raise capital before the due date.`);return false;}s.cash-=cents;return true;}
++function verifyRecipe(s:Company,lead:Lead){
++  s.recipe.tested=productBrief(s,lead).parts.every((part,i)=>s.recipe.slots[i]===part);
++  s.recipe.verification=s.recipe.tested?'verified':'incorrect';
++}
++function automateProduct(s:Company,actionId:string){
++  const lead=s.leads[0];if(!lead||!reserve(s,leadJobId(lead.id),'agent:product',actionId))return false;
++  if(s.recipe.id!==lead.id)s.recipe={id:lead.id,slots:[]};
++  const parts=productBrief(s,lead).parts,slot=parts.findIndex((part,i)=>s.recipe.slots[i]!==part);
++  if(slot>=0){s.recipe.slots[slot]=parts[slot];s.recipe.tested=false;s.recipe.verification='incomplete';return true;}
++  if(!s.recipe.tested){verifyRecipe(s,lead);return true;}
++  return work(s,'product',true,{actionId});
++}
++export const computeCost=(s:Company,f:Work)=>s.enabled[f]?units(s,f)*P.auto_upkeep_cents_per_unit_month[s.ranks[f].automate]:0;
++export function agentStatus(s:Company,f:Work){
++  const p=pressure(s),speed=p.speed/(1+P.automationRotSlowdown*s.rot[f]);
++  let state='running',label='Working';
++  if(!s.ranks[f].automate){state='manual';label='Manual';}
++  else if(!phaseAdvancesTime(s.phase)){state='paused';label='Time paused';}
++  else if(!s.enabled[f]){state='disabled';label='Switched off';}
++  else if(s.deployed[f]>s.tick){state='installing';label='Installing';}
++  else if(s.focus===f&&f!=='retention'){state='founder';label='Founder control';}
++  else if(f==='product'&&s.leads[0]&&reservation(s,leadJobId(s.leads[0].id))?.owner==='founder'||f==='expansion'&&s.package.id&&reservation(s,accountJobId('expansion',s.package.id))?.owner==='founder'||f==='monetisation'&&s.trials[0]&&reservation(s,trialJobId(s.trials[0].id))?.owner==='founder'||f==='operations'&&s.ops.active&&reservation(s,operationsJobId(s.ops.id))?.owner==='founder'){state='held';label='Founder holds job';}
++  else if(f==='demand'&&count(s.leads)>=queueCap(s,'product')||f==='product'&&count(s.trials)>=queueCap(s,'monetisation')){state='backpressure';label='Next queue full';}
++  else if(f==='demand'&&s.market[s.channel]<=0){state='supply';label='Market exhausted';}
++  else if(f==='product'&&(!s.leads.length||s.jobs.closed[leadJobId(s.leads[0].id)])||f==='monetisation'&&!s.trials.length||f==='retention'&&!activeRetentionAccounts(s,true).length||f==='expansion'&&(!expansionAccounts(s,true).length||s.package.id!==0&&!expansionAccounts(s,true).some(a=>a.id===s.package.id))){state='waiting';label='Waiting for work';}
++  else if(f==='operations'&&!s.ops.active&&(s.ops.quarter===s.quarter?s.ops.used:0)>=operationsTicketSupply(s.ranks.operations.scale)){state='supply';label='Ticket book spent';}
++  else {
++    const cost=f==='monetisation'?0:f==='operations'?(s.ops.active?0:operationsTicketPrice(s.ranks.operations.scale)):f==='demand'?Math.round(P.acquisitionCents[s.channel]*((has(s,'community')||hasRewardEffect(s,'demand-stake-reduction'))?.65:1)):P.functions[f].attempt_cost_cents;
++    if(s.cash<cost){state='cash';label='Needs cash';}
++    else if(f==='product'&&s.leads[0])label=s.recipe.id!==s.leads[0].id?'Preparing recipe':s.recipe.tested?'Shipping':productBrief(s,s.leads[0]).parts.every((v,i)=>s.recipe.slots[i]===v)?'Testing':'Assembling';
++    else if(f==='expansion')label='Building package';
++    else if(f==='retention')label='Resolving problem';
++    else if(f==='operations')label=s.ops.active?'Resolving ticket':'Buying ticket';
++  }
++  return {state,label,speed,progress:state==='running'?s.credits[f]:0,installed:agentCount(s,f),lanes:units(s,f),activeCapacity:state==='running'?units(s,f):0,compute:computeCost(s,f)};
++}
+ function automateExpansion(s:Company,attempt:number){
+-  const account=expansionAccounts(s,true)[0];if(!account)return false;
++  const account=expansionAccounts(s,true).find(a=>a.id===s.package.id)??(!s.package.id?expansionAccounts(s,true)[0]:undefined);if(!account)return false;
+   const job=accountJobId('expansion',account.id);
+   if(!reserve(s,job,'agent:expansion',`agent:expansion:${s.tick}:${attempt}`))return false;
+   if(s.package.id!==account.id)s.package={id:account.id,merged:[],board:initialBoard(),supplied:8};
+@@ -541,18 +587,33 @@
+     for(const job of expiredLeads)release(s,leadJobId(job.id),'expired');
+     for(const job of expiredTrials)release(s,trialJobId(job.id),'expired');
+     if(expiredLeads.some(j=>j.id===s.recipe.id))s.recipe={id:0,slots:[]};
+-    for(const f of FUNCTIONS){if(!s.enabled[f]||!s.ranks[f].automate||s.deployed[f]>s.tick)continue;
+-      s.credits[f]+=units(s,f)*P.auto_speed_by_rank[s.ranks[f].automate]*p.speed/(P.functions[f].manual_seconds*10);
++    if(s.package.id&&!s.accounts.some(a=>a.id===s.package.id&&a.active&&a.addons<P.addon_slots_per_customer)){
++      release(s,accountJobId('expansion',s.package.id),'expired');s.package={id:0,merged:[]};
++    }
++    for(const held of [...s.jobs.reservations])if(held.jobId.startsWith('retention:')&&!s.accounts.some(a=>a.active&&a.problem&&accountJobId('retention',a.id)===held.jobId))release(s,held.jobId,'expired');
++    const pipeline={leads:new Set(s.leads.map(j=>j.id)),trials:new Set(s.trials.map(j=>j.id))};
++    for(const f of FUNCTIONS){
++      if(f==='product'&&!pipeline.leads.has(s.leads[0]?.id)||f==='monetisation'&&!pipeline.trials.has(s.trials[0]?.id)){s.credits[f]=0;continue;}
++      if(agentStatus(s,f).state!=='running'){s.credits[f]=0;continue;}
++      const steps=f==='product'?productBrief(s,s.leads[0]).parts.length+2:1;
++      const speed=agentStatus(s,f).speed;
++      // Credit is at most one tick of effort. Blocked/disabled rooms cannot bank bursts.
++      s.credits[f]+=units(s,f)*P.auto_speed_by_rank[s.ranks[f].automate]*speed*steps/(P.functions[f].manual_seconds*10);
+       const attempts=Math.floor(s.credits[f]);s.credits[f]-=attempts;
+       for(let i=0;i<attempts;i++){
+-        // Automated Monetisation uses the same finite trial and pricing
+-        // resolver as the timing room. It never creates a synthetic sale.
+-        const completed=f==='monetisation'
+-          ?resolvePricing(s,'fair',priceTarget(s).center,`agent:${f}:${s.tick}:${i}`,true)
+-          :f==='expansion'?automateExpansion(s,i):f==='operations'?automateOperations(s,i):work(s,f,true);
+-        if(!completed)break;
++        if(agentStatus(s,f).state!=='running') {s.credits[f]=0;break;}
++        if(f==='product'&&!pipeline.leads.has(s.leads[0]?.id)||f==='monetisation'&&!pipeline.trials.has(s.trials[0]?.id)){s.credits[f]=0;break;}
++        const id=`agent:${f}:${s.tick}:${i}`;
++        const completed=f==='product'?automateProduct(s,id)
++          :f==='monetisation'?resolvePricing(s,'fair',priceTarget(s).center,id,true)
++          :f==='expansion'?automateExpansion(s,i):f==='operations'?automateOperations(s,i):work(s,f,true,{actionId:id});
++        if(!completed){s.credits[f]=0;break;}
++        s.rot[f]=clamp(s.rot[f]+(P.rot_per_auto_attempt_base+P.rot_per_auto_attempt_rank*s.ranks[f].automate)*(1+.5*pressure(s).overload)/steps);
++        if(!phaseAdvancesTime(s.phase))break;
+       }
+-    }
++      if(!phaseAdvancesTime(s.phase))break;
++    }
++    if(!phaseAdvancesTime(s.phase))break;
+     if(s.tick%600===0){
+       for(const a of s.accounts)billAccount(s,a);
+       if(!settle(s,s.expenseAccrued,'Monthly operating bill'))break;s.expenseAccrued=0;s.market=[...P.marketPerMonth];
+@@ -594,7 +655,7 @@
+   if(s.package.board&&(s.package.board.length!==16||s.package.board.some(t=>t&&(![0,1].includes(t.family)||!Number.isInteger(t.tier)||t.tier<1||t.tier>4))))throw new Error('Invalid merge board.');
+   if(s.version!==P.version)throw new Error('This checkpoint belongs to another engine version.');
+   if(!Number.isSafeInteger(s.cash)||s.cash<0||!Number.isInteger(s.tick)||s.tick<0)throw new Error('Invalid cash or clock.');
+-  for(const f of FUNCTIONS){for(const a of AXES)if(!Number.isInteger(s.ranks[f][a])||s.ranks[f][a]<0||s.ranks[f][a]>4)throw new Error('Invalid rank.');if(!Number.isFinite(s.rot[f])||s.rot[f]<0||s.rot[f]>1)throw new Error('Invalid rot.');}
++  for(const f of FUNCTIONS){for(const a of AXES)if(!Number.isInteger(s.ranks[f][a])||s.ranks[f][a]<0||s.ranks[f][a]>4)throw new Error('Invalid rank.');if(!Number.isFinite(s.credits[f])||s.credits[f]<0||s.credits[f]>=1)throw new Error('Invalid automation credit.');if(!Number.isFinite(s.rot[f])||s.rot[f]<0||s.rot[f]>1)throw new Error('Invalid rot.');}
+   for(const a of s.accounts)if(!Number.isInteger(a.count)||a.count<1||!Number.isSafeInteger(a.price)||a.price<0)throw new Error('Invalid customer ledger.');
+   const residual=s.invoices.reduce((n,i)=>n+i.cents,0)+s.accounts.reduce((n,a)=>n+a.earned,0);
+   if(s.lifetimeEarned!==s.lifetimeCollected+s.badDebt+residual)throw new Error('Revenue ledger does not reconcile.');
+--- a/src/game/founder/profile.ts
++++ b/src/game/founder/profile.ts
+@@ -3,7 +3,9 @@
+ // Candidate tuning, never locked balance. Master units are cents and 0.1s ticks.
+ export const P = {
+   ...master,
+-  version: 'founder-candidate.9',
++  version: 'founder-candidate.10',
++  // S10 candidate: full context rot triples routine duration; no action lottery.
++  automationRotSlowdown: 2,
+   // S06 candidate tuning: advanced Luck has a small positive raw expected
+   // output, in exchange for explicitly wider seeded variance. Finite queues
+   // can cap that upside; this is reported by the effect preview and tests.
+@@ -72,7 +74,7 @@
+ export const SKILL_RANKS:Partial<Record<Work,Record<Axis,readonly SkillRankDefinition[]>>>={
+   demand:{
+     craft:[rank('demand.craft.1','Sharper profile read','2 qualified work units per committed profile.','Finite market and Product buffer still cap output.','Profile receipt shows work units.'),rank('demand.craft.2','Signal clustering','4 units per committed profile.','A poor visible profile still spends its acquisition stake.','Opportunity stack grows in visible pairs.'),rank('demand.craft.3','Segment synthesis','8 units per committed profile.','Downstream Product capacity becomes the bottleneck.','Profile stack fills a full lane.'),rank('demand.craft.4','Market instrument','16 units per committed profile.','No extra market is invented once the finite pool is exhausted.','A single triage can fill the available buffer.')],
+-    scale:[rank('demand.scale.1','Second channel','2 visible Demand lanes and twice the Product buffer.','Extra lane adds upkeep and coordination load.','The room lane meter opens a second bay.'),rank('demand.scale.2','Signal rack','4 lanes and a fourfold buffer.','Idle lanes still cost runway.','Four intake bays are shown.'),rank('demand.scale.3','Market desk','8 lanes and an eightfold buffer.','Load can create strain without Operations.','The queue meter becomes an eight-lane rail.'),rank('demand.scale.4','Distribution floor','16 lanes and the largest finite buffer.','Capacity does not create qualified prospects.','Full-scale intake is visible in the capacity rail.')],
++    scale:[rank('demand.scale.1','Second channel','2 Demand lanes and twice the autonomous triage capacity.','Extra lane adds upkeep and coordination load.','The room lane meter opens a second bay.'),rank('demand.scale.2','Signal rack','4 Demand lanes and fourfold autonomous triage capacity.','Idle lanes still cost runway.','Four intake bays are shown.'),rank('demand.scale.3','Market desk','8 lanes and an eightfold buffer.','Load can create strain without Operations.','The queue meter becomes an eight-lane rail.'),rank('demand.scale.4','Distribution floor','16 lanes and the largest finite buffer.','Capacity does not create qualified prospects.','Full-scale intake is visible in the capacity rail.')],
+     automate:[rank('demand.automate.1','Profile assistant','An agent performs routine profile triage from the live market.','Compute upkeep and context rot begin.','A live assistant progress signal appears.','Compute upkeep per active lane'),rank('demand.automate.2','Signal operator','Faster autonomous triage consumes the same market and Product buffer.','More compute and rot per routine pass.','Agent telemetry moves faster.','Compute upkeep per active lane'),rank('demand.automate.3','Research loop','High-throughput triage works while you operate another room.','Can stall at a full downstream buffer.','The queue rail calls out the real stall.','Compute upkeep per active lane'),rank('demand.automate.4','Autonomous desk','Routine Demand workflow is fully automated.','A larger swarm amplifies coordination pressure.','The intake line remains visibly self-running.','Compute upkeep per active lane')],
+     luck:[rank('demand.luck.1','Weak signal amplifier','Named seeded output variance begins after the visible profile resolver.','A favorable profile can yield less work.','Receipt names the Luck delta.'),rank('demand.luck.2','Pattern breaker','Wider seeded output distribution with a small positive raw mean.','Finite buffer caps upside first.','Capacity preview shows capped expected work.'),rank('demand.luck.3','Trend capture','Advanced variance can create larger qualified batches.','Shared market shocks affect every lane.','Luck stream is attributed in the work receipt.'),rank('demand.luck.4','Category moment','Largest candidate variance and slightly positive expected output.','Never bypasses finite market or queue caps.','Preview reports raw and capped distribution.')],
+   },
+--- a/src/game/founder/save.ts
++++ b/src/game/founder/save.ts
+@@ -85,6 +85,17 @@
+   }
+   if(company.recipe.tested&&!company.recipe.verification)company.recipe.verification='verified';
+   else if(company.recipe.id&&!company.recipe.verification)company.recipe.verification='incomplete';
++  if(company.version==='founder-candidate.9'){
++    company.version='founder-candidate.10';
++    // Scheduler semantics changed. Preserve paid tickets, partial gestures and
++    // finances; archive old actions instead of replaying them through new rules.
++    for(const f of Object.keys(company.credits) as Array<keyof Company['credits']>)company.credits[f]=0;
++    for(const lead of company.leads)if(company.jobs.closed[`lead:${lead.id}`]?.reason==='completed')delete company.jobs.closed[`lead:${lead.id}`];
++    for(const account of company.accounts)if(account.problem&&account.active)delete company.jobs.closed[`retention:${account.id}`];
++    company.migratedActions=[...(company.migratedActions??[]),...company.actions];
++    company.actions=[];company.actionResults=[];company.actionCursor=0;
++    delete company.replayBase;company.replayBase=replayBaseline(company);
++  }
+   validateCompany(company);return company;
+ }
+ export function decodeLastKnownGood(primary:string|null,backup:string|null):{company:Company;source:'primary'|'backup'}{
+--- a/src/components/founder/FounderGame.tsx
++++ b/src/components/founder/FounderGame.tsx
+@@ -1,6 +1,6 @@
+ 'use client';
+ import { useEffect, useMemo, useRef, useState } from 'react';
+-import { advance, agentCount, arr, batch, command, count, createCompany, forecast, luckDistribution, metrics, queueCap, signal, skillCost, STAGES, tier, units, unlocked } from '../../game/founder/engine';
++import { advance, agentCount, agentStatus, computeCost, arr, batch, command, count, createCompany, forecast, luckDistribution, metrics, queueCap, signal, skillCost, STAGES, tier, units, unlocked } from '../../game/founder/engine';
+ import { AXES, FUNCTIONS, NAMES, P, SEGMENTS, skillRank, UPGRADES, type Axis, type Work } from '../../game/founder/profile';
+ import type { Command, Company } from '../../game/founder/model';
+ import { BACKUP_SAVE_KEY, decodeLastKnownGood, encodeSave, HISTORY_KEY, SAVE_KEY, verifiedBackup } from '../../game/founder/save';
+@@ -50,7 +50,7 @@
+     {s.phase==='setup'?<div className="f-entry"><div className="f-wordmark">ONE PERSON<br/><b>UNICORN</b><span>AN OPERATING SIMULATION</span></div><div className="f-entry-scene"><div className="f-entry-orbit"/><span className="f-serial">COMPANY NO. {String(s.seed).slice(-6)}</span><div className="f-founder-object"><div/><i/><b>1</b></div><p>YOU ARE THE ENTIRE COMPANY.</p></div><div className="f-entry-copy"><span className="f-eyebrow">GARAGE → $1,000,000,000</span><h1>Build the thing.<br/>Become the machine.</h1><p>Six jobs. One pair of hands. Turn real work into customers, then teach agents to do it. Survive the company you create.</p><dl><div><dt>STARTING CASH</dt><dd>{money(s.cash)}</dd></div><div><dt>GROWTH DEADLINE</dt><dd>Only if you take VC</dd></div><div><dt>YOUR FIRST MOVE</dt><dd>Find a customer need</dd></div></dl>{s.inheritedWins>0&&<p>{s.inheritedWins} successful companies · {money(s.inheritedWins*P.winCashBonus)} inherited starting cash</p>}<button className="f-primary" onClick={()=>send({type:'start'})}>Open the garage <span>↗</span></button>{notice&&<p role="status">{notice}</p>}<small>A roguelike founder sim · Local save · Candidate balance</small></div></div>:<>
+           <header className="f-hud"><div className="f-brand"><b>ONE / PERSON</b><span>{STAGES[stage]}</span></div><Metric label="VALUATION" value={money(m.valuation)} sub="TARGET $1B" major/><Metric label="ARR" value={money(m.arr)} sub={`${s.accounts.filter(a=>a.active).reduce((n,a)=>n+a.count,0)} paying customers`}/><Metric label="LIQUID CASH" value={money(s.cash)} sub={`${money(s.expenseAccrued)} bill accruing`} warning={s.cash<m.cost}/><div className="f-clock"><span>QUARTER {String(s.quarter).padStart(2,'0')}</span><strong>{time(1800-s.tick%1800)}</strong><div><i style={{width:`${(s.tick%1800)/18}%`}}/></div></div><button className="f-pause" onClick={()=>send(s.phase==='paused'?{type:'continue'}:{type:'pause'})} disabled={!['active','continuation','paused'].includes(s.phase)}>{s.phase==='paused'?'Continue':'Pause'}</button></header>
+       {pricing?.actionId===s.actionResults.at(-1)?.actionId&&<PricingFlash pricing={pricing!}/>}
+-      <div className="f-garage-scene"><div className="f-garage-pegboard" aria-hidden="true"><i/><i/><i/></div><div className="f-garage-lamp" aria-hidden="true"/><div className="f-layout"><aside className="f-navigation"><div className="f-nav-caption">YOUR ATTENTION</div>{FUNCTIONS.map((f,i)=><button key={f} disabled={!unlocked(s,f)} onClick={()=>send({type:'focus',work:f})} className={s.focus===f?'selected':''} aria-current={s.focus===f?'page':undefined}><span className="f-nav-no">0{i+1}</span><span>{NAMES[f]}<small>{agentCount(s,f)?`${agentCount(s,f)} agent${agentCount(s,f)>1?'s':''} · ${s.enabled[f]?(s.focus===f&&['demand','monetisation'].includes(f)?'with you':'running'):'off'}`:unlocked(s,f)?'Manual':'Needs customers'}</small></span><b>{queue(f)||'·'}</b></button>)}<div className="f-nav-caption">BUILD THE COMPANY</div><button className={s.focus==='skills'?'selected':''} onClick={()=>send({type:'focus',work:'skills'})}><span className="f-nav-no">↗</span><span>Skill trees<small>Craft · Scale · Automate · Luck</small></span></button><button className={s.focus==='finance'?'selected':''} onClick={()=>send({type:'focus',work:'finance'})}><span className="f-nav-no">$</span><span>Finance<small>{report&&!report.chosen&&report.choices.length>0?'Quarter choice ready':'Cashflow & capital'}</small></span><b>{report&&!report.chosen&&report.choices.length>0?'!':''}</b></button><div className="f-nav-bottom"><span>SEED {s.seed}</span><button onClick={()=>setSound(!sound)}>{sound?'Sound on':'Sound off'}</button><button onClick={()=>setNewRun(true)}>New company</button></div></aside>
++      <div className="f-garage-scene"><div className="f-garage-pegboard" aria-hidden="true"><i/><i/><i/></div><div className="f-garage-lamp" aria-hidden="true"/><div className="f-layout"><aside className="f-navigation"><div className="f-nav-caption">YOUR ATTENTION</div>{FUNCTIONS.map((f,i)=><button key={f} disabled={!unlocked(s,f)} onClick={()=>send({type:'focus',work:f})} className={s.focus===f?'selected':''} aria-current={s.focus===f?'page':undefined}><span className="f-nav-no">0{i+1}</span><span>{NAMES[f]}<small>{agentCount(s,f)?`${agentCount(s,f)} agent${agentCount(s,f)>1?'s':''} · ${agentStatus(s,f).label}`:unlocked(s,f)?'Manual':'Needs customers'}</small></span><b>{queue(f)||'·'}</b></button>)}<div className="f-nav-caption">BUILD THE COMPANY</div><button className={s.focus==='skills'?'selected':''} onClick={()=>send({type:'focus',work:'skills'})}><span className="f-nav-no">↗</span><span>Skill trees<small>Craft · Scale · Automate · Luck</small></span></button><button className={s.focus==='finance'?'selected':''} onClick={()=>send({type:'focus',work:'finance'})}><span className="f-nav-no">$</span><span>Finance<small>{report&&!report.chosen&&report.choices.length>0?'Quarter choice ready':'Cashflow & capital'}</small></span><b>{report&&!report.chosen&&report.choices.length>0?'!':''}</b></button><div className="f-nav-bottom"><span>SEED {s.seed}</span><button onClick={()=>setSound(!sound)}>{sound?'Sound on':'Sound off'}</button><button onClick={()=>setNewRun(true)}>New company</button></div></aside>
+       <div className="f-mobile-actions"><button onClick={()=>send({type:'focus',work:'skills'})}>Skill trees ↗</button><button onClick={()=>send({type:'focus',work:'finance'})}>Finance {report&&!report.chosen&&report.choices.length>0?'· NEW CHOICE':'$'}</button><button onClick={()=>setSettings(!settings)}>Settings</button>{settings&&<div><button onClick={()=>setSound(!sound)}>{sound?'Mute sound':'Enable sound'}</button><button onClick={()=>setNewRun(true)}>New company</button></div>}{threats.length>0&&<button className="f-mobile-threat" onClick={()=>send({type:'focus',work:'retention'})}>{threats.length} account threats · {time(Math.min(...threats.map(a=>a.threat))-s.tick)} left →</button>}</div><section className="f-main">
+         {s.phase==='quarter-draft'&&<QuarterDraft defer={gesture} s={s} send={send}/>}
+         {s.phase==='failure'||s.phase==='unicorn'?<div className="f-terminal"><span className="f-eyebrow">{s.phase==='unicorn'?'THE ONE PERSON UNICORN':'THE RUN IS OVER'}</span><h1>{s.phase==='unicorn'?'One founder.\nOne billion.':'The company\nran out of road.'}</h1><p>{s.phase==='unicorn'?'Your successful founder history earns extra starting cash on future runs. Keep building or start another company.':s.failure}</p><div><Metric label="FINAL VALUATION" value={money(m.valuation)}/><Metric label="TIME OPERATING" value={time(s.tick)}/></div>{s.phase==='unicorn'&&<button className="f-primary" onClick={()=>send({type:'continue'})}>Keep operating ↗</button>}<button className="f-secondary" onClick={reset}>Start another company</button></div>:s.phase==='paused'?<div className="f-paused"><span className="f-eyebrow">FOUNDER AWAY</span><h1>Take a breath.</h1><p>The company is paused. Your queues and obligations will wait.</p><button className="f-primary" onClick={()=>send({type:'continue'})}>Continue ↗</button><small>{notice||saveStatus}</small></div>:s.focus==='skills'?<Skills s={s} send={send}/>:s.focus==='finance'?<Finance s={s} send={send}/>:<>
+@@ -59,7 +59,7 @@
+         <div className="f-underbench"><span>{s.ranks[s.focus].automate?`${s.completed[s.focus]} outputs · ${Math.round(s.rot[s.focus]*100)}% context rot`:'ONE FOUNDER. STILL ONLY TWO HANDS.'}</span><button onClick={()=>send({type:'focus',work:'skills'})}>{s.ranks[s.focus].automate?'Improve this system':'Teach an agent this job'} ↗</button></div>
+         </>}
+       </section>
+-      <aside className="f-awareness"><div className="f-awareness-title"><span>THE COMPANY</span><i className={s.phase==='paused'?'paused':''}/></div><CompanyScope s={s}/><div className="f-pipeline"><button onClick={()=>send({type:'focus',work:'product'})}><b>{count(s.leads)}</b><span>qualified<br/>opportunities</span></button><i>→</i><button onClick={()=>send({type:'focus',work:'monetisation'})}><b>{count(s.trials)}</b><span>activated<br/>trials</span></button></div><div className="f-health"><span>OPERATING STABILITY</span><b>{Math.round(m.stability*100)}%</b><div><i style={{width:`${m.stability*100}%`}}/></div><p>{m.overload>.3?'Coordination is slowing work. Repair strain or improve Operations.':m.rot>.2?'Your agents are drifting. Operations can refresh their context.':'Room to breathe. Keep the next bill covered.'}</p></div>{(stage>0||m.rot>0||s.strain>0)&&<dl className="f-pressure"><div><dt>Strain backlog</dt><dd>{s.strain.toFixed(1)}</dd></div><div><dt>Worst context rot</dt><dd>{Math.round(m.rot*100)}%</dd></div><div><dt>Coordination</dt><dd>{m.load.toFixed(1)} / {m.capacity.toFixed(1)}</dd></div></dl>}<button className="f-obligation" onClick={()=>send({type:'focus',work:'finance'})}><span>NEXT OPERATING BILL</span><strong>~{money(m.nextBill)}</strong><small>Due in {time(600-s.tick%600)} · cash {money(s.cash)}</small></button>{threats.length>0&&<button className="f-alert" onClick={()=>send({type:'focus',work:'retention'})}>{threats.length} churn threat{threats.length>1?'s':''} · {time(Math.min(...threats.map(a=>a.threat))-s.tick)} left →</button>}{s.vc&&<button className="f-alert" onClick={()=>send({type:'focus',work:'finance'})}>VC: {money(s.vc.target)} ARR in {time(s.vc.due-s.tick)} →</button>}{report&&!report.chosen&&report.choices.length>0&&<button className="f-quarter-notice" onClick={()=>send({type:'focus',work:'finance'})}>Q{report.quarter} closed. Choose what changes. ↗</button>}<BuildContext s={s}/><ProgressiveHUD s={s}/><small className="f-save-status">{saveStatus}</small></aside></div></div>
++      <aside className="f-awareness"><div className="f-awareness-title"><span>THE COMPANY</span><i className={s.phase==='paused'?'paused':''}/></div><CompanyScope s={s}/><div className="f-pipeline"><button onClick={()=>send({type:'focus',work:'product'})}><b>{count(s.leads)}</b><span>qualified<br/>opportunities</span></button><i>→</i><button onClick={()=>send({type:'focus',work:'monetisation'})}><b>{count(s.trials)}</b><span>activated<br/>trials</span></button></div><div className="f-health"><span>OPERATING STABILITY</span><b>{Math.round(m.stability*100)}%</b><div><i style={{width:`${m.stability*100}%`}}/></div><p>{m.overload>.3?'Coordination is slowing work. Repair strain or improve Operations.':m.rot>.2?'Your agents are drifting. Operations can refresh their context.':'Room to breathe. Keep the next bill covered.'}</p></div>{(stage>0||m.rot>0||s.strain>0)&&<dl className="f-pressure"><div><dt>Strain backlog</dt><dd>{s.strain.toFixed(1)}</dd></div><div><dt>Worst context rot</dt><dd>{Math.round(m.rot*100)}%</dd></div><div><dt>Agent pace</dt><dd>{Math.round(m.speed*100)}% before context rot</dd></div><div><dt>Coordination</dt><dd>{m.load.toFixed(1)} / {m.capacity.toFixed(1)}</dd></div></dl>}<button className="f-obligation" onClick={()=>send({type:'focus',work:'finance'})}><span>NEXT OPERATING BILL</span><strong>~{money(m.nextBill)}</strong><small>Due in {time(600-s.tick%600)} · cash {money(s.cash)}</small></button>{threats.length>0&&<button className="f-alert" onClick={()=>send({type:'focus',work:'retention'})}>{threats.length} churn threat{threats.length>1?'s':''} · {time(Math.min(...threats.map(a=>a.threat))-s.tick)} left →</button>}{s.vc&&<button className="f-alert" onClick={()=>send({type:'focus',work:'finance'})}>VC: {money(s.vc.target)} ARR in {time(s.vc.due-s.tick)} →</button>}{report&&!report.chosen&&report.choices.length>0&&<button className="f-quarter-notice" onClick={()=>send({type:'focus',work:'finance'})}>Q{report.quarter} closed. Choose what changes. ↗</button>}<BuildContext s={s}/><ProgressiveHUD s={s}/><small className="f-save-status">{saveStatus}</small></aside></div></div>
+       <footer className={`f-receipt ${latest?.kind??''}`} role="status"><span>{latest?time(latest.tick):'0:00'} / FIELD NOTES</span><p key={latest?.id}>{latest?.text??'The company is running.'}</p>{(s.inventory.consumables['consumable:customer-firebreak']??0)>0&&s.accounts.some(a=>a.active&&a.threat)?<button onClick={()=>send({type:'consume',id:'consumable:customer-firebreak',account:s.accounts.find(a=>a.active&&a.threat)!.id})}>Deploy customer firebreak</button>:<b>01 FOUNDER / {s.accounts.filter(a=>a.active).reduce((n,a)=>n+a.count,0)} CUSTOMERS</b>}</footer>
+     </>}
+     {newRun&&<div className="f-confirm" role="dialog" aria-modal="true" aria-label="Start a new company"><h2>Close this company?</h2><p>This replaces the current local run. Your successful founder history stays.</p><button className="f-primary" onClick={reset}>Start a new company</button><button className="f-secondary" onClick={()=>setNewRun(false)}>Keep this run</button></div>}
+@@ -102,11 +102,11 @@
+ function BuildContext({s}:{s:Company}){
+   const agents=FUNCTIONS.reduce((n,f)=>n+agentCount(s,f),0),consumables=Object.entries(s.inventory.consumables).filter(([,count])=>count>0);
+   const relics=s.inventory.relics.map(id=>draftOption(s,id,s.quarter)?.name??id),skillRanks=FUNCTIONS.reduce((n,f)=>n+AXES.reduce((sum,a)=>sum+s.ranks[f][a],0),0);
+-  return <section className="f-build-context"><span>ACTIVE BUILD</span><dl><div><dt>Skills installed</dt><dd>{skillRanks} / 96</dd></div><div><dt>Compute</dt><dd>{agents} agent{agents===1?'':'s'} · {money(FUNCTIONS.reduce((n,f)=>n+P.auto_upkeep_cents_per_unit_month[s.ranks[f].automate]*units(s,f),0))}/mo</dd></div></dl>{relics.length>0?<p>{relics.join(' · ')}</p>:s.upgrades.length>0?<p>{s.upgrades.map(id=>UPGRADES.find(u=>u.id===id)?.name??id).join(' · ')}</p>:<p>No quarterly build choices yet.</p>}{consumables.length>0&&<small>{consumables.map(([id,count])=>`${draftOption(s,id,s.quarter)?.name??id} ×${count}`).join(' · ')}</small>}</section>;
++  return <section className="f-build-context"><span>ACTIVE BUILD</span><dl><div><dt>Active lanes</dt><dd>{FUNCTIONS.reduce((n,f)=>n+agentStatus(s,f).activeCapacity,0)} / {FUNCTIONS.reduce((n,f)=>n+units(s,f),0)}</dd></div><div><dt>Skills installed</dt><dd>{skillRanks} / 96</dd></div><div><dt>Compute</dt><dd>{agents} agent{agents===1?'':'s'} · {money(FUNCTIONS.reduce((n,f)=>n+computeCost(s,f),0))}/mo</dd></div></dl>{relics.length>0?<p>{relics.join(' · ')}</p>:s.upgrades.length>0?<p>{s.upgrades.map(id=>UPGRADES.find(u=>u.id===id)?.name??id).join(' · ')}</p>:<p>No quarterly build choices yet.</p>}{consumables.length>0&&<small>{consumables.map(([id,count])=>`${draftOption(s,id,s.quarter)?.name??id} ×${count}`).join(' · ')}</small>}</section>;
+ }
+ function CompanyScope({s}:{s:Company}){
+   const ref=useRef<HTMLCanvasElement>(null);
+-  useEffect(()=>{const canvas=ref.current;if(!canvas)return;const ctx=canvas.getContext('2d');if(!ctx)return;const dpr=Math.min(2,window.devicePixelRatio||1);canvas.width=220*dpr;canvas.height=145*dpr;ctx.scale(dpr,dpr);ctx.clearRect(0,0,220,145);const level=tier(s),color=level>=4?'#b8e2e6':level>=2?'#86c9cb':'#baa889';const points=FUNCTIONS.map((_,i)=>({x:110+62*Math.cos(-Math.PI/2+i*Math.PI/3),y:72+52*Math.sin(-Math.PI/2+i*Math.PI/3)}));ctx.strokeStyle=color+'55';ctx.lineWidth=1;for(let i=0;i<6;i++){const p=points[i],next=points[(i+1)%6];ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(next.x,next.y);ctx.stroke();if(level>=1){ctx.beginPath();ctx.moveTo(110,72);ctx.lineTo(p.x,p.y);ctx.stroke();}ctx.fillStyle=s.focus===FUNCTIONS[i]?color:'#262829';ctx.beginPath();ctx.arc(p.x,p.y,s.ranks[FUNCTIONS[i]].automate?6:3,0,Math.PI*2);ctx.fill();ctx.strokeStyle=color;ctx.stroke();if(s.ranks[FUNCTIONS[i]].automate&&s.enabled[FUNCTIONS[i]]&&s.phase!=='paused'&&!window.matchMedia('(prefers-reduced-motion: reduce)').matches){const progress=s.credits[FUNCTIONS[i]];ctx.fillStyle=color;ctx.beginPath();ctx.arc(110+(p.x-110)*progress,72+(p.y-72)*progress,2,0,Math.PI*2);ctx.fill();}}
++  useEffect(()=>{const canvas=ref.current;if(!canvas)return;const ctx=canvas.getContext('2d');if(!ctx)return;const dpr=Math.min(2,window.devicePixelRatio||1);canvas.width=220*dpr;canvas.height=145*dpr;ctx.scale(dpr,dpr);ctx.clearRect(0,0,220,145);const level=tier(s),color=level>=4?'#b8e2e6':level>=2?'#86c9cb':'#baa889';const points=FUNCTIONS.map((_,i)=>({x:110+62*Math.cos(-Math.PI/2+i*Math.PI/3),y:72+52*Math.sin(-Math.PI/2+i*Math.PI/3)}));ctx.strokeStyle=color+'55';ctx.lineWidth=1;for(let i=0;i<6;i++){const p=points[i],next=points[(i+1)%6];ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(next.x,next.y);ctx.stroke();if(level>=1){ctx.beginPath();ctx.moveTo(110,72);ctx.lineTo(p.x,p.y);ctx.stroke();}ctx.fillStyle=s.focus===FUNCTIONS[i]?color:'#262829';ctx.beginPath();ctx.arc(p.x,p.y,s.ranks[FUNCTIONS[i]].automate?6:3,0,Math.PI*2);ctx.fill();ctx.strokeStyle=color;ctx.stroke();if(agentStatus(s,FUNCTIONS[i]).state==='running'&&!window.matchMedia('(prefers-reduced-motion: reduce)').matches){const progress=s.credits[FUNCTIONS[i]];ctx.fillStyle=color;ctx.beginPath();ctx.arc(110+(p.x-110)*progress,72+(p.y-72)*progress,2,0,Math.PI*2);ctx.fill();}}
+   ctx.fillStyle=color;ctx.font='22px monospace';ctx.textAlign='center';ctx.fillText('1',110,78);ctx.font='7px monospace';ctx.fillText('FOUNDER',110,91);
+   },[s]);
+   return <canvas ref={ref} className="f-company-scope" style={{width:'100%',height:145}} aria-label="Six connected work functions around one founder. Moving signals indicate autonomous work." role="img"/>;
+@@ -115,5 +115,5 @@
+   const stage=tier(s);if(stage<1)return <section className="f-garage-progress"><span>WORKBENCH / MANUAL EDITION</span><p>Your first 3 skill ranks unlock live capability instruments.</p><div>{[0,1,2].map(i=><i key={i} className={FUNCTIONS.reduce((n,f)=>n+AXES.reduce((v,a)=>v+s.ranks[f][a],0),0)>i?'installed':''}/>)}</div></section>;
+   const max=Math.max(1,...s.history.map(h=>h.arr));const points=s.history.filter((_,i)=>i%6===0).map((h,i,list)=>`${i/Math.max(1,list.length-1)*180},${48-h.arr/max*44}`).join(' ');
+   const craft=FUNCTIONS.reduce((n,f)=>n+s.ranks[f].craft,0),lanes=FUNCTIONS.reduce((n,f)=>n+units(s,f),0),agents=FUNCTIONS.reduce((n,f)=>n+agentCount(s,f),0);
+-  return <section className="f-earned-hud"><div className="f-capability-instruments"><article><small>CRAFT</small><b>{craft}</b><span>installed ranks</span></article><article><small>SCALE</small><b>{lanes}</b><span>work lanes</span></article><article><small>AUTOMATE</small><b>{agents}</b><span>agent systems</span></article></div><span>{stage<2?'AGENT TELEMETRY':stage<3?'SWARM TELEMETRY':'EXECUTIVE INSTRUMENTS'}</span>{FUNCTIONS.filter(f=>s.ranks[f].automate>0).map(f=><div key={f}><span>{NAMES[f]}</span><div><i style={{width:`${s.enabled[f]?s.credits[f]*100:0}%`}}/></div><b>{s.completed[f]}</b></div>)}{stage>=2&&<p>Actual completed outputs. Idle lanes mean missing inputs, full downstream queues, or disabled agents.</p>}{stage>=3&&<><span>ELIGIBLE ARR / TRAILING QUARTER</span><svg viewBox="0 0 180 55" role="img" aria-label="Trailing quarter eligible ARR chart"><polyline points={points} fill="none" stroke="currentColor" strokeWidth="1.5"/></svg><p>{money(metrics(s).arr)} ARR · {Math.round(metrics(s).stability*100)}% stability</p></>}</section>;
++  return <section className="f-earned-hud"><div className="f-capability-instruments"><article><small>CRAFT</small><b>{craft}</b><span>installed ranks</span></article><article><small>SCALE</small><b>{lanes}</b><span>work lanes</span></article><article><small>AUTOMATE</small><b>{agents}</b><span>agent systems</span></article></div><span>{stage<2?'AGENT TELEMETRY':stage<3?'SWARM TELEMETRY':'EXECUTIVE INSTRUMENTS'}</span>{FUNCTIONS.filter(f=>s.ranks[f].automate>0).map(f=>{const agent=agentStatus(s,f);return <div key={f} title={`${agent.installed} installed agents · ${agent.activeCapacity}/${agent.lanes} active lanes · ${money(agent.compute)}/mo · ${Math.round(agent.speed*100)}% pace`}><span>{NAMES[f]}<small style={{display:'block'}}>{agent.label}{agent.state==='running'?` · ${Math.round(agent.speed*100)}% pace`:''}</small></span><div role="progressbar" aria-label={`${NAMES[f]} agent step`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(agent.progress*100)}><i style={{width:`${agent.progress*100}%`}}/></div><b>{s.completed[f]}</b></div>})}{stage>=2&&<p>Completed output. Open a room to take control; leave to resume agents.</p>}{stage>=3&&<><span>ELIGIBLE ARR / TRAILING QUARTER</span><svg viewBox="0 0 180 55" role="img" aria-label="Trailing quarter eligible ARR chart"><polyline points={points} fill="none" stroke="currentColor" strokeWidth="1.5"/></svg><p>{money(metrics(s).arr)} ARR · {Math.round(metrics(s).stability*100)}% stability</p></>}</section>;
+ }
+--- a/package.json
++++ b/package.json
+@@ -23,7 +23,7 @@
+     "test:integration": "vitest run tests/integration",
+     "validate:content": "vitest run tests/unit/content-validation.test.ts",
+     "test": "vitest run",
+-    "test:founder": "vitest run tests/integration/founder-state-save.test.ts tests/integration/founder-company.test.ts tests/integration/founder-policy.test.ts tests/integration/founder-toys.test.ts",
++    "test:founder": "vitest run tests/integration/founder-automation.test.ts tests/integration/founder-state-save.test.ts tests/integration/founder-company.test.ts tests/integration/founder-policy.test.ts tests/integration/founder-toys.test.ts",
+     "postbuild": "node scripts/prepare-founder-offline.mjs"
+   },
+   "dependencies": {
+--- /dev/null
++++ b/tests/integration/founder-automation.test.ts
+@@ -0,0 +1,145 @@
++import { describe, expect, it } from 'vitest';
++import { mkdirSync, writeFileSync } from 'node:fs';
++import { advance, agentStatus, arr, command, computeCost, createCompany, monthlyCost, pressure, pricingQuote, random, rebaseCompany, replayCompany, signal, validateCompany } from '../../src/game/founder/engine';
++import { AXES, FUNCTIONS, P, skillRank } from '../../src/game/founder/profile';
++import { checksum, decodeSave, encodeSave } from '../../src/game/founder/save';
++import { productBrief } from '../../src/game/founder/toys';
++import type { Account, Company } from '../../src/game/founder/model';
++
++const start=(seed=1001)=>{const s=command(createCompany(seed),{type:'start'});s.focus='skills';s.cash=100_000_000;s.serial=1000;return s;};
++const account=(id=800):Account=>({id,origin:id,segment:0,count:1,price:4000,basePrice:4000,fit:.8,health:80,defects:0,born:-1200,caredUntil:10000,addons:0,threat:0,earned:0,remainder:0,active:true});
++const problem=(s:Company,id=900,deadline=500)=>{const a=s.accounts[0];a.caredUntil=0;a.threat=deadline;a.problem={id,kind:'trust',label:'Promise slipping',detail:'Fix the missed promise.',openedAt:s.tick,deadline,severity:2,workRequired:8,workCompleted:0,exposedArr:a.price*12};};
++const until=(s:Company,test:(s:Company)=>boolean,max=500)=>{for(let i=0;i<max&&!test(s)&&s.phase==='active';i++)s=advance(s);return s;};
++
++describe('S10 integrated company automation',()=>{
++  it('installs every one of the 96 named ranks once and replays the commitments',()=>{
++    const fixture=start();fixture.cash=1_000_000_000_000;let s=rebaseCompany(fixture);
++    for(const f of FUNCTIONS)for(const axis of AXES)for(let rank=1;rank<=4;rank++){
++      expect(skillRank(f,axis,rank)?.effectId).toBe(`skill:${f}.${axis}.${rank}`);
++      s=command(s,{type:'buy',work:f,axis,rank});expect(s.ranks[f][axis]).toBe(rank);
++    }
++    expect(FUNCTIONS.reduce((sum,f)=>sum+AXES.reduce((n,a)=>n+s.ranks[f][a],0),0)).toBe(96);
++    expect(replayCompany(s)).toEqual(s);expect(decodeSave(encodeSave(s))).toEqual(s);
++  });
++
++  it('never chains new Demand, Product and Monetisation output within a tick',()=>{
++    let s=start();for(const f of ['demand','product','monetisation'] as const){s.ranks[f].automate=4;s.credits[f]=.999;}
++    while(signal(s).quality!=='qualified')s.signal++;
++    s=rebaseCompany(s);s=advance(s);
++    expect(s.leads.length).toBeGreaterThan(0);expect(s.recipe.id).toBe(0);expect(s.trials).toHaveLength(0);expect(arr(s)).toBe(0);
++    s=until(s,x=>!!x.completed.product);expect(s.trials.length).toBeGreaterThan(0);expect(s.completed.monetisation).toBe(0);
++    s=until(s,x=>!!x.completed.monetisation);expect(arr(s)).toBeGreaterThan(0);expect(replayCompany(s)).toEqual(s);validateCompany(s);
++  });
++
++  it('assembles, tests and ships one persisted recipe with a lossless founder handoff',()=>{
++    let s=start();s.ranks.product.automate=4;s.leads=[{id:500,segment:0,count:1,fit:.9,expires:1000}];s.credits.product=.999;s=rebaseCompany(s);s=advance(s);
++    expect(s.recipe.id).toBe(500);expect(s.recipe.slots.filter(x=>x!==null)).toHaveLength(1);expect(s.trials).toHaveLength(0);
++    s=command(s,{type:'focus',work:'product'});const partial=structuredClone(s.recipe);expect(s.jobs.reservations[0].owner).toBe('founder');
++    s=advance(decodeSave(encodeSave(s)),30);expect(s.recipe).toEqual(partial);expect(s.trials).toHaveLength(0);
++    s=command(s,{type:'focus',work:'skills'});s=until(s,x=>!!x.recipe.tested);expect(s.recipe.verification).toBe('verified');expect(s.trials).toHaveLength(0);
++    s=until(s,x=>!!x.completed.product);expect(s.trials).toHaveLength(1);expect(s.productResolution).toMatchObject({leadId:500,trialsCreated:1,arrDelta:0});
++    expect(replayCompany(s)).toEqual(s);validateCompany(s);
++  });
++
++  it('does not strand the remainder of a Product or Monetisation batch under a closed ID',()=>{
++    let s=start();s.focus='product';s.leads=[{id:500,segment:0,count:2,fit:.9,expires:1000}];s=rebaseCompany(s);
++    for(let n=0;n<2;n++){
++      const lead=s.leads[0];productBrief(s,lead).parts.forEach((part,slot)=>s=command(s,{type:'part',job:lead.id,slot,part}));
++      s=command(s,{type:'test-build',job:lead.id});s=command(s,{type:'ship',job:lead.id,early:false});
++    }
++    expect(s.leads).toHaveLength(0);expect(s.trials.reduce((n,t)=>n+t.count,0)).toBe(2);
++    s.ranks.monetisation.automate=4;s.focus='skills';s=rebaseCompany(s);s=until(s,x=>!x.trials.length);
++    expect(s.completed.monetisation).toBe(2);expect(replayCompany(s)).toEqual(s);
++    const t=start();t.trials=[{id:500,segment:0,count:2,fit:.9,expires:1000}];t.ranks.monetisation.automate=4;
++    expect(pricingQuote(t,'fair',true).baseArr).toBe(3200*12);
++    const priced=until(t,x=>x.completed.monetisation===2);expect(priced.trials).toHaveLength(0);expect(priced.accounts.reduce((n,a)=>n+a.count,0)).toBe(2);
++  });
++
++  it('respects founder timing, installation, disabled agents and finite blocked credits',()=>{
++    let s=start();s.focus='monetisation';s.trials=[{id:500,segment:0,count:1,fit:.9,expires:1000}];s.ranks.monetisation.automate=4;s.credits.monetisation=.999;
++    s=advance(s,20);expect(s.accounts).toHaveLength(0);expect(s.credits.monetisation).toBe(0);expect(agentStatus(s,'monetisation').state).toBe('founder');
++    s=command(s,{type:'focus',work:'skills'});s.deployed.monetisation=s.tick+20;s=advance(s,19);expect(s.accounts).toHaveLength(0);expect(agentStatus(s,'monetisation').state).toBe('installing');
++    s=command(s,{type:'automation',work:'monetisation'});expect(computeCost(s,'monetisation')).toBe(0);s=advance(s,30);expect(s.accounts).toHaveLength(0);
++    s=command(s,{type:'automation',work:'monetisation'});s=until(s,x=>!!x.accounts.length);expect(s.completed.monetisation).toBe(1);
++    s=advance(s,200);expect(s.credits.monetisation).toBe(0);expect(agentStatus(s,'monetisation').state).toBe('waiting');validateCompany(s);
++    const back=start();back.ranks.demand.automate=4;back.leads=[{id:500,count:12,fit:.9,segment:0,expires:1000}];back.credits.demand=.999;
++    const blocked=advance(back,50);expect(agentStatus(blocked,'demand').state).toBe('backpressure');expect(blocked.attempts.demand).toBe(0);expect(blocked.credits.demand).toBe(0);
++  });
++
++  it('resumes founder work after enabling or first installing agents offscreen',()=>{
++    let s=start(1014);s.focus='product';s.leads=[{id:500,count:1,segment:0,fit:.9,expires:1000}];s=command(s,{type:'part',job:500,slot:0,part:0});
++    s=command(s,{type:'focus',work:'skills'});expect(s.jobs.reservations[0].owner).toBe('founder');
++    s=command(s,{type:'buy',work:'product',axis:'automate',rank:1});expect(s.jobs.reservations).toHaveLength(0);
++    s=command(s,{type:'focus',work:'product'});s=command(s,{type:'part',job:500,slot:0,part:0});s=command(s,{type:'automation',work:'product'});
++    s=command(s,{type:'focus',work:'skills'});expect(s.jobs.reservations[0].owner).toBe('founder');
++    s=command(s,{type:'automation',work:'product'});expect(s.jobs.reservations).toHaveLength(0);s=rebaseCompany(s);s=until(s,x=>!!x.completed.product);expect(s.completed.product).toBe(1);expect(replayCompany(s)).toEqual(s);
++  });
++
++  it('keeps the in-progress merge board until it is served, then fills the second slot',()=>{
++    let s=start();s.accounts=[account(),{...account(801),basePrice:100,price:100}];s.ranks.expansion.automate=4;s.credits.expansion=.999;s=rebaseCompany(s);s=advance(s);
++    expect(s.package.id).toBe(800);const board=structuredClone(s.package.board);
++    s=command(s,{type:'focus',work:'expansion'});expect(s.jobs.reservations[0].owner).toBe('founder');s=advance(s,30);expect(s.package.board).toEqual(board);
++    s=command(s,{type:'focus',work:'skills'});s=until(s,x=>x.accounts.every(a=>a.addons===2),1500);
++    expect(s.accounts.map(a=>a.addons)).toEqual([2,2]);expect(s.completed.expansion).toBe(4);expect(replayCompany(s)).toEqual(s);validateCompany(s);
++  });
++
++  it('allows a new Retention problem after a completed intervention and a firebreak',()=>{
++    let seed=1;while(random(seed,'threat',800,610)>.00001)seed++;
++    let s=start(seed);s.accounts=[account()];problem(s);s.focus='retention';s.ranks.retention.craft=4;s=command(s,{type:'squash-problem',account:800,problem:900,expected:0});
++    expect(s.jobs.closed['retention:800'].reason).toBe('completed');s=advance(s,610);expect(s.accounts[0].problem).toBeDefined();expect(s.jobs.closed['retention:800']).toBeUndefined();
++    const id=s.accounts[0].problem!.id;s.inventory.consumables['consumable:customer-firebreak']=1;
++    s=command(s,{type:'consume',id:'consumable:customer-firebreak',account:800});expect(s.accounts[0].problem).toBeUndefined();expect(s.accounts[0].threat).toBe(0);
++    expect(command(s,{type:'squash-problem',account:800,problem:id,expected:0}).actionResults.at(-1)?.reason).toBe('stale-job');
++  });
++
++  it('runs all six real workflows and freezes them across quarter drafts and reloads',()=>{
++    let s=start(1007);s.accounts=[account()];problem(s,900,500);
++    for(const f of FUNCTIONS){s.ranks[f].automate=4;s.ranks[f].craft=4;}
++    s=rebaseCompany(s);s=advance(s,1800);
++    expect(s.phase).toBe('quarter-draft');for(const f of FUNCTIONS)expect(s.completed[f],f).toBeGreaterThan(0);
++    expect(s.ops.claimed).toHaveLength(s.ops.patches.length);expect(s.ops.used).toBe(2);
++    const restored=decodeSave(encodeSave(s));expect(advance(restored,2000)).toBe(restored);expect(replayCompany(s)).toEqual(s);validateCompany(s);
++  });
++
++  it('ends a failing automated ticket at the boundary without a reward or victory overwrite',()=>{
++    let s=start(1011);s.tick=1799;s.cash=0;s.ranks.operations.automate=4;s.credits.operations=.999;
++    s.ops={...s.ops,id:600,active:true,status:'bought',price:300,purchasedAt:0,purchasedBy:'automated',patches:[{id:0,label:'Cash loss',valueCents:-500,sentiment:'negative',effect:{kind:'cash',cents:-500}}]};
++    s.jobs.reservations=[{jobId:'operations:600',owner:'agent:operations',reservedAt:0,actionId:'fixture'}];
++    s=rebaseCompany(s);s=advance(s,100);expect(s.phase).toBe('failure');expect(s.tick).toBe(1800);expect(s.failure).toContain('Operations ticket settlement');expect(s.reports).toHaveLength(0);expect(s.wonAt).toBeNull();expect(advance(s,50)).toBe(s);expect(replayCompany(s)).toEqual(s);validateCompany(s);
++  });
++
++  it('keeps another Retention intervention running beside a founder-held problem',()=>{
++    let s=start(1012);s.accounts=[account()];problem(s);s.accounts.push({...account(801),caredUntil:0,threat:500,problem:{...s.accounts[0].problem!,id:901}});
++    s.focus='retention';s.ranks.retention.automate=4;s.ranks.retention.craft=2;
++    s=command(s,{type:'squash-problem',account:800,problem:900,expected:0});s=rebaseCompany(s);s=advance(s,40);
++    expect(s.accounts[0].problem?.workCompleted).toBe(4);expect(s.accounts[1].problem).toBeUndefined();expect(replayCompany(s)).toEqual(s);
++  });
++
++  it('keeps a valid recipe available after explained purchased-Luck rework',()=>{
++    let s=start(1013);s.focus='product';s.ranks.product.luck=4;s.risky.product=true;s.strain=10000;s.leads=[{id:500,count:1,segment:0,fit:.9,expires:1000}];
++    const parts=productBrief(s,s.leads[0]).parts;parts.forEach((part,slot)=>s=command(s,{type:'part',job:500,slot,part}));s=command(s,{type:'test-build',job:500});s=rebaseCompany(s);
++    s=command(s,{type:'ship',job:500,early:false});expect(s.trials).toHaveLength(0);expect(s.recipe.verification).toBe('verified');expect(s.jobs.closed['lead:500']).toBeUndefined();expect(s.log.at(-1)?.text).toContain('Luck 4 produced rework');expect(replayCompany(s)).toEqual(s);
++  });
++
++  it('preserves candidate.9 paid and partial work while rebasing scheduler history',()=>{
++    let s=start();s.focus='operations';s=command(s,{type:'ops-deal'});s=command(s,{type:'ops-inspect',card:s.ops.id,cell:0});s=command(s,{type:'focus',work:'product'});s.leads=[{id:500,count:1,segment:0,fit:.9,expires:1000}];s=command(s,{type:'part',job:500,slot:0,part:1});
++    const envelope=JSON.parse(encodeSave(s)),data=JSON.parse(envelope.data);data.version='founder-candidate.9';data.credits.product=.8;
++    envelope.balanceVersion=data.version;envelope.data=JSON.stringify(data);envelope.checksum=checksum(envelope.data);
++    const migrated=decodeSave(JSON.stringify(envelope));expect(migrated.version).toBe(P.version);expect(migrated.cash).toBe(s.cash);expect(migrated.recipe).toEqual(s.recipe);expect(migrated.ops).toEqual(s.ops);expect(migrated.operationsReturns).toEqual(s.operationsReturns);expect(migrated.jobs).toEqual(s.jobs);expect(migrated.credits.product).toBe(0);expect(replayCompany(migrated)).toEqual(migrated);
++  });
++
++  it('exposes deterministic slowdown, bill load and customer consequences with a recoverable configuration',()=>{
++    const build=(over:boolean)=>{const s=start(1010);s.accounts=[account()];problem(s,900,200);for(const f of FUNCTIONS){s.ranks[f].automate=1;s.ranks[f].craft=4;if(over&&f!=='operations'&&f!=='retention')s.ranks[f].scale=4;}return rebaseCompany(s);};
++    const calm=build(false),over=build(true),a=advance(calm,600),b=advance(over,600);
++    expect(pressure(over).speed).toBeLessThan(pressure(calm).speed);expect(monthlyCost(over)).toBeGreaterThan(monthlyCost(calm));
++    expect(b.strain).toBeGreaterThan(a.strain);expect(b.accounts[0].active).toBe(false);expect(a.accounts[0].active).toBe(true);expect(b.expenses).toBeGreaterThan(a.expenses);
++    const rotted=structuredClone(calm);rotted.rot.product=1;expect(agentStatus(rotted,'product').speed).toBeCloseTo(agentStatus(calm,'product').speed/3);
++    let recovered=structuredClone(b);for(const f of FUNCTIONS)recovered=command(recovered,{type:'automation',work:f});
++    expect(FUNCTIONS.reduce((n,f)=>n+computeCost(recovered,f),0)).toBe(0);expect(pressure(recovered).load).toBeLessThan(pressure(b).load);
++    for(let rank=1;rank<=4;rank++)recovered=command(recovered,{type:'buy',work:'operations',axis:'scale',rank});
++    recovered=advance(recovered,600);expect(recovered.strain).toBeLessThan(b.strain);
++    expect(b.cash).toBeLessThan(a.cash);expect(pressure(b).rot).toBeGreaterThan(pressure(a).rot);
++    const summary=(s:Company)=>({tick:s.tick,compute:FUNCTIONS.reduce((n,f)=>n+computeCost(s,f),0),cost:monthlyCost(s),cash:s.cash,expenses:s.expenses,strain:s.strain,rot:s.rot,pressure:pressure(s),firstAccountActive:s.accounts[0].active,completed:s.completed});
++    mkdirSync('artifacts/qa/founder-revamp/S10',{recursive:true});writeFileSync('artifacts/qa/founder-revamp/S10/pressure.json',JSON.stringify({profile:P.version,seed:1010,scenario:'Diagnostic matched starting ledgers, 600 ticks; not an earned run or balance certification',controlled:summary(a),overextended:summary(b),disabled:summary(recovered)},null,2)+'\n');
++  });
++});
+--- a/docs/exec-plans/active/2026-09-16-founder-revamp/queue.json
++++ b/docs/exec-plans/active/2026-09-16-founder-revamp/queue.json
+@@ -183,10 +183,16 @@
+       "depends_on": [
+         "S09"
+       ],
+-      "status": "pending",
++      "status": "implemented_unverified",
+       "packet": "tasks/S10.md",
+-      "evidence": [],
+-      "code_ready_dependency_exceptions": []
++      "evidence": [
++        "artifacts/qa/founder-revamp/S10/validation.json",
++        "artifacts/qa/founder-revamp/S10/pressure.json"
++      ],
++      "code_ready_dependency_exceptions": [
++        "S09 remains implemented_unverified due to the owner no-browser boundary; its authoritative ticket and ledger regressions pass under S10.",
++        "Browser/computer-use remains disabled: S10 visual, responsive, gesture and reduced-motion acceptance is pending. Separate Sol contention review was not performed in this inherited-model task."
++      ]
+     },
+     {
+       "id": "S11",
+--- a/docs/exec-plans/active/2026-09-16-founder-revamp/CHECKPOINT.md
++++ b/docs/exec-plans/active/2026-09-16-founder-revamp/CHECKPOINT.md
+@@ -1,6 +1,6 @@
+ # Revamp checkpoint
+ 
+-Updated: 2026-09-18. S09 is implemented and headless-validated. S00-S08 remain preserved; browser acceptance remains intentionally unverified. Stop before S10.
++Updated: 2026-09-18. S10 is implemented and headless-validated. S00-S09 remain preserved. Browser/computer-use acceptance and separate Sol review remain pending. Stop before S11.
+ 
+ ## Repository identity
+ 
+@@ -13,13 +13,15 @@
+ 
+ ## Next task
+ 
+-**S10 — Run and supervise an automated six-function company**, Terra / medium. Do not begin without an explicit continuation. No S10 implementation, push or deployment is authorized by this checkpoint.
++**S11 — Choose bootstrap, debt or VC survival pressure**, Sol / high. S11 has not started. On continuation, read tasks/S11.md and resolve O02/O03 narrowly before changing dependent financial rules. No push or deployment.
+ 
+-Completed S09: candidate.9 ticket resolver, save migration, UI contract, return measurement and integrated validation. Tickets persist a named seeded patch set, exact signed modeled value, and typed cash/strain/rot/incident effects. Buying charges once; inspection applies nothing; founder and agent claims share one idempotent ledger. Leaving Operations hands an unfinished paid ticket to enabled Operations automation, which settles every remaining patch. Finite quarterly supply and real automation upkeep bound throughput. O02 remains isolated through the existing named cash-death policy.
++Completed S10: shared scheduler eligibility/status; staged persisted Product automation; finite per-tick pipeline work and bounded credits; ownership transfer across focus/install/toggle; recurring Retention and Expansion lifecycle repairs; consumed-cohort IDs; pressure-driven deterministic agent pace; truthful compute/active-capacity telemetry; candidate.9 migration preserving paid and partial work. Monetisation preview matches the finite batch and contract signing remains cash-neutral. Terminal agent failure cannot enter quarter rewards or victory.
+ 
+-Evidence: `artifacts/qa/founder-revamp/S09/validation.json`. Focused ticket/save/measurement tests passed 39/39. `npm run validate` passed contract, smoke, determinism, 58/58 Founder tests, typecheck and lint. `npm run build` passed with 24 immutable offline files, build `3da7dc206c78`; `git diff --check` passed. Rank-zero automated whole-ticket modeled return after price and allocated upkeep was +181.476 cents with 43.033% losing tickets. Scale/Luck/Automate rank 4 produced +570.369 cents after price/upkeep with 47.311% losing tickets and substantially wider variance. Values remain candidate tuning, not locked balance.
++Evidence: `artifacts/qa/founder-revamp/S10/validation.json` and `pressure.json`. Root validation passed **72/72 Founder tests**, contract, smoke, determinism, typecheck and lint. Production build passed with 24 immutable offline files, build `68334b566820`. `git diff --check` passed. Version is `founder-candidate.10`, contract/content/save versions unchanged.
+ 
+-Next action: stop. Browser/computer-use stays disabled; S09 rendered scratch, responsive, reduced-motion and touch acceptance remain pending. Begin S10 only on explicit resumption.
++Browser/computer-use stays disabled. S10 rendered telemetry, handoff gestures, desktop/mobile/compact layouts and reduced-motion acceptance remain pending. A separate Sol review was not run; this task retained its active model. Seeded diagnostic fixtures establish causal pressure differences, not a balanced 30–45 minute run or player enjoyment. Legacy balance remains `runtimeReady=false` (41 required unresolved entries).
++
++Recovery: `artifacts/qa/founder-revamp/S10/baseline.json` records the pre-S10 mixed checkout. `S10.patch` isolates this slice. Do not reset the worktree or erase supplied folders, partial jobs, paid tickets or last-known-good saves. Implementation is coherent and tested; no partial code edit remains.
+ 
+ ## Completed decisions
+ 
+@@ -145,3 +147,14 @@
+ ```
+ 
+ Update queue.json statuses and evidence at the same time. If interrupted before this is written, inspect the actual diff and rerun only the smallest relevant check; do not discard work or restart discovery. Quota refill permits resumption when the user returns; this file does not schedule it automatically.
++
++## S10 handoff history
++
++- Task: all three S10 substeps implemented; visual acceptance and independent Sol review pending. Stop before S11.
++- Execution: inherited GPT-6-based primary task; no in-place model-tier switch, subagent or independent reviewer was used. Requested packet assignment remains Terra / medium with Sol contention review.
++- Identity: main / 70d8b0e550126849a524573098d051f288fcc706; pre-existing dirty S00–S09 files and supplied reference folders preserved. Exact S10 patch/hash is in artifacts/qa/founder-revamp/S10/validation.json.
++- Changed implementation: src/game/founder/{engine,profile,save}.ts; src/components/founder/FounderGame.tsx; new tests/integration/founder-automation.test.ts; package.json test list. Queue/checkpoint/evidence updated. Existing policy fixture artifacts regenerated by the root test suite.
++- Contracts: founder-state.1 / founder-candidate.10 / founder-content.candidate.5 / save envelope 2. Candidate.9 replay actions are archived; finances, paid tickets, incident ledgers and partial work survive unchanged. Old effort credit resets at this version boundary.
++- Validation: npm run validate passed including 72 tests (14 new integration tests); npm run build passed, offline build 68334b566820; git diff --check passed. Earlier failing diagnostic setups were corrected for finite purchase cash and a deliberately unscaled Retention bottleneck; production behavior was not tuned to force the pressure comparison.
++- Measurement: seed 1010, funded diagnostic companies at 600 ticks. Controlled strain 0, compute 18,000 cents/month, first customer survives. Overextended strain 100.97, compute 198,000 cents/month, first customer churns. Disabling agents and buying Operations capacity reduces strain to 89.77 by tick 1200. These are not earned runs or locked balance.
++- Remaining: O02/O03 before S11; browser/device/human acceptance; independent Sol review; legacy balance registry unresolved. No deployment or publication.

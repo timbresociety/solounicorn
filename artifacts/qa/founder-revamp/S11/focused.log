@@ -1,0 +1,12 @@
+
+ RUN  v3.2.4 /Users/deepsheth/Documents/GitHub/solounicorn
+
+ ✓ tests/integration/founder-finance.test.ts (3 tests) 11ms
+ ✓ tests/integration/founder-state-save.test.ts (9 tests) 68ms
+ ✓ tests/integration/founder-company.test.ts (19 tests) 467ms
+
+ Test Files  3 passed (3)
+      Tests  31 passed (31)
+   Start at  20:19:12
+   Duration  1.09s (transform 492ms, setup 0ms, collect 746ms, tests 547ms, environment 1ms, prepare 259ms)
+

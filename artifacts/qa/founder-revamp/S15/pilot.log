@@ -1,0 +1,14 @@
+
+ RUN  v3.2.4 /Users/deepsheth/Documents/GitHub/solounicorn
+
+stdout | tests/simulation/founder-matrix.test.ts > runs a resumable declared founder policy matrix without synthetic money or ranks
+1 15000 horizon-censored 2700 76102066.62 5701
+
+ ✓ tests/simulation/founder-matrix.test.ts (1 test) 5708ms
+   ✓ runs a resumable declared founder policy matrix without synthetic money or ranks  5704ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  22:26:31
+   Duration  6.66s (transform 274ms, setup 0ms, collect 321ms, tests 5.71s, environment 0ms, prepare 115ms)
+

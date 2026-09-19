@@ -1,0 +1,29 @@
+const CACHE = '__CACHE__';
+const CORE = __ASSETS__;
+// Installation is atomic: a missing file rejects the whole candidate cache.
+// Never skipWaiting. Existing tabs keep their document, rules and asset version.
+self.addEventListener('install', event => {
+ event.waitUntil((async()=>{
+  const cache=await caches.open(CACHE);
+  try{await cache.addAll(CORE);}catch(error){await caches.delete(CACHE);throw error;}
+ })());
+});
+self.addEventListener('activate', event => {
+ event.waitUntil((async()=>{
+  for(const key of await caches.keys())if(key.startsWith('opu-')&&key!==CACHE)await caches.delete(key);
+  await self.clients.claim();
+ })());
+});
+self.addEventListener('fetch', event => {
+ const request=event.request,url=new URL(request.url);
+ if(request.method!=='GET'||url.origin!==self.location.origin)return;
+ const navigation=request.mode==='navigate';
+ if(!navigation&&!CORE.includes(url.pathname))return;
+ event.respondWith((async()=>{
+  const cache=await caches.open(CACHE);
+  // HTML is paired with this worker's hashed assets, even while online.
+  const cached=await cache.match(navigation?'/':url.pathname);
+  if(cached)return cached;
+  try{return await fetch(request);}catch{return Response.error();}
+ })());
+});

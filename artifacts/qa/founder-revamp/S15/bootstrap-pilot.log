@@ -1,0 +1,18 @@
+
+> sites-project@0.1.0 balance:founder-matrix
+> vitest run tests/simulation/founder-matrix.test.ts
+
+
+ RUN  v3.2.4 /Users/deepsheth/Documents/GitHub/solounicorn
+
+stdout | tests/simulation/founder-matrix.test.ts > runs a resumable declared founder policy matrix without synthetic money or ranks
+0 15000 horizon-censored 2700 227920875.21 2630
+
+ ✓ tests/simulation/founder-matrix.test.ts (1 test) 2632ms
+   ✓ runs a resumable declared founder policy matrix without synthetic money or ranks  2631ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  04:11:07
+   Duration  3.19s (transform 142ms, setup 0ms, collect 163ms, tests 2.63s, environment 0ms, prepare 101ms)
+

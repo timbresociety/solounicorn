@@ -1,0 +1,16 @@
+{
+  "head": "70d8b0e550126849a524573098d051f288fcc706",
+  "branch": "main",
+  "status": " M ARCHITECTURE.md\n M README.md\n M artifacts/qa/founder/browser-fixtures.json\n M artifacts/qa/founder/earned-apex.json\n M artifacts/qa/founder/earned-winner.json\n M artifacts/qa/founder/policy.json\n M docs/BUILD.md\n M docs/FOUNDER_RUNTIME.md\n M docs/exec-plans/active/2026-09-07-context-v4-full-rebuild.md\n M docs/exec-plans/active/README.md\n M docs/index.md\n M eslint.config.mjs\n M next.config.ts\n M package.json\n M scripts/check-repo-contract.mjs\n M scripts/qa-tactile-founder.mjs\n M src/components/founder/FounderGame.tsx\n M src/components/founder/ToyRooms.tsx\n M src/components/founder/founder.css\n M src/components/founder/toys.css\n M src/game/founder/engine.ts\n M src/game/founder/model.ts\n M src/game/founder/profile.ts\n M src/game/founder/save.ts\n M src/game/founder/toys.ts\n M tests/integration/founder-company.test.ts\n M tests/integration/founder-policy.test.ts\n M tests/integration/founder-toys.test.ts\n M tsconfig.json\n?? artifacts/qa/2026-09-16-audit/\n?? artifacts/qa/founder-revamp/\n?? asset_requests/pending/founder-garage-laptop-shell.md\n?? docs/exec-plans/active/2026-09-16-founder-revamp/\n?? solounicorn_exec/\n?? src/game/founder/contracts.ts\n?? tests/integration/founder-state-save.test.ts\n?? tests/simulation/\n?? tsconfig.typecheck.json\n",
+  "file_sha256": {
+    "src/game/founder/engine.ts": "1f62c7935e40ae1ebf1bc8e86777678841a60db6e759f8cf1b2311c78e67d4f1",
+    "src/game/founder/profile.ts": "355a1332fc967c38fe245369ca0817ad142ca3712383a1fab5c8356f5c9819d1",
+    "src/game/founder/save.ts": "5a14c6331c2c6e4ea88cb327d7166d0f7625855fc5d580e5ebb53bf64db15444",
+    "src/components/founder/FounderGame.tsx": "db676cab8ff8ae978f892deacca650de2395d81a1d573ccf4b3a48b9bb735473",
+    "tests/integration/founder-company.test.ts": "61e43b531f1855d6ced9f3d2f91e1dc0c3c837430f026f44d35555d045a5c74b",
+    "package.json": "617ea767cb2f4243d56e735e1d87eedc781fd31ad1749147b4efca3215fede2e",
+    "docs/exec-plans/active/2026-09-16-founder-revamp/queue.json": "4b17caab0cc6e8f27b36f31b4104fa649181949aeb8e97ca2dc3989f9fae2ad6",
+    "docs/exec-plans/active/2026-09-16-founder-revamp/CHECKPOINT.md": "5f13cfc62ed5a974355f5d4fd31356f052162242ae912bbd2a69a38d437bb513"
+  },
+  "snapshot": "/tmp/solounicorn-S10-baseline"
+}

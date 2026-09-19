@@ -1,0 +1,21 @@
+{
+  "runtime": "v26.8.1",
+  "platform": "darwin",
+  "arch": "arm64",
+  "seed": 15000,
+  "tick": 26410,
+  "actions": 3450,
+  "accounts": 251,
+  "activeAccounts": 246,
+  "invoiceCount": 246,
+  "closedJobs": 6976,
+  "saveBytes": 2495651,
+  "samples": 40,
+  "advanceOneTickMs": {
+    "p50": 2.8401249999988067,
+    "p95": 3.242000000000189,
+    "p99": 3.8629999999993743
+  },
+  "browserFrameTime": "not measured",
+  "renderingIncluded": false
+}

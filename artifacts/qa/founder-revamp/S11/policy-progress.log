@@ -1,0 +1,131 @@
+
+ RUN  v3.2.4 /Users/deepsheth/Documents/GitHub/solounicorn
+
+Policy debt/77: tick 1800, quarter-draft, 384 actions
+Policy debt/77: tick 3600, quarter-draft, 760 actions
+Policy debt/77: tick 5400, quarter-draft, 1092 actions
+Policy debt/77: tick 7200, quarter-draft, 1383 actions
+Policy debt/77: tick 9000, quarter-draft, 1640 actions
+Policy debt/77: tick 10800, quarter-draft, 1922 actions
+Policy debt/77: tick 12600, quarter-draft, 2227 actions
+Policy debt/77: tick 14400, quarter-draft, 2560 actions
+Policy debt/77: tick 16200, quarter-draft, 2922 actions
+Policy debt/77: tick 18000, quarter-draft, 3276 actions
+Policy debt/77: tick 19800, quarter-draft, 3718 actions
+Policy debt/77: tick 21600, quarter-draft, 4146 actions
+Policy debt/77: tick 23400, quarter-draft, 4578 actions
+Policy debt/77: tick 25200, quarter-draft, 5017 actions
+Policy debt/77: tick 27000, quarter-draft, 5455 actions
+Policy debt/84022: tick 1800, quarter-draft, 382 actions
+Policy debt/84022: tick 3600, quarter-draft, 733 actions
+Policy debt/84022: tick 5400, quarter-draft, 1020 actions
+Policy debt/84022: tick 7200, quarter-draft, 1355 actions
+Policy debt/84022: tick 9000, quarter-draft, 1615 actions
+Policy debt/84022: tick 10800, quarter-draft, 1885 actions
+Policy debt/84022: tick 12600, quarter-draft, 2157 actions
+Policy debt/84022: tick 14400, quarter-draft, 2483 actions
+Policy debt/84022: tick 16200, quarter-draft, 2826 actions
+Policy debt/84022: tick 18000, quarter-draft, 3167 actions
+Policy debt/84022: tick 19800, quarter-draft, 3525 actions
+Policy debt/84022: tick 21600, quarter-draft, 3945 actions
+Policy debt/84022: tick 23400, quarter-draft, 4381 actions
+Policy debt/84022: tick 25200, quarter-draft, 4812 actions
+Policy debt/84022: tick 27000, quarter-draft, 5250 actions
+stdout | tests/integration/founder-policy.test.ts > validates viable bootstrap and debt runs, plus genuine cashflow failure
+[
+  {
+    seed: 19,
+    capital: 'bootstrap',
+    status: 'failure',
+    tick: 600,
+    valuation: 119496980,
+    failure: 'Monthly operating bill required $664.00; only $465.75 was liquid. Keep a reserve or raise capital before the due date.'
+  },
+  {
+    seed: 77,
+    capital: 'bootstrap',
+    status: 'failure',
+    tick: 600,
+    valuation: 119496980,
+    failure: 'Monthly operating bill required $664.00; only $463.75 was liquid. Keep a reserve or raise capital before the due date.'
+  },
+  {
+    seed: 84022,
+    capital: 'bootstrap',
+    status: 'failure',
+    tick: 600,
+    valuation: 119496980,
+    failure: 'Monthly operating bill required $664.00; only $487.75 was liquid. Keep a reserve or raise capital before the due date.'
+  },
+  {
+    seed: 19,
+    capital: 'debt',
+    status: 'failure',
+    tick: 1360,
+    valuation: 696760686,
+    failure: 'Loan interest required $57.60; only $26.28 was liquid. Keep a reserve or raise capital before the due date.'
+  },
+  {
+    seed: 77,
+    capital: 'debt',
+    status: 'quarter-draft',
+    tick: 27000,
+    valuation: 2818681486,
+    failure: ''
+  },
+  {
+    seed: 84022,
+    capital: 'debt',
+    status: 'quarter-draft',
+    tick: 27000,
+    valuation: 3632495536,
+    failure: ''
+  }
+]
+
+ ❯ tests/integration/founder-policy.test.ts (1 test | 1 failed) 205383ms
+   × validates viable bootstrap and debt runs, plus genuine cashflow failure 205383ms
+     → expected false to be true // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/integration/founder-policy.test.ts > validates viable bootstrap and debt runs, plus genuine cashflow failure
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/integration/founder-policy.test.ts:60:71
+     58|  writeFileSync('artifacts/qa/founder/policy.json',JSON.stringify(resul…
+     59|  console.log(results.map(({seed,capital,status,outcome,tick,valuation,…
+     60|  // Candidate balance is not locked. This policy is a deterministic ac…
+       |                                                                       ^
+     61|  // regression, not evidence that every fixed policy reaches a unicorn.
+     62|  // Survival at the 45-minute horizon is neither a win nor a failure.
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+⎯⎯⎯⎯⎯⎯ Unhandled Errors ⎯⎯⎯⎯⎯⎯
+
+Vitest caught 1 unhandled error during the test run.
+This might cause false positive tests. Resolve unhandled errors to make sure your tests are not affected.
+
+⎯⎯⎯⎯⎯⎯ Unhandled Error ⎯⎯⎯⎯⎯⎯⎯
+Error: [vitest-worker]: Timeout calling "onTaskUpdate"
+ ❯ Object.onTimeoutError node_modules/vitest/dist/chunks/rpc.-pEldfrD.js:53:10
+ ❯ Timeout._onTimeout node_modules/vitest/dist/chunks/index.B521nVV-.js:59:62
+ ❯ listOnTimeout node:internal/timers:685:17
+ ❯ processTimers node:internal/timers:618:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+     Errors  1 error
+   Start at  02:14:24
+   Duration  205.83s (transform 187ms, setup 0ms, collect 206ms, tests 205.38s, environment 0ms, prepare 63ms)
+

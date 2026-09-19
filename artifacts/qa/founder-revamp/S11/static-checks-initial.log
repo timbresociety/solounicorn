@@ -1,0 +1,14 @@
+Command: npm run typecheck && npm run lint
+Typecheck passed. Lint failed (exit 1):
+
+> sites-project@0.1.0 lint
+> eslint . --ignore-pattern dist --ignore-pattern .next
+
+
+/Users/deepsheth/Documents/GitHub/solounicorn/tests/integration/founder-finance.test.ts
+  67:29  error  'before' is never reassigned. Use 'const' instead  prefer-const
+  67:43  error  'cash' is never reassigned. Use 'const' instead    prefer-const
+
+✖ 2 problems (2 errors, 0 warnings)
+
+

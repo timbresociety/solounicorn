@@ -1,0 +1,102 @@
+
+> sites-project@0.1.0 balance:founder-matrix
+> vitest run tests/simulation/founder-matrix.test.ts
+
+
+ RUN  v3.2.4 /Users/deepsheth/Documents/GitHub/solounicorn
+
+stdout | tests/simulation/founder-matrix.test.ts > runs a resumable declared founder policy matrix without synthetic money or ranks
+0 15001 horizon-censored 2700 230032930.86 3214
+
+stdout | tests/simulation/founder-matrix.test.ts > runs a resumable declared founder policy matrix without synthetic money or ranks
+0 15002 horizon-censored 2700 220214004.5 2206
+
+stdout | tests/simulation/founder-matrix.test.ts > runs a resumable declared founder policy matrix without synthetic money or ranks
+0 15003 horizon-censored 2700 223714194.38 2191
+
+stdout | tests/simulation/founder-matrix.test.ts > runs a resumable declared founder policy matrix without synthetic money or ranks
+0 15004 horizon-censored 2700 217509091.01 2119
+
+stdout | tests/simulation/founder-matrix.test.ts > runs a resumable declared founder policy matrix without synthetic money or ranks
+0 15005 horizon-censored 2700 221645153.64 2086
+
+stdout | tests/simulation/founder-matrix.test.ts > runs a resumable declared founder policy matrix without synthetic money or ranks
+0 15006 horizon-censored 2700 224647098.78 2228
+
+stdout | tests/simulation/founder-matrix.test.ts > runs a resumable declared founder policy matrix without synthetic money or ranks
+0 15007 horizon-censored 2700 218381337.62 2285
+
+stdout | tests/simulation/founder-matrix.test.ts > runs a resumable declared founder policy matrix without synthetic money or ranks
+0 15008 horizon-censored 2700 226840614.04 2040
+
+stdout | tests/simulation/founder-matrix.test.ts > runs a resumable declared founder policy matrix without synthetic money or ranks
+0 15009 horizon-censored 2700 226153292.39 2052
+
+stdout | tests/simulation/founder-matrix.test.ts > runs a resumable declared founder policy matrix without synthetic money or ranks
+0 15010 horizon-censored 2700 234737726.04 2239
+
+stdout | tests/simulation/founder-matrix.test.ts > runs a resumable declared founder policy matrix without synthetic money or ranks
+0 15011 horizon-censored 2700 219794427.4 2233
+
+stdout | tests/simulation/founder-matrix.test.ts > runs a resumable declared founder policy matrix without synthetic money or ranks
+0 15012 horizon-censored 2700 224190029.86 2349
+
+stdout | tests/simulation/founder-matrix.test.ts > runs a resumable declared founder policy matrix without synthetic money or ranks
+0 15013 horizon-censored 2700 219423366.95 2295
+
+stdout | tests/simulation/founder-matrix.test.ts > runs a resumable declared founder policy matrix without synthetic money or ranks
+0 15014 horizon-censored 2700 222778118.91 2199
+
+stdout | tests/simulation/founder-matrix.test.ts > runs a resumable declared founder policy matrix without synthetic money or ranks
+0 15015 horizon-censored 2700 228981097.96 2275
+
+stdout | tests/simulation/founder-matrix.test.ts > runs a resumable declared founder policy matrix without synthetic money or ranks
+0 15016 horizon-censored 2700 214730480.18 2131
+
+stdout | tests/simulation/founder-matrix.test.ts > runs a resumable declared founder policy matrix without synthetic money or ranks
+0 15017 horizon-censored 2700 231410184.82 2352
+
+stdout | tests/simulation/founder-matrix.test.ts > runs a resumable declared founder policy matrix without synthetic money or ranks
+0 15018 horizon-censored 2700 220820531.28 2263
+
+stdout | tests/simulation/founder-matrix.test.ts > runs a resumable declared founder policy matrix without synthetic money or ranks
+0 15019 horizon-censored 2700 222669037.69 2167
+
+stdout | tests/simulation/founder-matrix.test.ts > runs a resumable declared founder policy matrix without synthetic money or ranks
+0 15020 horizon-censored 2700 216081818.07 2205
+
+stdout | tests/simulation/founder-matrix.test.ts > runs a resumable declared founder policy matrix without synthetic money or ranks
+0 15021 horizon-censored 2700 231508016.63 2388
+
+stdout | tests/simulation/founder-matrix.test.ts > runs a resumable declared founder policy matrix without synthetic money or ranks
+0 15022 horizon-censored 2700 227871767.6 2229
+
+stdout | tests/simulation/founder-matrix.test.ts > runs a resumable declared founder policy matrix without synthetic money or ranks
+0 15023 horizon-censored 2700 224533545.13 2294
+
+stdout | tests/simulation/founder-matrix.test.ts > runs a resumable declared founder policy matrix without synthetic money or ranks
+0 15024 horizon-censored 2700 231850935.74 2193
+
+stdout | tests/simulation/founder-matrix.test.ts > runs a resumable declared founder policy matrix without synthetic money or ranks
+0 15025 horizon-censored 2700 221103370.91 2366
+
+stdout | tests/simulation/founder-matrix.test.ts > runs a resumable declared founder policy matrix without synthetic money or ranks
+0 15026 horizon-censored 2700 232244095.57 2330
+
+stdout | tests/simulation/founder-matrix.test.ts > runs a resumable declared founder policy matrix without synthetic money or ranks
+0 15027 horizon-censored 2700 222433282.52 2190
+
+stdout | tests/simulation/founder-matrix.test.ts > runs a resumable declared founder policy matrix without synthetic money or ranks
+0 15028 horizon-censored 2700 226496941.72 2411
+
+stdout | tests/simulation/founder-matrix.test.ts > runs a resumable declared founder policy matrix without synthetic money or ranks
+0 15029 horizon-censored 2700 212508485.28 2480
+
+ ✓ tests/simulation/founder-matrix.test.ts (1 test) 66033ms
+   ✓ runs a resumable declared founder policy matrix without synthetic money or ranks  66031ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  04:11:30
+   Duration  67.00s (transform 234ms, setup 0ms, collect 277ms, tests 66.03s, environment 0ms, prepare 129ms)
+

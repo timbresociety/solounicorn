@@ -1,0 +1,15 @@
+
+ RUN  v3.2.4 /Users/deepsheth/Documents/GitHub/solounicorn
+
+ ✓ tests/integration/founder-state-save.test.ts (9 tests) 220ms
+ ✓ tests/integration/founder-content.test.ts (18 tests) 805ms
+   ✓ S12 build catalogue and draft > offers only relevant effects, never owned/full rewards or same-effect alternatives; seeds persist  394ms
+ ✓ tests/integration/founder-finance.test.ts (17 tests) 845ms
+   ✓ S11 approved survival and financing > funds only once, creates no ARR, charges interest monthly and principal only at maturity  313ms
+ ✓ tests/integration/founder-company.test.ts (19 tests) 897ms
+
+ Test Files  4 passed (4)
+      Tests  63 passed (63)
+   Start at  15:37:28
+   Duration  1.51s (transform 507ms, setup 0ms, collect 979ms, tests 2.77s, environment 1ms, prepare 428ms)
+

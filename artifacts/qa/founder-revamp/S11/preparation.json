@@ -1,0 +1,42 @@
+{
+  "task": "S11",
+  "status": "in_progress",
+  "substep": "Decision-independent accounting preparation; waiting on O02/O03 answers",
+  "head": "70d8b0e550126849a524573098d051f288fcc706",
+  "actualModel": "Inherited active task; no Sol switch or delegation performed",
+  "rulesChanged": false,
+  "checks": [
+    {
+      "command": "npx vitest run tests/integration/founder-finance.test.ts tests/integration/founder-company.test.ts",
+      "exitCode": 0,
+      "testsPassed": 22
+    },
+    {
+      "command": "npm run typecheck",
+      "exitCode": 0
+    }
+  ],
+  "versionsUnchanged": {
+    "profile": "founder-candidate.10",
+    "contract": "founder-state.1",
+    "content": "founder-content.candidate.5",
+    "saveEnvelope": 2
+  },
+  "patchSha256": "1e7828f86ac98d1f7d0e490e8b6b64632e09131a01a4fba277446608154142cd",
+  "fileSha256": {
+    "src/game/founder/engine.ts": "1b5583e0ecea9d1e41c5fefccf3c921dfc0073fe80ef2fd16072e3252f202665",
+    "src/game/founder/finance.ts": "8745f70ca4a954442888a36f7ec47d67e24e2b0ab6022796c37bd06f0e87cf4d",
+    "tests/integration/founder-finance.test.ts": "f0a8489270c911c1b836b5d5dba2a6d450527ae7ca05ec104730526e048afe60",
+    "package.json": "120fca29d1e375326e4534b8ec8d4039c2140b6529cdc6e405cd46a16c700708",
+    "docs/exec-plans/active/2026-09-16-founder-revamp/queue.json": "373e4f6ba4ac53af3f8b3df55181b6775944778ae56ca8226e8f91d176066ca4",
+    "docs/exec-plans/active/2026-09-16-founder-revamp/CHECKPOINT.md": "b9174a1613420a27f42bdc6f9dea8ca8312f6bec0df5e82dff00ddf8850a040d"
+  },
+  "pending": [
+    "Required O02/O03 owner answers",
+    "Dependent S11 finance rules, terms surface, save migration and full integration gates",
+    "Visual/browser acceptance remains disabled"
+  ],
+  "recommendedRulesApproved": false,
+  "historical": true,
+  "supersededBy": "artifacts/qa/founder-revamp/S11/validation.json"
+}

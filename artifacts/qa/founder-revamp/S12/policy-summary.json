@@ -1,0 +1,74 @@
+[
+  {
+    "seed": 19,
+    "capital": "bootstrap",
+    "status": "failure",
+    "outcome": "failure",
+    "horizonTicks": 27000,
+    "elapsedMs": 853,
+    "tick": 600,
+    "valuation": 119496980,
+    "cash": 46575,
+    "failure": "Monthly operating bill required $664.00; only $465.75 was liquid. Keep a reserve or raise capital before the due date."
+  },
+  {
+    "seed": 77,
+    "capital": "bootstrap",
+    "status": "failure",
+    "outcome": "failure",
+    "horizonTicks": 27000,
+    "elapsedMs": 817,
+    "tick": 600,
+    "valuation": 119496980,
+    "cash": 46375,
+    "failure": "Monthly operating bill required $664.00; only $463.75 was liquid. Keep a reserve or raise capital before the due date."
+  },
+  {
+    "seed": 84022,
+    "capital": "bootstrap",
+    "status": "failure",
+    "outcome": "failure",
+    "horizonTicks": 27000,
+    "elapsedMs": 976,
+    "tick": 600,
+    "valuation": 119496980,
+    "cash": 48775,
+    "failure": "Monthly operating bill required $664.00; only $487.75 was liquid. Keep a reserve or raise capital before the due date."
+  },
+  {
+    "seed": 19,
+    "capital": "debt",
+    "status": "failure",
+    "outcome": "failure",
+    "horizonTicks": 27000,
+    "elapsedMs": 1613,
+    "tick": 1360,
+    "valuation": 696760686,
+    "cash": 2628,
+    "failure": "Loan interest required $57.60; only $26.28 was liquid. Keep a reserve or raise capital before the due date."
+  },
+  {
+    "seed": 77,
+    "capital": "debt",
+    "status": "quarter-draft",
+    "outcome": "horizon-censored",
+    "horizonTicks": 27000,
+    "elapsedMs": 160682,
+    "tick": 27000,
+    "valuation": 3107693071,
+    "cash": 6894877577,
+    "failure": ""
+  },
+  {
+    "seed": 84022,
+    "capital": "debt",
+    "status": "quarter-draft",
+    "outcome": "horizon-censored",
+    "horizonTicks": 27000,
+    "elapsedMs": 191516,
+    "tick": 27000,
+    "valuation": 4982185821,
+    "cash": 7809764048,
+    "failure": ""
+  }
+]

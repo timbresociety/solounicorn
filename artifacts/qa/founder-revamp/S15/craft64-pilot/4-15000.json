@@ -1,0 +1,152 @@
+{
+  "seed": 15000,
+  "policy": {
+    "mode": "hybrid",
+    "capital": "debt",
+    "luck": 0,
+    "ops": "selective",
+    "repeat": false,
+    "family": "durable",
+    "skilled": true
+  },
+  "firstCustomerSeconds": 15,
+  "manualActions": 762,
+  "focusChanges": 215,
+  "activeSeconds": 710,
+  "outcome": "unicorn",
+  "valuation": 100089021550,
+  "cash": 274195174,
+  "failure": "",
+  "firstUnicornSeconds": 710,
+  "build": [
+    "relic:shared-infrastructure",
+    "relic:care-calendar"
+  ],
+  "ranks": {
+    "demand": {
+      "craft": 4,
+      "scale": 3,
+      "automate": 4,
+      "luck": 0
+    },
+    "product": {
+      "craft": 4,
+      "scale": 3,
+      "automate": 4,
+      "luck": 0
+    },
+    "monetisation": {
+      "craft": 4,
+      "scale": 3,
+      "automate": 4,
+      "luck": 0
+    },
+    "retention": {
+      "craft": 4,
+      "scale": 2,
+      "automate": 4,
+      "luck": 0
+    },
+    "expansion": {
+      "craft": 4,
+      "scale": 2,
+      "automate": 4,
+      "luck": 0
+    },
+    "operations": {
+      "craft": 4,
+      "scale": 4,
+      "automate": 0,
+      "luck": 0
+    }
+  },
+  "operations": {
+    "manual": {
+      "tickets": 9,
+      "patchValue": 19700,
+      "prices": 3450,
+      "upkeep": 0,
+      "net": 16250
+    },
+    "automated": {
+      "tickets": 0,
+      "patchValue": 0,
+      "prices": 0,
+      "upkeep": 0,
+      "net": 0
+    }
+  },
+  "attentionPerMinute": 64.39436619718309,
+  "commandMs": {
+    "p50": 0.5307080000000042,
+    "p95": 1.4467500000000655,
+    "p99": 2.2798749999999472
+  },
+  "samples": [
+    {
+      "tick": 1800,
+      "cash": 876044,
+      "arr": 62400000,
+      "contractualArr": 62400000,
+      "mrr": 5200000,
+      "cost": 626000,
+      "nextBill": 626000,
+      "forecastMinimum": 866684,
+      "growth": 52,
+      "multiple": 26,
+      "stability": 0.9760858955588092,
+      "valuation": 1583601756,
+      "receivables": 3917330,
+      "unbilled": 0,
+      "load": 7.26,
+      "capacity": 22,
+      "overload": 0,
+      "speed": 1,
+      "rot": 0.048999999999999995
+    },
+    {
+      "tick": 3600,
+      "cash": 5463783,
+      "arr": 192960000,
+      "contractualArr": 192960000,
+      "mrr": 16080000,
+      "cost": 2214800,
+      "nextBill": 2214800,
+      "forecastMinimum": 5463783,
+      "growth": 2.0923076923076924,
+      "multiple": 18.369230769230768,
+      "stability": 0.8786569093643622,
+      "valuation": 3114422936,
+      "receivables": 14218186,
+      "unbilled": 0,
+      "load": 32.92,
+      "capacity": 40,
+      "overload": 0,
+      "speed": 1,
+      "rot": 0.2762013007407401
+    },
+    {
+      "tick": 5400,
+      "cash": 11050320,
+      "arr": 1184064000,
+      "contractualArr": 1184064000,
+      "mrr": 98672000,
+      "cost": 14638600,
+      "nextBill": 14638600,
+      "forecastMinimum": 11050320,
+      "growth": 5.136318407960199,
+      "multiple": 26,
+      "stability": 0.6666666666666666,
+      "valuation": 20523776000,
+      "receivables": 67440143,
+      "unbilled": 0,
+      "load": 57.03999999999999,
+      "capacity": 68,
+      "overload": 0,
+      "speed": 1,
+      "rot": 1
+    }
+  ],
+  "version": "founder-candidate.15",
+  "elapsedMs": 2321.578291
+}

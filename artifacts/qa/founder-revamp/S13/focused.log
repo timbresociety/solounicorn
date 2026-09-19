@@ -1,0 +1,10 @@
+
+ RUN  v3.2.4 /Users/deepsheth/Documents/GitHub/solounicorn
+
+ ✓ tests/integration/founder-presentation.test.ts (2 tests) 175ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  22:19:22
+   Duration  2.34s (transform 507ms, setup 0ms, collect 569ms, tests 175ms, environment 0ms, prepare 207ms)
+

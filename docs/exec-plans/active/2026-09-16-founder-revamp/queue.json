@@ -1,0 +1,295 @@
+{
+  "schema_version": 1,
+  "plan": "founder-revamp-2026-09-16",
+  "baseline_commit": "70d8b0e550126849a524573098d051f288fcc706",
+  "browser_computer_use": "disabled_by_user",
+  "implementation_started": true,
+  "tasks": [
+    {
+      "id": "S00",
+      "title": "Repair repo routing and validation",
+      "model": "gpt-5.6-luna",
+      "effort": "medium",
+      "depends_on": [],
+      "status": "complete",
+      "packet": "tasks/S00.md",
+      "evidence": [
+        "artifacts/qa/founder-revamp/S00/validation.json"
+      ],
+      "code_ready_dependency_exceptions": []
+    },
+    {
+      "id": "S01",
+      "title": "Persist one authoritative company across every window",
+      "model": "gpt-5.6-sol",
+      "effort": "high",
+      "depends_on": [
+        "S00"
+      ],
+      "status": "implemented_unverified",
+      "packet": "tasks/S01.md",
+      "evidence": [
+        "artifacts/qa/founder-revamp/S01/validation.json"
+      ],
+      "code_ready_dependency_exceptions": [
+        "Browser/computer-use remains disabled; window blur/pagehide and rendered phase-flow acceptance await targeted interaction QA."
+      ]
+    },
+    {
+      "id": "S02",
+      "title": "Make Monetisation timing agree with ARR",
+      "model": "gpt-5.6-terra",
+      "effort": "medium",
+      "depends_on": [
+        "S01"
+      ],
+      "status": "implemented_unverified",
+      "packet": "tasks/S02.md",
+      "evidence": [
+        "artifacts/qa/founder-revamp/S02/validation.json"
+      ],
+      "code_ready_dependency_exceptions": [
+        "S01 remains implemented_unverified because browser/computer-use is disabled; its pending window blur/pagehide and rendered phase-flow acceptance is a code-ready dependency exception, not final acceptance.",
+        "S02 rendered timing gesture, metric feedback, reduced-motion, and keyboard acceptance remain pending while browser/computer-use is disabled."
+      ]
+    },
+    {
+      "id": "S03",
+      "title": "Play Demand inside the garage laptop HUD",
+      "model": "gpt-5.6-terra",
+      "effort": "medium",
+      "depends_on": [
+        "S02"
+      ],
+      "status": "implemented_unverified",
+      "packet": "tasks/S03.md",
+      "evidence": [
+        "artifacts/qa/founder-revamp/S03/validation.json"
+      ],
+      "code_ready_dependency_exceptions": [
+        "Browser/computer-use remains disabled; desktop and 390/320 visual hierarchy, real pointer cancellation, reduced-motion and touch-target acceptance remain pending.",
+        "Final original 2.5D garage/laptop artwork is intentionally open for S13: asset_requests/pending/founder-garage-laptop-shell.md."
+      ]
+    },
+    {
+      "id": "S04",
+      "title": "Cook a Product and serve its customer",
+      "model": "gpt-5.6-terra",
+      "effort": "medium",
+      "depends_on": [
+        "S03"
+      ],
+      "status": "implemented_unverified",
+      "packet": "tasks/S04.md",
+      "evidence": [
+        "artifacts/qa/founder-revamp/S04/validation.json"
+      ],
+      "code_ready_dependency_exceptions": [
+        "S03 remains implemented_unverified because browser/computer-use is disabled; its pending desktop/mobile hierarchy and touch-target acceptance is a code-ready dependency exception, not final acceptance.",
+        "S04 real drag/tap placement, desktop and 390/320 composition, reduced-motion, overflow and touch-target acceptance remain pending while browser/computer-use is disabled."
+      ]
+    },
+    {
+      "id": "S05",
+      "title": "Finish a quarter and safely choose a build reward",
+      "model": "gpt-5.6-terra",
+      "effort": "medium",
+      "depends_on": [
+        "S04"
+      ],
+      "status": "implemented_unverified",
+      "packet": "tasks/S05.md",
+      "evidence": [
+        "artifacts/qa/founder-revamp/S05/validation.json"
+      ],
+      "code_ready_dependency_exceptions": [
+        "Browser/computer-use remains disabled; rendered quarter report, draft, explicit Continue, desktop/mobile hierarchy and touch-target acceptance remain pending."
+      ]
+    },
+    {
+      "id": "S06",
+      "title": "Make the first three skill trees transform play",
+      "model": "gpt-5.6-terra",
+      "effort": "medium",
+      "depends_on": [
+        "S05"
+      ],
+      "status": "implemented_unverified",
+      "packet": "tasks/S06.md",
+      "evidence": [
+        "artifacts/qa/founder-revamp/S06/validation.json"
+      ],
+      "code_ready_dependency_exceptions": [
+        "Browser/computer-use remains disabled; rendered desktop/mobile capacity readouts, actual gesture visibility, reduced-motion and touch-target acceptance remain pending."
+      ]
+    },
+    {
+      "id": "S07",
+      "title": "Squash actual customer problems in Retention",
+      "model": "gpt-5.6-terra",
+      "effort": "medium",
+      "depends_on": [
+        "S06"
+      ],
+      "status": "implemented_unverified",
+      "packet": "tasks/S07.md",
+      "evidence": [
+        "artifacts/qa/founder-revamp/S07/validation.json"
+      ],
+      "code_ready_dependency_exceptions": [
+        "Browser/computer-use remains disabled; rendered desktop/mobile squash gesture, urgency hierarchy, reduced-motion, overflow and touch-target acceptance remain pending."
+      ]
+    },
+    {
+      "id": "S08",
+      "title": "Merge valuable Expansion packages",
+      "model": "gpt-5.6-terra",
+      "effort": "medium",
+      "depends_on": [
+        "S07"
+      ],
+      "status": "implemented_unverified",
+      "packet": "tasks/S08.md",
+      "evidence": [
+        "artifacts/qa/founder-revamp/S08/validation.json"
+      ],
+      "code_ready_dependency_exceptions": [
+        "Browser/computer-use remains disabled; desktop/mobile real merge gesture, tap/keyboard parity, reduced-motion, overflow and touch-target acceptance remain pending."
+      ]
+    },
+    {
+      "id": "S09",
+      "title": "Inspect and resolve paid Operations scratch tickets",
+      "model": "gpt-5.6-sol",
+      "effort": "high",
+      "depends_on": [
+        "S08"
+      ],
+      "status": "implemented_unverified",
+      "packet": "tasks/S09.md",
+      "evidence": [
+        "artifacts/qa/founder-revamp/S09/validation.json"
+      ],
+      "code_ready_dependency_exceptions": [
+        "S08 remains implemented_unverified because browser/computer-use acceptance is intentionally pending; its authoritative Expansion package, account-slot, delayed-cash and handoff boundaries passed headless regression under S09.",
+        "Browser/computer-use remains disabled; S09 rendered scratch gesture, desktop/mobile layout, reduced motion, overflow and touch-target acceptance remain pending."
+      ]
+    },
+    {
+      "id": "S10",
+      "title": "Run and supervise an automated six-function company",
+      "model": "gpt-5.6-terra",
+      "effort": "medium",
+      "depends_on": [
+        "S09"
+      ],
+      "status": "implemented_unverified",
+      "packet": "tasks/S10.md",
+      "evidence": [
+        "artifacts/qa/founder-revamp/S10/validation.json",
+        "artifacts/qa/founder-revamp/S10/pressure.json"
+      ],
+      "code_ready_dependency_exceptions": [
+        "S09 remains implemented_unverified due to the owner no-browser boundary; its authoritative ticket and ledger regressions pass under S10.",
+        "Browser/computer-use remains disabled: S10 visual, responsive, gesture and reduced-motion acceptance is pending. Separate Sol contention review was not performed in this inherited-model task."
+      ]
+    },
+    {
+      "id": "S11",
+      "title": "Choose bootstrap, debt or VC survival pressure",
+      "model": "gpt-5.6-sol",
+      "effort": "high",
+      "depends_on": [
+        "S10"
+      ],
+      "status": "implemented_unverified",
+      "packet": "tasks/S11.md",
+      "evidence": [
+        "artifacts/qa/founder-revamp/S11/validation.json",
+        "artifacts/qa/founder-revamp/S11/loan-schedule.json",
+        "artifacts/qa/founder-revamp/S11/SCENARIOS.md"
+      ],
+      "code_ready_dependency_exceptions": [
+        "Owner authorized S11 after S10 headless validation; inherited visual acceptance and independent Sol review remain pending.",
+        "S11 headless state/accounting gates pass; browser/computer-use is disabled, so rendered terms, repayment controls, warnings and responsive acceptance remain pending."
+      ]
+    },
+    {
+      "id": "S12",
+      "title": "Build runs with relics, consumables and contextual content",
+      "model": "gpt-5.6-terra",
+      "effort": "medium",
+      "depends_on": [
+        "S11"
+      ],
+      "status": "implemented_unverified",
+      "packet": "tasks/S12.md",
+      "evidence": [
+        "artifacts/qa/founder-revamp/S12/validation.json",
+        "artifacts/qa/founder-revamp/S12/catalogue.json",
+        "artifacts/qa/founder-revamp/S12/policy-summary.json"
+      ],
+      "code_ready_dependency_exceptions": [
+        "Owner explicitly authorized S12 after S11 headless gates; inherited browser/device acceptance and independent review remain pending.",
+        "S12 catalogue, effect, persistence, history and build gates pass; owner-disabled browser/device verification leaves rendered reward choice, target controls, responsive hierarchy and reduced-motion acceptance pending."
+      ]
+    },
+    {
+      "id": "S13",
+      "title": "Earn the environment and spectator payoff",
+      "model": "gpt-5.6-terra",
+      "effort": "medium",
+      "depends_on": [
+        "S12"
+      ],
+      "status": "implemented_unverified",
+      "packet": "tasks/S13.md",
+      "evidence": [
+        "artifacts/qa/founder-revamp/S13/validation.json",
+        "docs/exec-plans/active/2026-09-16-founder-revamp/S15-ACCEPTANCE.md"
+      ],
+      "code_ready_dependency_exceptions": [
+        "Owner authorized S13-S15 together. Predecessor state/build tests pass; inherited browser/device and independent review acceptance remains unverified.",
+        "Final icon alpha, physical-device/input/frame timing and human comprehension/pacing are visibly open; do not interpret headless gates as product acceptance."
+      ]
+    },
+    {
+      "id": "S14",
+      "title": "Ship a resilient local PWA candidate",
+      "model": "gpt-5.6-terra",
+      "effort": "medium",
+      "depends_on": [
+        "S13"
+      ],
+      "status": "implemented_unverified",
+      "packet": "tasks/S14.md",
+      "evidence": [
+        "artifacts/qa/founder-revamp/S14/validation.json",
+        "docs/exec-plans/active/2026-09-16-founder-revamp/S15-ACCEPTANCE.md"
+      ],
+      "code_ready_dependency_exceptions": [
+        "Owner authorized S13-S15 together. Predecessor state/build tests pass; inherited browser/device and independent review acceptance remains unverified.",
+        "Final icon alpha, physical-device/input/frame timing and human comprehension/pacing are visibly open; do not interpret headless gates as product acceptance."
+      ]
+    },
+    {
+      "id": "S15",
+      "title": "Close full-run balance and product acceptance",
+      "model": "gpt-5.6-sol",
+      "effort": "high",
+      "depends_on": [
+        "S14"
+      ],
+      "status": "implemented_unverified",
+      "packet": "tasks/S15.md",
+      "evidence": [
+        "artifacts/qa/founder-revamp/S15/validation.json",
+        "docs/exec-plans/active/2026-09-16-founder-revamp/S15-ACCEPTANCE.md"
+      ],
+      "code_ready_dependency_exceptions": [
+        "Owner authorized S13-S15 together. Predecessor state/build tests pass; inherited browser/device and independent review acceptance remains unverified.",
+        "Final icon alpha, physical-device/input/frame timing and human comprehension/pacing are visibly open; do not interpret headless gates as product acceptance."
+      ]
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "task": "S04",
+  "base_commit": "70d8b0e550126849a524573098d051f288fcc706",
+  "diff_identity": "uncommitted S00-S04 worktree",
+  "scenarios": [
+    {
+      "name": "earned-product-order",
+      "seed": 404,
+      "assertions": [
+        "an acquired Product lead persists prepare, incorrect, incomplete and verified recipe states across save/reload",
+        "any ingredient edit invalidates verification",
+        "a verified lead creates exactly one trial cohort and closes its reservation",
+        "shipment records ProductResolution with arrDelta 0; ARR remains unchanged until Monetisation"
+      ]
+    },
+    {
+      "name": "contention-and-expiry",
+      "assertions": [
+        "existing reservation guards reject stale, cancelled, expired and agent-held jobs",
+        "an agent skips founder-reserved Product work while it is partially assembled",
+        "expired Product work retires the partial recipe rather than silently resetting it"
+      ]
+    },
+    {
+      "name": "product-station-presentation",
+      "assertions": [
+        "the Product room exposes a customer order, ingredient rail, step targets, persisted verification status and separate Verify recipe and Serve trial actions",
+        "tap-select then target placement remains available alongside pointer drag; mobile CSS keeps the ingredient rail and action row in the same station"
+      ],
+      "visual_acceptance": "pending: browser/computer-use disabled by owner"
+    }
+  ],
+  "commands": [
+    {"command": "npm run test:founder -- --reporter=dot", "outcome": "passed, 38 tests"},
+    {"command": "npm run typecheck", "outcome": "passed"},
+    {"command": "git diff --check", "outcome": "passed"},
+    {"command": "npm run validate", "outcome": "passed; balance registry remains runtimeReady=false with 41 required unresolved entries"},
+    {"command": "npm run build", "outcome": "passed; offline package 24 immutable files, build 47b3a2aa0bb9"}
+  ],
+  "non_execution": [
+    "No browser or computer-use invocation was performed.",
+    "No deployment, publication, or external asset generation was performed."
+  ]
+}

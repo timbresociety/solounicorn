@@ -1,0 +1,11 @@
+
+ RUN  v3.2.4 /Users/deepsheth/Documents/GitHub/solounicorn
+
+ ✓ tests/simulation/founder-earned-run.test.ts (1 test) 28397ms
+   ✓ earns a unicorn then reloads, continues and starts a clean company with one history award  28396ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  04:21:06
+   Duration  28.87s (transform 142ms, setup 0ms, collect 165ms, tests 28.40s, environment 0ms, prepare 73ms)
+

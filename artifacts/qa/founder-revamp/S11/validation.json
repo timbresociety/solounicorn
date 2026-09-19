@@ -1,0 +1,122 @@
+{
+  "task": "S11",
+  "status": "implemented_unverified",
+  "date": "2026-09-19",
+  "head": "70d8b0e550126849a524573098d051f288fcc706",
+  "branch": "main",
+  "actual_execution": "Inherited GPT-6-based primary task; no model switch, delegation or independent Sol review.",
+  "versions": {
+    "contract": "founder-state.1",
+    "balance": "founder-candidate.11",
+    "content": "founder-content.candidate.5",
+    "saveEnvelope": 2
+  },
+  "owner_decisions": {
+    "cash_failure": "Mandatory payment cannot be paid; zero alone survives.",
+    "new_debt": "Monthly interest only; principal at maturity; optional early payoff including prorated accrued interest.",
+    "new_vc": "First full game quarter after funding; opening eligible ARR baseline; flat/down at close fails.",
+    "legacy_saves": "Preserve accepted amortising loans and legacy VC targets with explicit labels."
+  },
+  "candidate_terms": {
+    "aprBps": 1800,
+    "termMonths": 6,
+    "locked": false
+  },
+  "commands": [
+    {
+      "command": "npx vitest run tests/integration/founder-finance.test.ts tests/integration/founder-state-save.test.ts",
+      "exitCode": 0,
+      "testsPassed": 26,
+      "log": "artifacts/qa/founder-revamp/S11/final-focused.log"
+    },
+    {
+      "command": "FOUNDER_POLICY_PROGRESS=1 npm run validate",
+      "exitCode": 2,
+      "testsPassed": 89,
+      "passedGates": [
+        "contract",
+        "balance-schema",
+        "simulation smoke",
+        "simulation determinism",
+        "all Founder tests"
+      ],
+      "failure": "Test harness draftOption lookup possibly undefined; corrected with optional chaining.",
+      "log": "artifacts/qa/founder-revamp/S11/validate.log"
+    },
+    {
+      "command": "npm run typecheck && npm run lint",
+      "exitCode": 0,
+      "log": "artifacts/qa/founder-revamp/S11/static-checks.log",
+      "note": "Final rerun after test-only undefined guard and prefer-const fixes. The unchanged seeded trajectories were not rerun solely for static fixes."
+    },
+    {
+      "command": "npm run build",
+      "exitCode": 0,
+      "immutableOfflineFiles": 24,
+      "build": "69e7bdc154ed",
+      "log": "artifacts/qa/founder-revamp/S11/build.log"
+    },
+    {
+      "command": "git diff --check",
+      "exitCode": 0
+    }
+  ],
+  "earlier_diagnostics": {
+    "interrupted": [
+      "validate-interrupted.log",
+      "policy-tests.log"
+    ],
+    "failed_synchronous_sweep": "policy-progress.log: obsolete terminal-only assertion and worker heartbeat timeout; replaced with explicit censoring and yielding between batches.",
+    "initial_lint": "static-checks-initial.log: two test-only prefer-const errors, fixed."
+  },
+  "patch": "artifacts/qa/founder-revamp/S11/S11.patch",
+  "patchSha256": "94ecdfb3084b7fb8070903c8289bb26fefde350db08b75ec7d9fc338d25b215e",
+  "implementationSha256": {
+    "src/game/founder/engine.ts": "245ab5f2741e346b2d7c7a8577dac6b36c5f0a3c53fe7a5583d9d6a2e8baebef",
+    "src/game/founder/model.ts": "9c1a5f652f61c766d24db1758c32f347e55e7cc14cd0aebe98728ee38a3765d6",
+    "src/game/founder/profile.ts": "e2131419ade3378571a266fd54d83bc9b143edf9ff24fc08228b08461a4e032e",
+    "src/game/founder/contracts.ts": "905e8a221f536867ce9f26eced975feeb10508dec26f8e619d1c09a1e52d4bad",
+    "src/game/founder/save.ts": "1f447c49de88b924fb7c6c6eb1e86cf8a0c5e9bb8d0767f0f70d8b68491effed",
+    "src/components/founder/FounderGame.tsx": "bbd08288362ce5e6845692339c66527061a4ebb1784bca143c261ee5483031ed",
+    "src/components/founder/founder.css": "2d0d95282430d980529d375a7a1509b3d971be53af3198aeec862d7b648adbd2",
+    "package.json": "120fca29d1e375326e4534b8ec8d4039c2140b6529cdc6e405cd46a16c700708",
+    "tests/integration/founder-state-save.test.ts": "4b626b56ad63f1945abc808b8714dd364e5ce103252d3b7ab4355ff4d57ed0ac",
+    "docs/exec-plans/active/2026-09-16-founder-revamp/DECISIONS.md": "841b5b9c16964ea9256b8cbc3ce481e91279f3590b6194318fa69e2c011e05f2",
+    "docs/exec-plans/active/2026-09-16-founder-revamp/queue.json": "954098950d192e84677e0069e034ba5d03ad45f1a70893a7c677a227dd299fc2",
+    "docs/exec-plans/active/2026-09-16-founder-revamp/CHECKPOINT.md": "028072abac6d416abcbe8b7cc574415793d8943686ac246b203541c7de133ac2",
+    "tests/integration/founder-policy.test.ts": "ee22dcf069b05e50e2a1bd74a8750321cb8c4963d62cc414efcb13bd14334203",
+    "src/game/founder/finance.ts": "1c1f4d3548be58263c7f47cd28df79d896c73b2d24e5ce08d5311c2bbadf8de4",
+    "tests/integration/founder-finance.test.ts": "2e4bc8065f6e496db69eadc339fc4e8a5228821e4fb633b387586dd891d8f1bb"
+  },
+  "scenarios": "artifacts/qa/founder-revamp/S11/SCENARIOS.md",
+  "loan_schedule": "artifacts/qa/founder-revamp/S11/loan-schedule.json",
+  "policy_summary": "artifacts/qa/founder-revamp/S11/policy-summary.json",
+  "policy_result": {
+    "runs": 6,
+    "seeds": [
+      19,
+      77,
+      84022
+    ],
+    "capital": [
+      "bootstrap",
+      "debt"
+    ],
+    "horizonTicks": 27000,
+    "activeMinutes": 45,
+    "failures": 4,
+    "horizonCensored": 2,
+    "wins": 0,
+    "controlledBeforeAfter": false,
+    "humanPacingValidated": false
+  },
+  "pending": [
+    "Owner-disabled browser/device/visual acceptance",
+    "Independent review",
+    "S14 late-run state/update performance; policy sweep about 245 seconds",
+    "S15 balance, human comprehension, enjoyment and pacing",
+    "41 required unresolved balance entries; runtimeReady=false"
+  ],
+  "next": "S12 on explicit authorization; not started",
+  "published": false
+}

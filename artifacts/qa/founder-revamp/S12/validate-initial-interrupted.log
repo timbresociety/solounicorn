@@ -1,0 +1,89 @@
+
+> sites-project@0.1.0 validate
+> npm run contract:check && npm run balance:validate && npm run sim:smoke && npm run sim:determinism && npm run test:founder && npm run typecheck && npm run lint
+
+
+> sites-project@0.1.0 contract:check
+> node scripts/check-repo-contract.mjs
+
+repository contract passed
+
+> sites-project@0.1.0 balance:validate
+> node scripts/validate-balance.mjs
+
+balance v2-alpha.0: missing=32 calibration=1 provisional=8 candidate=0 locked=5; required unresolved=41; runtimeReady=false
+
+> sites-project@0.1.0 sim:smoke
+> node scripts/simulation-smoke.mjs
+
+simulation smoke passed
+
+> sites-project@0.1.0 sim:determinism
+> node scripts/check-determinism.mjs
+
+simulation determinism passed
+
+> sites-project@0.1.0 test:founder
+> vitest run tests/integration/founder-content.test.ts tests/integration/founder-finance.test.ts tests/integration/founder-automation.test.ts tests/integration/founder-state-save.test.ts tests/integration/founder-company.test.ts tests/integration/founder-policy.test.ts tests/integration/founder-toys.test.ts
+
+
+ RUN  v3.2.4 /Users/deepsheth/Documents/GitHub/solounicorn
+
+ ✓ tests/integration/founder-state-save.test.ts (9 tests) 771ms
+   ✓ founder authoritative state and save boundary > uses one explicit phase table and freezes draft and pause time without RNG work  461ms
+ ✓ tests/integration/founder-content.test.ts (18 tests) 2120ms
+   ✓ S12 build catalogue and draft > offers only relevant effects, never owned/full rewards or same-effect alternatives; seeds persist  941ms
+   ✓ S12 earned founder history > records an engine-earned win once across reload, continue, later quarters and storage retries  429ms
+ ✓ tests/integration/founder-finance.test.ts (17 tests) 2561ms
+   ✓ S11 approved survival and financing > survives exact zero until an obligation is unpaid, including a zero-cash quarter close  346ms
+   ✓ S11 approved survival and financing > funds only once, creates no ARR, charges interest monthly and principal only at maturity  695ms
+   ✓ S11 approved survival and financing > does not kill a run for an unaffordable optional payoff and keeps exact carry across save/reload  754ms
+   ✓ S11 approved survival and financing > captures VC baseline after the partial quarter and freezes all schedules during the draft  574ms
+ ✓ tests/integration/founder-company.test.ts (19 tests) 2617ms
+   ✓ founder company candidate > makes real subscriptions from semantic work, bills in arrears, reconciles collections and saves  420ms
+   ✓ founder company candidate > replays exactly and time rebatching does not reroll work  393ms
+   ✓ founder company candidate > fails on unpaid bills, and an accepted VC miss is terminal without creating ARR  423ms
+   ✓ exports reproducible browser fixtures, with diagnostic fixtures explicitly separated  325ms
+   ✓ implements all 64 named core ranks once, with save and replay-safe purchases  321ms
+ ❯ tests/integration/founder-toys.test.ts (29 tests | 1 failed) 3931ms
+   ✓ tactile founder state and accounting > restores an out-of-order recipe and ships only after the remaining slots are filled and tested  306ms
+   ✓ tactile founder state and accounting > charges a sampled ticket once, persists inspection without settlement, claims selectively, and abandons the price 84ms
+   ✓ tactile founder state and accounting > routes generic job cancellation through the same paid-ticket abandonment boundary 3ms
+   ✓ tactile founder state and accounting > hands a partially claimed ticket to automation, resolves every remainder, and never repays the founder patch 16ms
+   ✓ tactile founder state and accounting > uses finite quarterly supply and resets only in a new quarter 13ms
+   ✓ tactile founder state and accounting > applies incident costs and keeps an unaffordable negative cash settlement explicit under O02 82ms
+   ✓ tactile founder state and accounting > applies typed strain and rot patches and can close a persisted live incident 24ms
+   ✓ tactile founder state and accounting > measures random rank-zero and wider Luck tickets after price and automation upkeep, with all sixteen ranks defined  3024ms
+   ✓ tactile founder state and accounting > migrates retired maintenance sheets without resetting financial history 6ms
+   ✓ tactile founder state and accounting > requires correct recipe tests, invalidates tests on changes, and never ships a stale job 4ms
+   ✓ tactile founder state and accounting > persists explicit recipe states and ships one reserved order into a trial without ARR 6ms
+   ✓ tactile founder state and accounting > gives a fresh Product brief a two-minute assembly window 1ms
+   ✓ tactile founder state and accounting > merges real matching tiers, keeps rank-zero board constraints, persists the package and fulfills only a complete order 6ms
+   ✓ tactile founder state and accounting > cannot strand the second order by generating excess of one feature family 8ms
+   ✓ tactile founder state and accounting > recovers an overmerged board once without minting supply, cash, slots or ARR 4ms
+   ✓ tactile founder state and accounting > serves a valid package exactly once, books addon ARR, raises service load and delays cash collection 4ms
+   ✓ tactile founder state and accounting > rejects stale customers and hands a persisted board safely between founder and agent 16ms
+   ✓ tactile founder state and accounting > gives all sixteen Expansion ranks stable effects and keeps rank-zero package output deterministic 10ms
+   ✓ tactile founder state and accounting > squashes a finite real problem without rebooking ARR, rejects stale progress, and survives reload 14ms
+   ✓ tactile founder state and accounting > uses the same finite Retention resolver for manual and agent work, and every Retention rank has an effect record 15ms
+   ✓ tactile founder state and accounting > cancels a founder-held problem without a phantom rescue and batches distinct account problems through one agent 20ms
+   ✓ tactile founder state and accounting > commits the visible timing contract deterministically at Luck 0 and rejects malformed timing 4ms
+   ✓ tactile founder state and accounting > uses a replayable named Luck pricing stream and never changes cash at contract commitment 4ms
+   ✓ tactile founder state and accounting > keeps manual room actions responsive while preserving semantic queue guards 4ms
+   ✓ tactile founder state and accounting > gives different cohorts stable seeded Monetisation windows 1ms
+   ✓ tactile founder state and accounting > keeps the pricing meter bounded and bouncing with no end-to-start jump 4ms
+   × tactile founder state and accounting > offers the small typed relic and consumable draft without charging a second upgrade economy 14ms
+     → expected [ 'relic:ramen-budget', …(1) ] to have a length of 3 but got 2
+   ✓ tactile founder state and accounting > allows passing a quarter without cash cost, and rejects subsequently selecting it 214ms
+   ✓ tactile founder state and accounting > migrates previous saves without resetting company finances and replays from the migration checkpoint 10ms
+ ✓ tests/integration/founder-automation.test.ts (14 tests) 4446ms
+   ✓ S10 integrated company automation > installs every one of the 96 named ranks once and replays the commitments  867ms
+   ✓ S10 integrated company automation > keeps the in-progress merge board until it is served, then fills the second slot  1666ms
+   ✓ S10 integrated company automation > runs all six real workflows and freezes them across quarter drafts and reloads  1148ms
+Policy debt/77: tick 1800, quarter-draft, 384 actions
+Policy debt/77: tick 3600, quarter-draft, 760 actions
+Policy debt/77: tick 5400, quarter-draft, 1092 actions
+Policy debt/77: tick 7200, quarter-draft, 1383 actions
+Policy debt/77: tick 9000, quarter-draft, 1640 actions
+Policy debt/77: tick 10800, quarter-draft, 1922 actions
+Policy debt/77: tick 12600, quarter-draft, 2227 actions

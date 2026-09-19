@@ -1,0 +1,134 @@
+--- a/src/game/founder/engine.ts
++++ b/src/game/founder/engine.ts
+@@ -1,3 +1,4 @@
++import { accrueMonthlyInterest } from './finance';
+ import { AXES, FUNCTIONS, NAMES, P, skillRank, type Axis, type Work } from './profile';
+ import { draftOption, quarterChoices, expansionBoardSlots, initialBoard, mergeOrder, operationsAutomationUpkeepPerTicket, operationsTicketPatches, operationsTicketPrice, operationsTicketSupply, packageComplete, packageMass, packageNeeds, productBrief, retentionProblemContent, type RewardEffect } from './toys';
+ import { CASH_DEATH_POLICY, FOUNDER_CONTENT_VERSION, FOUNDER_CONTRACT_VERSION, phaseAdvancesTime, phaseAllows, type ActionReason } from './contracts';
+@@ -78,7 +79,7 @@
+     add(at,'Operating bill',-Math.round(at===nextMonth?s.expenseAccrued+cost*(at-s.tick)/600:cost));
+     for(const a of s.accounts)if(a.active){const earned=at===nextMonth?a.earned+a.price*a.count*(at-s.tick)/600:a.price*a.count;add(at+Math.round(P.collectionDelay[a.segment]*((has(s,'terms')||hasRewardEffect(s,'faster-collections'))?.5:1)),'Expected collections',Math.floor(earned*P.forecast_collection_haircut*P.collectionChance[a.segment]));}
+   }
+-  if(s.debt){let principal=s.debt.principal,months=s.debt.months,remainder=s.debt.remainder;for(let at=s.debt.due;at<=end&&months>0;at+=600){const raw=principal*P.default_loan_apr_bps+remainder,repay=Math.ceil(principal/months),interest=Math.floor(raw/120000);remainder=raw%120000;add(at,'Loan payment',-repay-interest,false);principal-=repay;months--;}}
++  if(s.debt){let principal=s.debt.principal,months=s.debt.months,remainder=s.debt.remainder;for(let at=s.debt.due;at<=end&&months>0;at+=600){const payment=accrueMonthlyInterest(principal,P.default_loan_apr_bps,remainder),repay=Math.ceil(principal/months),interest=payment.interest;remainder=payment.remainder;add(at,'Loan payment',-repay-interest,false);principal-=repay;months--;}}
+   let cash=s.cash,minimum=cash,obligations=0;
+   const events=[...items.values()].sort((a,b)=>a.at-b.at||b.cents-a.cents).map(e=>{cash+=e.cents;minimum=Math.min(minimum,cash);if(e.cents<0)obligations-=e.cents;return {...e,cash};});
+   return {events,minimum,obligations,shortfall:clamp(-minimum/Math.max(1,obligations)),nextBill:Math.round(s.expenseAccrued+cost*(nextMonth-s.tick)/600)};
+@@ -574,7 +575,7 @@
+       if(a&&random(s.seed,'collection',i.id,i.attempts)<P.collectionChance[a.segment]){s.cash+=i.cents;s.collected+=i.cents;s.lifetimeCollected+=i.cents;s.invoices=s.invoices.filter(x=>x.id!==i.id);note(s,`Invoice collected: $${(i.cents/100).toFixed(2)} liquid cash.`,'good');}
+       else if(i.attempts>=P.collection_attempt_limit){s.badDebt+=i.cents;s.expenses+=i.cents;s.invoices=s.invoices.filter(x=>x.id!==i.id);if(a&&a.active){billAccount(s,a);s.churn+=a.price*a.count*12;a.active=false;}note(s,'Invoice written off after three attempts. Contract cancelled.','bad');}else i.due=s.tick+P.collection_retry_ticks;
+     }
+-    if(s.debt&&s.tick>=s.debt.due){const d=s.debt;const principal=Math.ceil(d.principal/d.months),raw=d.principal*P.default_loan_apr_bps+d.remainder,interest=Math.floor(raw/120000);if(!settle(s,principal+interest,'Loan payment'))break;d.remainder=raw%120000;s.expenses+=interest;s.lifetimeCosts+=interest;d.principal-=principal;d.months--;d.due+=600;if(!d.principal)s.debt=null;}
++    if(s.debt&&s.tick>=s.debt.due){const d=s.debt;const principal=Math.ceil(d.principal/d.months),payment=accrueMonthlyInterest(d.principal,P.default_loan_apr_bps,d.remainder),interest=payment.interest;if(!settle(s,principal+interest,'Loan payment'))break;d.remainder=payment.remainder;s.expenses+=interest;s.lifetimeCosts+=interest;d.principal-=principal;d.months--;d.due+=600;if(!d.principal)s.debt=null;}
+     const p=pressure(s);s.strain=Math.max(0,s.strain+(p.load-p.capacity)/600);
+     const rawCost=monthlyCost(s)+s.expenseRemainder,accrued=Math.floor(rawCost/600);s.expenseRemainder=rawCost%600;s.expenseAccrued+=accrued;s.expenses+=accrued;s.lifetimeCosts+=accrued;
+     for(const a of s.accounts)if(a.active){
+--- /dev/null
++++ b/src/game/founder/finance.ts
+@@ -0,0 +1,11 @@
++// Game accounting in integer cents and annual basis points. This helper does
++// not choose a loan term or repayment policy; accepted loan terms do that.
++export const MONTHLY_INTEREST_DENOMINATOR = 12 * 10_000;
++export function accrueMonthlyInterest(principal:number,aprBps:number,remainder=0){
++  for(const value of [principal,aprBps,remainder])if(!Number.isSafeInteger(value)||value<0)throw new Error('Invalid loan accounting input.');
++  if(remainder>=MONTHLY_INTEREST_DENOMINATOR)throw new Error('Invalid fractional-cent interest carry.');
++  const raw=BigInt(principal)*BigInt(aprBps)+BigInt(remainder);
++  const interest=Number(raw/BigInt(MONTHLY_INTEREST_DENOMINATOR));
++  if(!Number.isSafeInteger(interest))throw new Error('Loan interest exceeds the supported cents range.');
++  return {interest,remainder:Number(raw%BigInt(MONTHLY_INTEREST_DENOMINATOR))};
++}
+--- /dev/null
++++ b/tests/integration/founder-finance.test.ts
+@@ -0,0 +1,35 @@
++import { describe, expect, it } from 'vitest';
++import { advance, arr, command, createCompany, random, rebaseCompany, replayCompany, validateCompany } from '../../src/game/founder/engine';
++import { accrueMonthlyInterest } from '../../src/game/founder/finance';
++
++describe('S11 finance accounting',()=>{
++  it('collects a due invoice before bills but rejects a rescue that arrives after a failed obligation',()=>{
++    let seed=1;while(random(seed,'collection',200,1)>=.95)seed++;
++    const make=(delay:number)=>{
++      const s=command(createCompany(seed),{type:'start'});s.tick=599;s.cash=100;s.serial=500;s.expenseAccrued=10_000;
++      s.accounts=[{id:100,origin:100,segment:0,count:1,price:4000,basePrice:4000,fit:1,health:100,defects:0,born:0,caredUntil:100000,addons:0,threat:0,earned:0,remainder:0,active:true}];
++      s.debt={principal:10_000,months:2,due:600,remainder:0};s.invoices=[{id:200,account:100,cents:20_000,due:600+delay,attempts:0}];s.lifetimeEarned=20_000;
++      return rebaseCompany(s);
++    };
++    const paid=advance(make(0));expect(paid.phase).toBe('active');expect(paid.lifetimeCollected).toBe(20_000);expect(paid.cash).toBeGreaterThan(0);expect(paid.debt?.months).toBe(1);validateCompany(paid);expect(replayCompany(paid)).toEqual(paid);
++    const failed=advance(make(1),20);expect(failed.phase).toBe('failure');expect(failed.tick).toBe(600);expect(failed.lifetimeCollected).toBe(0);const cash=failed.cash,baseArr=arr(failed);
++    for(const type of ['borrow','raise'] as const){const attempt=command(failed,{type});expect(attempt.cash).toBe(cash);expect(arr(attempt)).toBe(baseArr);expect(attempt.actionResults.at(-1)?.reason).toBe('phase-not-allowed');}
++    expect(advance(failed,10)).toBe(failed);validateCompany(failed);
++  });
++
++  it('carries fractional cents instead of independently rounding each interest bill',()=>{
++    let remainder=0,paid=0;
++    for(let month=0;month<6;month++){
++      const next=accrueMonthlyInterest(101,1800,remainder);paid+=next.interest;remainder=next.remainder;
++    }
++    expect(paid).toBe(9);expect(remainder).toBe(10800);
++    expect(accrueMonthlyInterest(10_000,1800)).toEqual({interest:150,remainder:0});
++  });
++  it('preserves integer-cent precision across the supported money range',()=>{
++    const principal=Number.MAX_SAFE_INTEGER,apr=1800,raw=BigInt(principal)*BigInt(apr);
++    expect(accrueMonthlyInterest(principal,apr)).toEqual({interest:Number(raw/BigInt(120000)),remainder:Number(raw%BigInt(120000))});
++    expect(()=>accrueMonthlyInterest(100,1800,120000)).toThrow();
++    expect(()=>accrueMonthlyInterest(100.5,1800)).toThrow();
++    expect(()=>accrueMonthlyInterest(-1,1800)).toThrow();
++  });
++});
+--- a/package.json
++++ b/package.json
+@@ -23,7 +23,7 @@
+     "test:integration": "vitest run tests/integration",
+     "validate:content": "vitest run tests/unit/content-validation.test.ts",
+     "test": "vitest run",
+-    "test:founder": "vitest run tests/integration/founder-automation.test.ts tests/integration/founder-state-save.test.ts tests/integration/founder-company.test.ts tests/integration/founder-policy.test.ts tests/integration/founder-toys.test.ts",
++    "test:founder": "vitest run tests/integration/founder-finance.test.ts tests/integration/founder-automation.test.ts tests/integration/founder-state-save.test.ts tests/integration/founder-company.test.ts tests/integration/founder-policy.test.ts tests/integration/founder-toys.test.ts",
+     "postbuild": "node scripts/prepare-founder-offline.mjs"
+   },
+   "dependencies": {
+--- a/docs/exec-plans/active/2026-09-16-founder-revamp/queue.json
++++ b/docs/exec-plans/active/2026-09-16-founder-revamp/queue.json
+@@ -202,10 +202,12 @@
+       "depends_on": [
+         "S10"
+       ],
+-      "status": "pending",
++      "status": "in_progress",
+       "packet": "tasks/S11.md",
+       "evidence": [],
+-      "code_ready_dependency_exceptions": []
++      "code_ready_dependency_exceptions": [
++        "Owner authorized S11 after S10 headless validation; inherited visual acceptance and independent Sol review remain pending."
++      ]
+     },
+     {
+       "id": "S12",
+--- a/docs/exec-plans/active/2026-09-16-founder-revamp/CHECKPOINT.md
++++ b/docs/exec-plans/active/2026-09-16-founder-revamp/CHECKPOINT.md
+@@ -1,6 +1,6 @@
+ # Revamp checkpoint
+ 
+-Updated: 2026-09-18. S10 is implemented and headless-validated. S00-S09 remain preserved. Browser/computer-use acceptance and separate Sol review remain pending. Stop before S11.
++Updated: 2026-09-18. S11 is in progress under explicit owner authorization. S00-S10 preserved. Browser/computer-use remains disabled. Stop before S12.
+ 
+ ## Repository identity
+ 
+@@ -13,7 +13,7 @@
+ 
+ ## Next task
+ 
+-**S11 — Choose bootstrap, debt or VC survival pressure**, Sol / high. S11 has not started. On continuation, read tasks/S11.md and resolve O02/O03 narrowly before changing dependent financial rules. No push or deployment.
++**S11 — Choose bootstrap, debt or VC survival pressure**, Sol / high. S11 started. O02/O03 questions are pending; dependent rule changes wait for the answers. Preparing shared cents-accurate arithmetic, finance call-site inventory and regression scenarios independently. No push or deployment.
+ 
+ Completed S10: shared scheduler eligibility/status; staged persisted Product automation; finite per-tick pipeline work and bounded credits; ownership transfer across focus/install/toggle; recurring Retention and Expansion lifecycle repairs; consumed-cohort IDs; pressure-driven deterministic agent pace; truthful compute/active-capacity telemetry; candidate.9 migration preserving paid and partial work. Monetisation preview matches the finite batch and contract signing remains cash-neutral. Terminal agent failure cannot enter quarter rewards or victory.
+ 
+@@ -158,3 +158,9 @@
+ - Validation: npm run validate passed including 72 tests (14 new integration tests); npm run build passed, offline build 68334b566820; git diff --check passed. Earlier failing diagnostic setups were corrected for finite purchase cash and a deliberately unscaled Retention bottleneck; production behavior was not tuned to force the pressure comparison.
+ - Measurement: seed 1010, funded diagnostic companies at 600 ticks. Controlled strain 0, compute 18,000 cents/month, first customer survives. Overextended strain 100.97, compute 198,000 cents/month, first customer churns. Disabling agents and buying Operations capacity reduces strain to 89.77 by tick 1200. These are not earned runs or locked balance.
+ - Remaining: O02/O03 before S11; browser/device/human acceptance; independent Sol review; legacy balance registry unresolved. No deployment or publication.
++
++## S11 working checkpoint
++
++Owner authorized S11 implementation. Baseline: artifacts/qa/founder-revamp/S11/baseline.json. O02/O03 questions sent before dependent changes. Prepared: src/game/founder/finance.ts now supplies shared integer-cent monthly interest with fractional-cent carry, used by the existing forecast and settlement code without changing loan terms. tests/integration/founder-finance.test.ts adds precision, receipt ordering and post-failure financing coverage; package.json includes it in test:founder. Focused finance/company tests passed 22/22; typecheck passed. A test-only BigInt literal initially failed the existing ES2017 target and was replaced with BigInt(...) without changing the target. No debt/VC/cash-death rules changed yet. No browser or computer-use. Full validation/build is deferred to the integrated S11 change.
++
++Waiting for the three already-sent O02/O03 answers. Recommendations are NOT accepted defaults: mandatory-payment failure; monthly interest plus principal at maturity; first VC review after a full game quarter. Do not implement those choices until the user answers. Next step is to record the answers in DECISIONS.md, then implement immutable accepted financing terms, common quote/forecast/settlement math, finance HUD, candidate.11 migration and boundary regressions. Current partial work is coherent and source-preserving; no unrelated reset is needed.

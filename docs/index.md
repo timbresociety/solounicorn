@@ -1,36 +1,20 @@
-# ONE PERSON UNICORN — Repository Knowledge Map
+# ONE PERSON UNICORN — Repository knowledge map
 
-This directory is the maintained source-of-truth map around the canonical product file.
+## Current work
+
+Start at the [founder revamp plan](exec-plans/active/2026-09-16-founder-revamp/README.md), then [checkpoint](exec-plans/active/2026-09-16-founder-revamp/CHECKPOINT.md) and the next eligible task in [queue.json](exec-plans/active/2026-09-16-founder-revamp/queue.json).
 
 | Need | Read |
 |---|---|
-| Product/system truth | `../ONE_PERSON_UNICORN_CANONICAL_CONTEXT_V2.md` |
-| Build/runtime/PWA requirements | `BUILD.md` |
-| Architecture/dependency boundaries | `../ARCHITECTURE.md` |
-| Quantitative balance lifecycle | `balance/BALANCE_SPEC_V2.md` |
-| Current machine-readable balance status | `../balance/v2/registry.json` |
-| Visual/interaction design | `design/DESIGN.md` |
-| Founder/generated reference interpretation | `design/REFERENCES.md` |
-| Authored content/copy/culture | `content/CONTENT.md` |
-| Agent skills + tooling | `SKILLS.md` |
-| Agent automation protocol | `automation/AUTOMATION.md` |
-| Active multi-step work | `exec-plans/active/` |
-| Completed implementation plans | `exec-plans/completed/` |
+| Latest owner changes and unresolved decisions | [Owner decision delta](exec-plans/active/2026-09-16-founder-revamp/DECISIONS.md) |
+| Detailed product/economic reference | [Master context](../solounicorn-master-context/00_START_HERE.md) |
+| Compact interaction/taste guidance | [Executable starter context](../solounicorn_exec/README.md); teaching fixture only |
+| Actual implemented founder behaviour and migration history | [Founder runtime](FOUNDER_RUNTIME.md); candidate.5 evidence, not revamp authority |
+| File disposition and known gaps | [Gap register](exec-plans/active/2026-09-16-founder-revamp/GAPS.md) |
+| Runtime/build versions | [Root package.json](../package.json) |
+| Historical architecture/build contracts | [Architecture](../ARCHITECTURE.md), [Build](BUILD.md); V2-specific rules require S00 reconciliation |
+| Execution status | [Active plans](exec-plans/active/README.md) |
 
-## Authority topology
+Latest explicit owner direction wins over both supplied packs. Their execution prompts do not launch themselves. Existing founder code is the root runtime; the executable starter is not a second product to install or publish.
 
-```text
-PRODUCT CANON
-├── BUILD + ARCHITECTURE
-├── BALANCE -> SIMULATION
-├── DESIGN -> PRESENTATION
-└── CONTENT -> SIMULATION/PRESENTATION through approved contracts
-```
-
-`AGENTS.md` is the short agent entrypoint. It points here and to the relevant domain skills.
-
-Do not create a second master PRD, second design canon, nested `AGENTS.md`, nested skill tree, or self-contained context package inside this repository.
-
-The legacy `../one-person-unicorn-design-context-v2.2/` directory is reference storage only. Registered visual assets from it are interpreted through `design/REFERENCES.md`; its old Markdown is not authority.
-
-Do not duplicate canonical rules into random implementation notes. Link to the authority instead.
+V2 docs/registry and old plans are retained as historical evidence. They do not override the revamp. Do not treat a V2 balance status as proof that the new founder economics are or are not validated. S00 reconciles remaining stale skill/checker routing without deleting useful evidence.

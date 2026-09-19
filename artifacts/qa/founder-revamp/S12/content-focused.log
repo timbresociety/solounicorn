@@ -1,0 +1,11 @@
+
+ RUN  v3.2.4 /Users/deepsheth/Documents/GitHub/solounicorn
+
+ ✓ tests/integration/founder-state-save.test.ts (9 tests) 117ms
+ ✓ tests/integration/founder-content.test.ts (17 tests) 266ms
+
+ Test Files  2 passed (2)
+      Tests  26 passed (26)
+   Start at  15:34:31
+   Duration  961ms (transform 191ms, setup 0ms, collect 425ms, tests 384ms, environment 0ms, prepare 141ms)
+

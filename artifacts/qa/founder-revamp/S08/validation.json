@@ -1,0 +1,29 @@
+{
+  "task": "S08",
+  "status": "implemented_unverified",
+  "base": "70d8b0e550126849a524573098d051f288fcc706",
+  "profileVersion": "founder-candidate.8",
+  "contractVersion": "founder-state.1",
+  "saveEnvelope": 2,
+  "commands": [
+    {"command": "npm run test:founder && npm run typecheck", "outcome": "52 Founder tests passed; source typecheck passed"},
+    {"command": "npm run validate", "outcome": "contract, calibration report, simulation smoke/determinism, 52 Founder tests, typecheck and lint passed"},
+    {"command": "npm run build", "outcome": "Next production build completed; 24 immutable offline files, build 6a153b7e9c99"},
+    {"command": "git diff --check", "outcome": "passed"}
+  ],
+  "scenarios": {
+    "rankZeroAndPersistence": 77,
+    "serviceAndDuplicate": 901,
+    "staleAndHandoff": [902, 903, 904],
+    "rankZeroDeterminism": 905
+  },
+  "coverage": [
+    "real mature healthy customers and finite addon slots",
+    "package targets, board capacity and finite family supply",
+    "one recoverable overmerge without minted pieces, cash, slots or ARR",
+    "exactly-once serving, addon ARR, service load and delayed cash collection",
+    "stale account, cancelled job, duplicate serve and founder-agent handoff",
+    "save/reload/replay parity and all 16 Expansion ranks"
+  ],
+  "visualAcceptance": "pending: browser/computer-use remains disabled by user instruction"
+}

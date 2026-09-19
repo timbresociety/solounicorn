@@ -1,0 +1,791 @@
+--- a/src/game/founder/engine.ts
++++ b/src/game/founder/engine.ts
+@@ -1,3 +1,4 @@
++import { financeOffers, loanPayment, loanPayoff, loanSchedule, QUARTER_TICKS } from './finance';
+ import { AXES, FUNCTIONS, NAMES, P, skillRank, type Axis, type Work } from './profile';
+ import { draftOption, quarterChoices, expansionBoardSlots, initialBoard, mergeOrder, operationsAutomationUpkeepPerTicket, operationsTicketPatches, operationsTicketPrice, operationsTicketSupply, packageComplete, packageMass, packageNeeds, productBrief, retentionProblemContent, type RewardEffect } from './toys';
+ import { CASH_DEATH_POLICY, FOUNDER_CONTENT_VERSION, FOUNDER_CONTRACT_VERSION, phaseAdvancesTime, phaseAllows, type ActionReason } from './contracts';
+@@ -68,6 +69,7 @@
+   cost+=s.incidents.filter(i=>i.active).reduce((n,i)=>n+i.monthlyCostCents,0);
+   return Math.round(cost);
+ }
++export const capitalOffers=(s:Company)=>financeOffers(s,eligibleArr(s));
+ export function forecast(s:Company){
+   const end=s.tick+P.forecast_ticks;
+   const items=new Map<string,{at:number;label:string;cents:number;estimated:boolean}>();
+@@ -78,7 +80,7 @@
+     add(at,'Operating bill',-Math.round(at===nextMonth?s.expenseAccrued+cost*(at-s.tick)/600:cost));
+     for(const a of s.accounts)if(a.active){const earned=at===nextMonth?a.earned+a.price*a.count*(at-s.tick)/600:a.price*a.count;add(at+Math.round(P.collectionDelay[a.segment]*((has(s,'terms')||hasRewardEffect(s,'faster-collections'))?.5:1)),'Expected collections',Math.floor(earned*P.forecast_collection_haircut*P.collectionChance[a.segment]));}
+   }
+-  if(s.debt){let principal=s.debt.principal,months=s.debt.months,remainder=s.debt.remainder;for(let at=s.debt.due;at<=end&&months>0;at+=600){const raw=principal*P.default_loan_apr_bps+remainder,repay=Math.ceil(principal/months),interest=Math.floor(raw/120000);remainder=raw%120000;add(at,'Loan payment',-repay-interest,false);principal-=repay;months--;}}
++  if(s.debt)for(const payment of loanSchedule(s.debt,end)){add(payment.at,payment.principal?'Loan principal + interest':'Loan interest',-payment.total,false);}
+   let cash=s.cash,minimum=cash,obligations=0;
+   const events=[...items.values()].sort((a,b)=>a.at-b.at||b.cents-a.cents).map(e=>{cash+=e.cents;minimum=Math.min(minimum,cash);if(e.cents<0)obligations-=e.cents;return {...e,cash};});
+   return {events,minimum,obligations,shortfall:clamp(-minimum/Math.max(1,obligations)),nextBill:Math.round(s.expenseAccrued+cost*(nextMonth-s.tick)/600)};
+@@ -416,8 +418,24 @@
+       report.chosen=c.id;s.pendingDraftQuarter=null;s.phase='paused';note(s,`${option.name} added to this run. Continue when ready.`,'good');break;
+     }
+     case 'consume':{if(c.id!=='consumable:customer-firebreak'||!(s.inventory.consumables[c.id]??0))break;const account=s.accounts.find(a=>a.id===c.account&&a.active&&a.threat);if(!account)break;account.threat=0;delete account.problem;release(s,accountJobId('retention',account.id),'completed');account.caredUntil=s.tick+P.ticks_per_month;s.inventory.consumables[c.id]--;note(s,'Customer firebreak deployed. Existing ARR was protected; no ARR or cash was created.','good');break;}
+-    case 'borrow':{const mrr=Math.floor(eligibleArr(s)/12);if(s.debt||mrr<P.debt_min_mrr_cents){note(s,'Debt needs at least $100 eligible MRR and no active loan.');break;}const principal=mrr*P.debt_capacity_mrr_multiple;s.cash+=principal;s.debt={principal,months:6,due:s.tick+600,remainder:0};note(s,'Loan funded. Six monthly payments at 18% APR. No growth mandate.');break;}
+-    case 'raise':{const a=eligibleArr(s);if(s.vc||a<P.vc_min_arr_cents){note(s,'VC needs $12,000 eligible ARR and is available once per run.');break;}s.cash+=a;s.ownership=Math.floor(s.ownership*.8);s.vc={baseline:a,target:Math.ceil(a*1.5),due:s.tick+1800};note(s,'Round funded. Deliver 50% ARR growth in three months or the run ends.');break;}
++    case 'borrow':{
++      const terms=capitalOffers(s).debt;if(!terms.available)break;
++      s.cash+=terms.principal;
++      s.debt={id:++s.serial,principal:terms.principal,months:terms.months,due:s.tick+P.ticks_per_month,remainder:0,mode:'interest-only',aprBps:terms.aprBps,acceptedAt:s.tick,lastPaymentAt:s.tick,maturity:s.tick+terms.months*P.ticks_per_month};
++      note(s,`Loan funded: $${(terms.principal/100).toFixed(2)}. Monthly interest $${(terms.interest/100).toFixed(2)}; principal due in ${terms.months} months. Repay early from Finance. No growth mandate.`,'good');break;
++    }
++    case 'repay-debt':{
++      if(!s.debt||s.debt.id!==c.loanId)break;
++      const payoff=loanPayoff(s.debt,s.tick);if(!spend(s,payoff.total))break;
++      s.expenses+=payoff.interest;s.lifetimeCosts+=payoff.interest;s.debt=null;
++      note(s,`Loan closed: $${(payoff.principal/100).toFixed(2)} principal + $${(payoff.interest/100).toFixed(2)} accrued interest. Future loan bills cancelled.`,'good');break;
++    }
++    case 'raise':{
++      const terms=capitalOffers(s).vc;if(!terms.available)break;
++      s.cash+=terms.cash;s.ownership=terms.ownership;
++      s.vc={baseline:terms.baseline,target:terms.baseline+1,due:terms.due,acceptedAt:s.tick,startsAt:terms.startsAt,baselineLocked:terms.baselineLocked,rule:'quarter-growth',growthBps:0};
++      note(s,`VC funded: $${(terms.cash/100).toFixed(2)}. First review at Q${terms.due/QUARTER_TICKS} close. Eligible ARR must grow during that full quarter; flat or down ends the run.`,'good');break;
++    }
+   }
+   return s;
+ }
+@@ -431,6 +449,17 @@
+ }
+ function preflight(s:Company,c:Command):ActionReason {
+   if(!phaseAllows(s.phase,c.type))return 'phase-not-allowed';
++  if(c.type==='borrow'||c.type==='raise'){
++    const offer=c.type==='borrow'?capitalOffers(s).debt:capitalOffers(s).vc;
++    if(!offer.available)return 'invalid-command';
++    if(c.quote!==undefined&&c.quote!==offer.key)return 'stale-job';
++  }
++  if(c.type==='repay-debt'){
++    if(!s.debt||s.debt.id!==c.loanId)return 'stale-job';
++    const payoff=loanPayoff(s.debt,s.tick);
++    if(c.quote!==undefined&&c.quote!==payoff.key)return 'stale-job';
++    if(s.cash<payoff.total)return 'unaffordable';
++  }
+   const workName=c.type==='ship'?'product':c.type==='price'?'monetisation':c.type==='squash-problem'?'retention':c.type==='expand'?'expansion':undefined;
+   if(workName&&s.deployed[workName]>s.tick)return 'invalid-command';
+   const jobId=commandJobId(c),closed=jobId?s.jobs.closed[jobId]:undefined;
+@@ -574,7 +603,16 @@
+       if(a&&random(s.seed,'collection',i.id,i.attempts)<P.collectionChance[a.segment]){s.cash+=i.cents;s.collected+=i.cents;s.lifetimeCollected+=i.cents;s.invoices=s.invoices.filter(x=>x.id!==i.id);note(s,`Invoice collected: $${(i.cents/100).toFixed(2)} liquid cash.`,'good');}
+       else if(i.attempts>=P.collection_attempt_limit){s.badDebt+=i.cents;s.expenses+=i.cents;s.invoices=s.invoices.filter(x=>x.id!==i.id);if(a&&a.active){billAccount(s,a);s.churn+=a.price*a.count*12;a.active=false;}note(s,'Invoice written off after three attempts. Contract cancelled.','bad');}else i.due=s.tick+P.collection_retry_ticks;
+     }
+-    if(s.debt&&s.tick>=s.debt.due){const d=s.debt;const principal=Math.ceil(d.principal/d.months),raw=d.principal*P.default_loan_apr_bps+d.remainder,interest=Math.floor(raw/120000);if(!settle(s,principal+interest,'Loan payment'))break;d.remainder=raw%120000;s.expenses+=interest;s.lifetimeCosts+=interest;d.principal-=principal;d.months--;d.due+=600;if(!d.principal)s.debt=null;}
++    if(s.debt&&s.tick>=s.debt.due){
++      const d=s.debt,payment=loanPayment(d),label=payment.principal?'Loan principal and interest':'Loan interest';
++      if(!settle(s,payment.total,label))break;
++      d.remainder=payment.remainder;s.expenses+=payment.interest;s.lifetimeCosts+=payment.interest;
++      d.principal-=payment.principal;d.months--;d.lastPaymentAt=s.tick;d.due+=P.ticks_per_month;
++      note(s,`${label} paid: $${(payment.total/100).toFixed(2)}. $${(d.principal/100).toFixed(2)} principal remains.`);
++      if(!d.principal)s.debt=null;
++    }
++    if(s.debt&&s.debt.due-s.tick===P.financeWarningTicks){const payment=loanPayment(s.debt);note(s,`Loan ${payment.principal?'principal + interest':'interest'} due in ${P.financeWarningTicks/10}s: $${(payment.total/100).toFixed(2)}; cash $${(s.cash/100).toFixed(2)}.`,s.cash<payment.total?'bad':'info');}
++    if(s.vc&&s.vc.baselineLocked&&s.vc.due-s.tick===P.financeWarningTicks)note(s,`VC review in ${P.financeWarningTicks/10}s: $${(eligibleArr(s)/100).toFixed(2)} eligible ARR against ${s.vc.rule==='quarter-growth'?'opening':'target'} $${((s.vc.rule==='quarter-growth'?s.vc.baseline:s.vc.target)/100).toFixed(2)}.`,eligibleArr(s)<s.vc.target?'bad':'info');
+     const p=pressure(s);s.strain=Math.max(0,s.strain+(p.load-p.capacity)/600);
+     const rawCost=monthlyCost(s)+s.expenseRemainder,accrued=Math.floor(rawCost/600);s.expenseRemainder=rawCost%600;s.expenseAccrued+=accrued;s.expenses+=accrued;s.lifetimeCosts+=accrued;
+     for(const a of s.accounts)if(a.active){
+@@ -619,7 +657,16 @@
+       if(!settle(s,s.expenseAccrued,'Monthly operating bill'))break;s.expenseAccrued=0;s.market=[...P.marketPerMonth];
+       note(s,'Month settled. Earned service invoiced; operating costs paid.');
+     }
+-    if(s.vc&&s.tick>=s.vc.due){const a=eligibleArr(s);if(a<s.vc.target){fail(s,`VC mandate missed: $${Math.floor(a/100)} ARR against $${Math.floor(s.vc.target/100)} promised. Funding bought a deadline. Automate the bottleneck before accepting another growth obligation.`);break;}s.vc={baseline:a,target:Math.ceil(a*1.5),due:s.tick+1800};note(s,'VC growth promise met. The next three-month commitment begins.','good');}
++    if(s.vc&&!s.vc.baselineLocked&&s.tick>=s.vc.startsAt){
++      s.vc.baseline=eligibleArr(s);s.vc.target=s.vc.baseline+1;s.vc.baselineLocked=true;
++      note(s,`VC quarter opened at $${(s.vc.baseline/100).toFixed(2)} eligible ARR. Finish above this baseline to survive.`);
++    }
++    if(s.vc&&s.tick>=s.vc.due){
++      const mandate=s.vc,a=eligibleArr(s);
++      if(a<mandate.target){fail(s,`VC mandate missed: $${(a/100).toFixed(2)} eligible ARR versus ${mandate.rule==='quarter-growth'?'quarter opening':'accepted target'} $${((mandate.rule==='quarter-growth'?mandate.baseline:mandate.target)/100).toFixed(2)}. ${mandate.rule==='quarter-growth'?'Flat or falling ARR ends a VC-backed run.':'The saved legacy growth promise was not met.'}`);break;}
++      mandate.baseline=a;mandate.target=mandate.rule==='quarter-growth'?a+1:Math.ceil(a*(10000+mandate.growthBps)/10000);mandate.startsAt=s.tick;mandate.due+=QUARTER_TICKS;
++      note(s,'VC growth promise met. The next full-quarter assessment begins.','good');
++    }
+     if(s.tick%1800===0){
+       s.resumePhase=s.phase==='continuation'?'continuation':'active';s.phase='settlement';
+       evaluateCashDeath(s);
+@@ -655,6 +702,14 @@
+   if(s.package.board&&(s.package.board.length!==16||s.package.board.some(t=>t&&(![0,1].includes(t.family)||!Number.isInteger(t.tier)||t.tier<1||t.tier>4))))throw new Error('Invalid merge board.');
+   if(s.version!==P.version)throw new Error('This checkpoint belongs to another engine version.');
+   if(!Number.isSafeInteger(s.cash)||s.cash<0||!Number.isInteger(s.tick)||s.tick<0)throw new Error('Invalid cash or clock.');
++  if(s.debt){
++    const d=s.debt;
++    if(![d.id,d.principal,d.months,d.due,d.remainder,d.aprBps,d.acceptedAt,d.lastPaymentAt,d.maturity].every(Number.isSafeInteger)||d.principal<=0||d.months<1||d.months>P.default_loan_term_months||d.remainder<0||d.remainder>=120000||d.aprBps<0||d.acceptedAt<0||d.lastPaymentAt<d.acceptedAt||d.lastPaymentAt>s.tick||d.due!==d.lastPaymentAt+P.ticks_per_month||d.maturity!==d.due+(d.months-1)*P.ticks_per_month||!['interest-only','amortising'].includes(d.mode))throw new Error('Invalid accepted loan terms or schedule.');
++  }
++  if(s.vc){
++    const v=s.vc;
++    if(![v.baseline,v.target,v.due,v.acceptedAt,v.startsAt,v.growthBps].every(Number.isSafeInteger)||v.baseline<0||v.target<0||v.acceptedAt<0||v.startsAt<v.acceptedAt||v.due!==v.startsAt+QUARTER_TICKS||typeof v.baselineLocked!=='boolean'||!['quarter-growth','legacy-target'].includes(v.rule)||v.rule==='quarter-growth'&&(v.target!==v.baseline+1||v.startsAt%QUARTER_TICKS!==0||v.growthBps!==0))throw new Error('Invalid accepted VC terms or assessment schedule.');
++  }
+   for(const f of FUNCTIONS){for(const a of AXES)if(!Number.isInteger(s.ranks[f][a])||s.ranks[f][a]<0||s.ranks[f][a]>4)throw new Error('Invalid rank.');if(!Number.isFinite(s.credits[f])||s.credits[f]<0||s.credits[f]>=1)throw new Error('Invalid automation credit.');if(!Number.isFinite(s.rot[f])||s.rot[f]<0||s.rot[f]>1)throw new Error('Invalid rot.');}
+   for(const a of s.accounts)if(!Number.isInteger(a.count)||a.count<1||!Number.isSafeInteger(a.price)||a.price<0)throw new Error('Invalid customer ledger.');
+   const residual=s.invoices.reduce((n,i)=>n+i.cents,0)+s.accounts.reduce((n,a)=>n+a.earned,0);
+--- a/src/game/founder/model.ts
++++ b/src/game/founder/model.ts
+@@ -32,6 +32,14 @@
+ export type ActionResult = {id:number; actionId:string; tick:number; type:'ACTION_COMMITTED'|'ACTION_REJECTED'; command:Command['type']; reason:ActionReason; jobId?:string; before:QuantitySnapshot; after:QuantitySnapshot; pricing?:PricingResolution; demand?:DemandResolution; product?:ProductResolution; retention?:RetentionResolution; expansion?:ExpansionResolution; operations?:OperationsResolution};
+ export type JobReservation = {jobId:string; owner:'founder'|`agent:${Work}`; actionId:string; reservedAt:number};
+ export type ClosedJob = {reason:'completed'|'expired'|'cancelled'; tick:number};
++export type Loan = {
++  id:number; principal:number; months:number; due:number; remainder:number;
++  mode:'interest-only'|'amortising'; aprBps:number; acceptedAt:number; lastPaymentAt:number; maturity:number;
++};
++export type VentureMandate = {
++  baseline:number; target:number; due:number; acceptedAt:number; startsAt:number; baselineLocked:boolean;
++  rule:'quarter-growth'|'legacy-target'; growthBps:number;
++};
+ export type Company = {
+   version:string; contractVersion:string; contentVersion:string; replayBase?:string; migratedActions?:Array<{tick:number;command:Command}|ActionRecord>; seed:number; tick:number; serial:number; actionCursor:number; actions:ActionRecord[]; actionResults:ActionResult[]; phase:EnginePhase; resumePhase:'active'|'continuation'; focus:Work|'finance'|'skills';
+   cash:number; quarter:number; openingArr:number; openingCash:number; collected:number; expenses:number; newArr:number; expansion:number; churn:number;
+@@ -40,8 +48,8 @@
+   recipe:{id:number; slots:Array<number|null>; tested?:boolean; verification?:'incomplete'|'incorrect'|'verified'}; package:{id:number; merged:number[]; board?:Array<{family:number;tier:number}|null>; supplied?:number; recovered?:boolean}; evidence:number[];
+   ops:OperationsTicketState; operationsNet:number; operationsReturns:{manual:OperationsReturnBucket;automated:OperationsReturnBucket}; incidents:OperationsIncident[]; bankDamage:Record<number,number>;
+   strain:number; expenseRemainder:number; expenseAccrued:number; lifetimeEarned:number; lifetimeCollected:number; lifetimeCosts:number; badDebt:number;
+-  debt:{principal:number; months:number; due:number; remainder:number}|null;
+-  vc:{baseline:number; target:number; due:number}|null; ownership:number;
++  debt:Loan|null;
++  vc:VentureMandate|null; ownership:number;
+   reports:Report[]; pendingDraftQuarter:number|null; upgrades:string[]; inventory:{relics:string[];consumables:Record<string,number>}; history:{tick:number;arr:number}[];
+   jobs:{reservations:JobReservation[];closed:Record<string,ClosedJob>};
+   pricingResolution?:PricingResolution; demandResolution?:DemandResolution; productResolution?:ProductResolution; retentionResolution?:RetentionResolution; expansionResolution?:ExpansionResolution; operationsResolution?:OperationsResolution; log:{id:number;tick:number;text:string;kind:'good'|'bad'|'info'}[]; failure:string; wonAt:number|null; inheritedWins:number;
+@@ -58,4 +66,4 @@
+  | {type:'ops-deal'} | {type:'ops-inspect';card:number;cell:number} | {type:'ops-claim';card:number;cell:number} | {type:'ops-discard';card:number}
+  | {type:'reveal';cell:number} | {type:'repair';target:'rot'|'strain'}
+  | {type:'buy';work:Work;axis:Axis;rank:number} | {type:'automation';work:Work} | {type:'risk';work:Work}
+- | {type:'draft-skip';quarter:number} | {type:'draft';quarter:number;id:string} | {type:'consume';id:string;account:number} | {type:'borrow'} | {type:'raise'} | {type:'continue'};
++ | {type:'draft-skip';quarter:number} | {type:'draft';quarter:number;id:string} | {type:'consume';id:string;account:number} | {type:'borrow';quote?:string} | {type:'raise';quote?:string} | {type:'repay-debt';loanId:number;quote?:string} | {type:'continue'};
+--- a/src/game/founder/profile.ts
++++ b/src/game/founder/profile.ts
+@@ -3,7 +3,10 @@
+ // Candidate tuning, never locked balance. Master units are cents and 0.1s ticks.
+ export const P = {
+   ...master,
+-  version: 'founder-candidate.10',
++  version: 'founder-candidate.11',
++  // S11 retains the existing candidate financing amounts, not locked balance.
++  vcOwnershipSoldBps: 2000,
++  financeWarningTicks: 100,
+   // S10 candidate: full context rot triples routine duration; no action lottery.
+   automationRotSlowdown: 2,
+   // S06 candidate tuning: advanced Luck has a small positive raw expected
+--- a/src/game/founder/contracts.ts
++++ b/src/game/founder/contracts.ts
+@@ -18,13 +18,13 @@
+   | 'squash-problem' | 'hit-bank' | 'save' | 'supply' | 'merge' | 'recover-package' | 'expand'
+   | 'ops-deal' | 'ops-inspect' | 'ops-claim' | 'ops-discard'
+   | 'reveal' | 'repair' | 'buy' | 'automation' | 'risk'
+-  | 'draft-skip' | 'draft' | 'consume' | 'borrow' | 'raise';
++  | 'draft-skip' | 'draft' | 'consume' | 'borrow' | 'raise' | 'repay-debt';
+ 
+ const ACTIVE_COMMANDS: readonly CommandType[] = [
+   'pause', 'focus', 'cancel-job', 'channel', 'demand', 'part', 'test-build',
+   'ship', 'price', 'squash-problem', 'hit-bank', 'save', 'supply', 'merge', 'recover-package', 'expand',
+   'ops-deal', 'ops-inspect', 'ops-claim', 'ops-discard', 'reveal', 'repair',
+-  'buy', 'automation', 'risk', 'consume', 'borrow', 'raise',
++  'buy', 'automation', 'risk', 'consume', 'borrow', 'raise', 'repay-debt',
+ ];
+ 
+ export const PHASE_PERMISSIONS: Readonly<Record<EnginePhase, readonly CommandType[]>> = {
+@@ -46,8 +46,8 @@
+ 
+ export const CASH_DEATH_POLICY = {
+   decisionId: 'O02',
+-  status: 'unresolved',
+-  behavior: 'No standalone zero-cash failure is applied. Due mandatory obligations still fail when unaffordable.',
++  status: 'owner-approved',
++  behavior: 'Fail only when a mandatory due payment cannot be paid. Exactly zero cash can survive until the next obligation.',
+ } as const;
+ 
+ export type ActionReason =
+--- a/src/game/founder/save.ts
++++ b/src/game/founder/save.ts
+@@ -1,3 +1,4 @@
++import { P } from './profile';
+ import { metrics, offeredOperationsTicket, validateCompany } from './engine';
+ import { FOUNDER_CONTENT_VERSION, FOUNDER_CONTRACT_VERSION, FOUNDER_SAVE_VERSION } from './contracts';
+ import type { Command, Company } from './model';
+@@ -56,7 +57,7 @@
+   if((envelope.version!==1&&envelope.version!==FOUNDER_SAVE_VERSION)||typeof envelope.data!=='string'||checksum(envelope.data)!==envelope.checksum)throw new Error('Checkpoint checksum failed.');
+   let s=JSON.parse(envelope.data) as Company|LegacyCompany;if(envelope.version===1||!('contractVersion' in s))s=migrateLegacyCompany(s as LegacyCompany);
+   if(envelope.version===FOUNDER_SAVE_VERSION&&(envelope.contractVersion!==FOUNDER_CONTRACT_VERSION||envelope.contentVersion!==FOUNDER_CONTENT_VERSION||envelope.balanceVersion!==(s as Company).version))throw new Error('Checkpoint contract, content, or balance version is incompatible.');
+-  const company=s as Company;
++  const company=s as Company;let migratedFinance=false;
+   // S06 changes how rank-zero work and Luck resolve. Preserve an existing
+   // candidate.5 company as a new replay baseline instead of replaying its old
+   // action log through new rules.
+@@ -78,13 +79,6 @@
+     company.actions=[];company.actionResults=[];company.actionCursor=0;
+     delete company.replayBase;company.replayBase=replayBaseline(company);
+   }
+-  if(!Number.isSafeInteger(company.openingCash))company.openingCash=company.cash;
+-  for(const report of company.reports){
+-    if(!Number.isSafeInteger(report.openingCash))report.openingCash=report.cash;
+-    if(!report.score){const current=metrics(company);report.score={eligibleArr:report.closing,multiple:current.multiple,stability:current.stability,valuation:current.valuation};}
+-  }
+-  if(company.recipe.tested&&!company.recipe.verification)company.recipe.verification='verified';
+-  else if(company.recipe.id&&!company.recipe.verification)company.recipe.verification='incomplete';
+   if(company.version==='founder-candidate.9'){
+     company.version='founder-candidate.10';
+     // Scheduler semantics changed. Preserve paid tickets, partial gestures and
+@@ -96,6 +90,24 @@
+     company.actions=[];company.actionResults=[];company.actionCursor=0;
+     delete company.replayBase;company.replayBase=replayBaseline(company);
+   }
++  if(company.version==='founder-candidate.10'){
++    company.version='founder-candidate.11';migratedFinance=true;
++    // Preserve obligations already accepted under the old profile. New loans
++    // and new mandates use S11 rules; existing commitments remain disclosed.
++    if(company.debt){const d=company.debt;Object.assign(d,{id:++company.serial,mode:'amortising',aprBps:P.default_loan_apr_bps,acceptedAt:Math.max(0,d.due-P.ticks_per_month),lastPaymentAt:d.due-P.ticks_per_month,maturity:d.due+(d.months-1)*P.ticks_per_month});}
++    if(company.vc){const v=company.vc;Object.assign(v,{acceptedAt:Math.max(0,v.due-P.months_per_quarter*P.ticks_per_month),startsAt:v.due-P.months_per_quarter*P.ticks_per_month,baselineLocked:true,rule:'legacy-target',growthBps:P.default_vc_growth_bps});}
++    company.migratedActions=[...(company.migratedActions??[]),...company.actions];
++    company.actions=[];company.actionResults=[];company.actionCursor=0;
++    delete company.replayBase;company.replayBase=replayBaseline(company);
++  }
++  if(!Number.isSafeInteger(company.openingCash))company.openingCash=company.cash;
++  for(const report of company.reports){
++    if(!Number.isSafeInteger(report.openingCash))report.openingCash=report.cash;
++    if(!report.score){const current=metrics(company);report.score={eligibleArr:report.closing,multiple:current.multiple,stability:current.stability,valuation:current.valuation};}
++  }
++  if(company.recipe.tested&&!company.recipe.verification)company.recipe.verification='verified';
++  else if(company.recipe.id&&!company.recipe.verification)company.recipe.verification='incomplete';
++  if(migratedFinance){delete company.replayBase;company.replayBase=replayBaseline(company);}
+   validateCompany(company);return company;
+ }
+ export function decodeLastKnownGood(primary:string|null,backup:string|null):{company:Company;source:'primary'|'backup'}{
+--- a/src/components/founder/FounderGame.tsx
++++ b/src/components/founder/FounderGame.tsx
+@@ -1,7 +1,8 @@
+ 'use client';
+ import { useEffect, useMemo, useRef, useState } from 'react';
+-import { advance, agentCount, agentStatus, computeCost, arr, batch, command, count, createCompany, forecast, luckDistribution, metrics, queueCap, signal, skillCost, STAGES, tier, units, unlocked } from '../../game/founder/engine';
++import { advance, agentCount, agentStatus, computeCost, capitalOffers, arr, batch, command, count, createCompany, forecast, luckDistribution, metrics, queueCap, signal, skillCost, STAGES, tier, units, unlocked } from '../../game/founder/engine';
+ import { AXES, FUNCTIONS, NAMES, P, SEGMENTS, skillRank, UPGRADES, type Axis, type Work } from '../../game/founder/profile';
++import { loanPayment, loanPayoff, loanSchedule, QUARTER_TICKS, type CapitalOffer } from '../../game/founder/finance';
+ import type { Command, Company } from '../../game/founder/model';
+ import { BACKUP_SAVE_KEY, decodeLastKnownGood, encodeSave, HISTORY_KEY, SAVE_KEY, verifiedBackup } from '../../game/founder/save';
+ import {ProductToy,ExpansionToy,RetentionToy,OperationsToy,PricingToy,QuarterDraft} from './ToyRooms';
+@@ -11,6 +12,7 @@
+ 
+ type Send=(c:Command)=>void;
+ const money=(c:number)=>{const v=c/100;return v>=1e9?`$${(v/1e9).toFixed(2)}B`:v>=1e6?`$${(v/1e6).toFixed(2)}M`:v>=1e4?`$${(v/1e3).toFixed(1)}k`:`$${v.toLocaleString('en-US',{maximumFractionDigits:0})}`;};
++const cash=(cents:number)=>(cents/100).toLocaleString('en-US',{style:'currency',currency:'USD',minimumFractionDigits:2,maximumFractionDigits:2});
+ const time=(ticks:number)=>{const t=Math.max(0,Math.ceil(ticks/10));return `${Math.floor(t/60)}:${String(t%60).padStart(2,'0')}`;};
+ const TITLES:Record<Work,[string,string]>={demand:['Find the signal.','Swipe right to pursue a real need. Left to keep your cash.'],product:['Less roadmap. More recipe.','Read the brief, combine the ingredients, test the build. Then ship something useful.'],monetisation:['Stick the landing.','Choose your price. Catch the sweet spot. Try not to negotiate with yourself.'],retention:['Break churn’s piggy bank.','Smash in some customer care before your recurring revenue becomes a fond memory.'],expansion:['Small features. Bigger deals.','Merge matching pieces into higher tiers. Serve the customer’s next big ask.'],operations:['Clear the backlog.','Scratch away strain. Refresh stale context. Keep the company moving.']};
+ 
+@@ -59,7 +61,7 @@
+         <div className="f-underbench"><span>{s.ranks[s.focus].automate?`${s.completed[s.focus]} outputs · ${Math.round(s.rot[s.focus]*100)}% context rot`:'ONE FOUNDER. STILL ONLY TWO HANDS.'}</span><button onClick={()=>send({type:'focus',work:'skills'})}>{s.ranks[s.focus].automate?'Improve this system':'Teach an agent this job'} ↗</button></div>
+         </>}
+       </section>
+-      <aside className="f-awareness"><div className="f-awareness-title"><span>THE COMPANY</span><i className={s.phase==='paused'?'paused':''}/></div><CompanyScope s={s}/><div className="f-pipeline"><button onClick={()=>send({type:'focus',work:'product'})}><b>{count(s.leads)}</b><span>qualified<br/>opportunities</span></button><i>→</i><button onClick={()=>send({type:'focus',work:'monetisation'})}><b>{count(s.trials)}</b><span>activated<br/>trials</span></button></div><div className="f-health"><span>OPERATING STABILITY</span><b>{Math.round(m.stability*100)}%</b><div><i style={{width:`${m.stability*100}%`}}/></div><p>{m.overload>.3?'Coordination is slowing work. Repair strain or improve Operations.':m.rot>.2?'Your agents are drifting. Operations can refresh their context.':'Room to breathe. Keep the next bill covered.'}</p></div>{(stage>0||m.rot>0||s.strain>0)&&<dl className="f-pressure"><div><dt>Strain backlog</dt><dd>{s.strain.toFixed(1)}</dd></div><div><dt>Worst context rot</dt><dd>{Math.round(m.rot*100)}%</dd></div><div><dt>Agent pace</dt><dd>{Math.round(m.speed*100)}% before context rot</dd></div><div><dt>Coordination</dt><dd>{m.load.toFixed(1)} / {m.capacity.toFixed(1)}</dd></div></dl>}<button className="f-obligation" onClick={()=>send({type:'focus',work:'finance'})}><span>NEXT OPERATING BILL</span><strong>~{money(m.nextBill)}</strong><small>Due in {time(600-s.tick%600)} · cash {money(s.cash)}</small></button>{threats.length>0&&<button className="f-alert" onClick={()=>send({type:'focus',work:'retention'})}>{threats.length} churn threat{threats.length>1?'s':''} · {time(Math.min(...threats.map(a=>a.threat))-s.tick)} left →</button>}{s.vc&&<button className="f-alert" onClick={()=>send({type:'focus',work:'finance'})}>VC: {money(s.vc.target)} ARR in {time(s.vc.due-s.tick)} →</button>}{report&&!report.chosen&&report.choices.length>0&&<button className="f-quarter-notice" onClick={()=>send({type:'focus',work:'finance'})}>Q{report.quarter} closed. Choose what changes. ↗</button>}<BuildContext s={s}/><ProgressiveHUD s={s}/><small className="f-save-status">{saveStatus}</small></aside></div></div>
++      <aside className="f-awareness"><div className="f-awareness-title"><span>THE COMPANY</span><i className={s.phase==='paused'?'paused':''}/></div><CompanyScope s={s}/><div className="f-pipeline"><button onClick={()=>send({type:'focus',work:'product'})}><b>{count(s.leads)}</b><span>qualified<br/>opportunities</span></button><i>→</i><button onClick={()=>send({type:'focus',work:'monetisation'})}><b>{count(s.trials)}</b><span>activated<br/>trials</span></button></div><div className="f-health"><span>OPERATING STABILITY</span><b>{Math.round(m.stability*100)}%</b><div><i style={{width:`${m.stability*100}%`}}/></div><p>{m.overload>.3?'Coordination is slowing work. Repair strain or improve Operations.':m.rot>.2?'Your agents are drifting. Operations can refresh their context.':'Room to breathe. Keep the next bill covered.'}</p></div>{(stage>0||m.rot>0||s.strain>0)&&<dl className="f-pressure"><div><dt>Strain backlog</dt><dd>{s.strain.toFixed(1)}</dd></div><div><dt>Worst context rot</dt><dd>{Math.round(m.rot*100)}%</dd></div><div><dt>Agent pace</dt><dd>{Math.round(m.speed*100)}% before context rot</dd></div><div><dt>Coordination</dt><dd>{m.load.toFixed(1)} / {m.capacity.toFixed(1)}</dd></div></dl>}<button className="f-obligation" onClick={()=>send({type:'focus',work:'finance'})}><span>NEXT OPERATING BILL</span><strong>~{money(m.nextBill)}</strong><small>Due in {time(600-s.tick%600)} · cash {money(s.cash)}</small></button>{threats.length>0&&<button className="f-alert" onClick={()=>send({type:'focus',work:'retention'})}>{threats.length} churn threat{threats.length>1?'s':''} · {time(Math.min(...threats.map(a=>a.threat))-s.tick)} left →</button>}<FinanceAlerts s={s} send={send}/>{report&&!report.chosen&&report.choices.length>0&&<button className="f-quarter-notice" onClick={()=>send({type:'focus',work:'finance'})}>Q{report.quarter} closed. Choose what changes. ↗</button>}<BuildContext s={s}/><ProgressiveHUD s={s}/><small className="f-save-status">{saveStatus}</small></aside></div></div>
+       <footer className={`f-receipt ${latest?.kind??''}`} role="status"><span>{latest?time(latest.tick):'0:00'} / FIELD NOTES</span><p key={latest?.id}>{latest?.text??'The company is running.'}</p>{(s.inventory.consumables['consumable:customer-firebreak']??0)>0&&s.accounts.some(a=>a.active&&a.threat)?<button onClick={()=>send({type:'consume',id:'consumable:customer-firebreak',account:s.accounts.find(a=>a.active&&a.threat)!.id})}>Deploy customer firebreak</button>:<b>01 FOUNDER / {s.accounts.filter(a=>a.active).reduce((n,a)=>n+a.count,0)} CUSTOMERS</b>}</footer>
+     </>}
+     {newRun&&<div className="f-confirm" role="dialog" aria-modal="true" aria-label="Start a new company"><h2>Close this company?</h2><p>This replaces the current local run. Your successful founder history stays.</p><button className="f-primary" onClick={reset}>Start a new company</button><button className="f-secondary" onClick={()=>setNewRun(false)}>Keep this run</button></div>}
+@@ -93,12 +95,51 @@
+   return <div className="f-management"><span className="f-eyebrow">CAPABILITY / PERMANENT FOR THIS RUN</span><h1>Buy back your attention.</h1><p>Improve one part of the machine. Every new capability has a cash and coordination cost.</p><div className="f-skill-functions">{FUNCTIONS.map(x=><button key={x} aria-pressed={x===f} onClick={()=>setF(x)}>{NAMES[x]}<small>{AXES.reduce((n,a)=>n+s.ranks[x][a],0)} / 16 ranks</small></button>)}</div><div className="f-skill-tree"><div className="f-axis-list">{AXES.map(a=><button key={a} aria-pressed={axis===a} onClick={()=>setAxis(a)}><span>{a.toUpperCase()}</span><div>{[1,2,3,4].map(n=><i key={n} className={n<=s.ranks[f][a]?'owned':''}/>)}</div><small>{a==='craft'?'Better work':a==='scale'?'More work units':a==='automate'?'Hands become systems':'Choose more variance'}</small></button>)}</div><article className="f-skill-detail"><span>{NAMES[f].toUpperCase()} / {axis.toUpperCase()}</span><div className="f-rank-number">{rank===4?'04':`0${next}`}<small>/ 04</small></div><h2>{rank===4?'Fully installed.':definition?.name??(axis==='automate'?'A faster autonomous system.':axis==='craft'?'Make each attempt count.':axis==='scale'?'Give the work more room.':'Let the tails get wider.')}</h2><p>{rank===4?'This branch is fully deployed. Your next bottleneck lives elsewhere.':skillEffect(s,f,axis)}</p>{rank<4&&<><dl><div><dt>PREREQUISITE</dt><dd>{definition?.prerequisite??'Previous rank in this branch'}</dd></div><div><dt>CASH AFTER PURCHASE</dt><dd>{money(s.cash-cost)}</dd></div><div><dt>MONTHLY BILL AFTER INSTALL</dt><dd>{money(nextMetrics.cost)} <small>({money(nextMetrics.cost-m.cost)} change)</small></dd></div><div><dt>COMMITMENT</dt><dd>{definition?.recurringCommitment??'5 seconds to deploy'}</dd></div><div><dt>VISIBLE CHANGE</dt><dd>{definition?.visibleChange??'Capability instruments update'}</dd></div>{axis==='luck'&&operationsLuck?<><div><dt>WHOLE-TICKET NET</dt><dd>E {money(operationsLuck.automated.meanAfterPrice)} after price</dd></div><div><dt>AUTOMATED NET</dt><dd>E {money(operationsLuck.automated.meanAfterPriceAndUpkeep)} after allocated upkeep</dd></div><div><dt>TAIL RANGE</dt><dd>{money(operationsLuck.automated.minimum)} to {money(operationsLuck.automated.maximum)}</dd></div></>:axis==='luck'&&<><div><dt>RAW OUTPUT</dt><dd>E {luck.raw.mean.toFixed(2)} · variance {luck.raw.variance.toFixed(2)}</dd></div><div><dt>FINITE INPUT CAP</dt><dd>E {luck.capped.mean.toFixed(2)} / {finiteCap} · variance {luck.capped.variance.toFixed(2)}</dd></div></>}</dl><p className="f-risk-note">{definition?.downside??'Finite inputs and operating pressure still apply.'}</p><button className="f-primary" disabled={s.cash<cost} onClick={()=>send({type:'buy',work:f,axis,rank:next})}>Install {axis} {next} <b>{money(cost)}</b></button>{s.cash-cost<nextMetrics.cost&&<small className="f-risk-note">This purchase leaves less than one projected monthly bill in cash.</small>}</>}</article></div>{s.ranks[f].automate>0&&<button className="f-secondary" onClick={()=>send({type:'automation',work:f})}>{s.enabled[f]?'Switch off':'Restart'} {NAMES[f]} agents · {s.enabled[f]?'stop compute upkeep and new rot':'resume autonomous production'}</button>}{s.ranks[f].luck>0&&<button className="f-secondary f-risk-toggle" onClick={()=>send({type:'risk',work:f})} aria-pressed={s.risky[f]}>Luck exposure {s.risky[f]?'on':'off'} · {s.risky[f]?'disable risk':'enable explained seeded swings'}</button>}<div className="f-hud-progression"><span>YOUR WORKSPACE EVOLVES WITH INSTALLED CAPABILITY</span>{STAGES.map((label,i)=><b key={label} className={tier(s)>=i?'active':''}>{label}</b>)}</div></div>;
+ }
+ function Finance({s,send}:{s:Company;send:Send}){
+-  const m=metrics(s);const [confirm,setConfirm]=useState<'debt'|'vc'|null>(null);const latest=s.reports.at(-1);
+-  return <div className="f-management f-finance"><span className="f-eyebrow">TREASURY / TIME KEEPS RUNNING</span><h1>Cash is oxygen.</h1><p>Profit pays you after service, invoicing, and collection. Funding gives you cash and obligations.</p><div className="f-finance-metrics"><Metric label="LIQUID CASH" value={money(s.cash)} major/><Metric label="MONTHLY REVENUE" value={money(m.mrr)}/><Metric label="MONTHLY COST" value={money(m.cost)}/><Metric label="OPERATING MARGIN" value={money(m.mrr-m.cost)} warning={m.mrr<m.cost}/></div><div className="f-cash-bridge"><div><span>EARNED, UNBILLED</span><b>{money(m.unbilled)}</b></div><i>→</i><div><span>INVOICED, UNPAID</span><b>{money(m.receivables)}</b></div><i>→</i><div><span>COLLECTED THIS Q</span><b>{money(s.collected)}</b></div></div><div className="f-obligations"><h2>The next commitments</h2><div><span>Operating bill</span><b>{money(s.expenseAccrued)} accrued · ~{money(m.cost)} monthly</b><small>Due in {time(600-s.tick%600)}</small></div>{s.debt&&<div><span>Loan repayment</span><b>{money(Math.ceil(s.debt.principal/s.debt.months)+Math.floor(s.debt.principal*.015))} next · {money(s.debt.principal)} principal</b><small>Due in {time(s.debt.due-s.tick)}</small></div>}{s.vc&&<div><span>VC growth mandate</span><b>{money(m.arr)} / {money(s.vc.target)} ARR</b><small>{time(s.vc.due-s.tick)} left · miss ends run</small></div>}</div><details className="f-ledger f-cash-forecast"><summary>Three-month cash forecast · lowest balance {money(m.forecastMinimum)}</summary><p>Current contracts and committed bills only. Collections use an 80% haircut and segment payment probability; future sales are not assumed.</p>{forecast(s).events.slice(0,14).map((e,i)=><div key={i}><span>In {time(e.at-s.tick)} · {e.label}</span><b>{e.cents<0?'−':'+'}{money(Math.abs(e.cents))}</b><small>Projected balance {money(e.cash)}</small></div>)}</details><div className="f-capital-choices"><article><span>OPTION 01 / DEBT</span><h2>Borrow against revenue.</h2><p>{money(Math.floor(m.arr/12)*3)} available · 18% APR · six monthly repayments. No growth ultimatum.</p><button className="f-secondary" disabled={!!s.debt||m.arr/12<10000} onClick={()=>setConfirm('debt')}>{s.debt?'Loan outstanding':m.arr/12<10000?'Needs $100 MRR':'Review loan terms'}</button></article><article><span>OPTION 02 / VENTURE CAPITAL</span><h2>Sell a piece of the future.</h2><p>{money(m.arr)} cash for 20% of your equity. Deliver +50% ARR every three months. Miss once and the run ends.</p><button className="f-secondary" disabled={!!s.vc||m.arr<1200000} onClick={()=>setConfirm('vc')}>{s.vc?'VC mandate active':m.arr<1200000?'Needs $12,000 ARR':'Review equity terms'}</button></article></div>{confirm&&<div className="f-capital-confirm" role="region" aria-label="Confirm capital terms"><h3>{confirm==='debt'?'Six real payments. No free money.':'Capital with a growth ultimatum.'}</h3><p>{confirm==='debt'?`${money(Math.floor(m.arr/12)*3)} cash. First payment ${money(Math.ceil(Math.floor(m.arr/12)*3/6)+Math.floor(Math.floor(m.arr/12)*3*.015))} in 60 seconds. 18% nominal APR, declining principal, six monthly payments.`:`${money(m.arr)} cash. Founder ownership becomes ${(s.ownership*.8/100).toFixed(1)}%. ${money(Math.ceil(m.arr*1.5))} ARR required in 3:00. The target then compounds 50% every three months.`}</p><button className="f-primary" onClick={()=>{send({type:confirm==='debt'?'borrow':'raise'});setConfirm(null);}}>Accept these terms</button><button className="f-secondary" onClick={()=>setConfirm(null)}>Keep bootstrapping</button></div>}
+-    {latest&&<div className="f-quarter-report"><span className="f-eyebrow">QUARTER {latest.quarter} / THE RECORD</span><h2>{money(latest.closing-latest.opening)} net ARR change.</h2><p>{money(latest.opening)} opening + {money(latest.newArr)} new + {money(latest.expansion)} expansion − {money(latest.churn)} churn = {money(latest.closing)} closing ARR.</p><p>{money(latest.collected)} collected · {money(latest.expenses)} expenses · {money(latest.cash)} liquid at close.</p></div>}
+-    <details className="f-ledger"><summary>Why this company is worth {money(m.valuation)}</summary><p>{money(m.arr)} eligible ARR × {m.multiple.toFixed(2)} growth multiple × {m.stability.toFixed(3)} stability. Growth uses a trailing three-month window. Stability reflects operating strain, context rot, burn and forecast coverage. Financing creates cash, never ARR.</p><p>Lifetime earned {money(s.lifetimeEarned)} = collected {money(s.lifetimeCollected)} + receivables {money(m.receivables)} + unbilled {money(m.unbilled)} + bad debt {money(s.badDebt)}.</p><p>Founder ownership {(s.ownership/100).toFixed(1)}% · contractual ARR {money(arr(s))}. Values use a candidate game economy, not a real-world valuation model.</p></details>
++  const m=metrics(s),offers=capitalOffers(s),latest=s.reports.at(-1);
++  const [confirm,setConfirm]=useState<CapitalOffer|{kind:'repay';loanId:number}|null>(null);
++  const payment=s.debt?loanPayment(s.debt):null,payoff=s.debt?loanPayoff(s.debt,s.tick):null;
++  const currentOffer=confirm?.kind==='debt'?offers.debt:confirm?.kind==='vc'?offers.vc:null;
++  const stale=!!(confirm&&confirm.kind!=='repay'&&(!currentOffer?.available||confirm.key!==currentOffer.key));
++  const last=s.actionResults.at(-1),rejected=last?.type==='ACTION_REJECTED'&&['borrow','raise','repay-debt'].includes(last.command);
++  const accept=()=>{
++    if(!confirm||stale)return;
++    if(confirm.kind==='repay'){if(payoff&&s.debt?.id===confirm.loanId)send({type:'repay-debt',loanId:confirm.loanId,quote:payoff.key});}
++    else send({type:confirm.kind==='debt'?'borrow':'raise',quote:confirm.key});
++    setConfirm(null);
++  };
++  return <div className="f-management f-finance">
++    <span className="f-eyebrow">TREASURY / TIME KEEPS RUNNING</span><h1>Cash is oxygen.</h1>
++    <p>Stay liquid for the next bill. Zero cash alone is survivable; an unpaid obligation ends the run.</p>
++    <div className="f-finance-metrics"><Metric label="LIQUID CASH" value={cash(s.cash)} major/><Metric label="MONTHLY REVENUE" value={cash(m.mrr)}/><Metric label="MONTHLY COST" value={cash(m.cost)}/><Metric label="OPERATING MARGIN" value={cash(m.mrr-m.cost)} warning={m.mrr<m.cost}/></div>
++    <div className="f-cash-bridge"><div><span>EARNED, UNBILLED</span><b>{cash(m.unbilled)}</b></div><i>→</i><div><span>INVOICED, UNPAID</span><b>{cash(m.receivables)}</b></div><i>→</i><div><span>COLLECTED THIS Q</span><b>{cash(s.collected)}</b></div></div>
++    <div className="f-obligations"><h2>The next commitments</h2>
++      <div><span>Operating bill</span><b>~{cash(m.nextBill)} · {cash(s.expenseAccrued)} accrued</b><small>Due in {time(P.ticks_per_month-s.tick%P.ticks_per_month)}</small></div>
++      {s.debt&&payment&&<><div><span>{payment.principal?'Loan principal + interest':'Loan interest'}</span><b>{cash(payment.total)}</b><small>Due in {time(s.debt.due-s.tick)} · {s.debt.aprBps/100}% APR{s.debt.mode==='amortising'?' · saved amortising terms':''}</small></div>
++        <div><span>Principal remaining</span><b>{cash(s.debt.principal)}</b><small>{s.debt.mode==='interest-only'?'All due':'Fully repaid'} in {time(s.debt.maturity-s.tick)} · {s.debt.months} interest date{s.debt.months===1?'':'s'} left</small></div>
++        <button className="f-secondary" disabled={!payoff||s.cash<payoff.total} onClick={()=>setConfirm({kind:'repay',loanId:s.debt!.id})}>Repay loan now · {cash(payoff!.total)}</button>
++      </>}
++      {s.vc&&<div><span>VC growth check</span><b>{cash(m.arr)} eligible ARR{s.vc.baselineLocked?` / ${cash(s.vc.rule==='quarter-growth'?s.vc.baseline:s.vc.target)} ${s.vc.rule==='quarter-growth'?'opening':'legacy target'}`:''}</b><small>{s.vc.baselineLocked?`${s.vc.rule==='quarter-growth'?'Finish above opening. Flat/down fails.':'Saved growth target applies.'} Review in ${time(s.vc.due-s.tick)}.`:`Grace period. Baseline locks in ${time(s.vc.startsAt-s.tick)}; first review in ${time(s.vc.due-s.tick)}.`}</small></div>}
++    </div>
++    {s.debt&&<details className="f-ledger"><summary>Loan repayment dates</summary>{loanSchedule(s.debt).map(p=><div key={p.at}><span>In {time(p.at-s.tick)}</span><b>{cash(p.total)}</b><small>{cash(p.interest)} interest{p.principal?` + ${cash(p.principal)} principal`:''}</small></div>)}</details>}
++    <details className="f-ledger f-cash-forecast"><summary>Three-month cash forecast · low {cash(m.forecastMinimum)}</summary><p>Current contracts and committed bills. Collections are estimates; future sales are not assumed.</p>{forecast(s).events.slice(0,14).map((e,i)=><div key={i}><span>In {time(e.at-s.tick)} · {e.label}{e.estimated?' (estimate)':''}</span><b>{e.cents<0?'−':'+'}{cash(Math.abs(e.cents))}</b><small>Balance {cash(e.cash)}</small></div>)}</details>
++    <div className="f-capital-choices"><article><span>OPTION 01 / DEBT</span><h2>Buy some runway.</h2><p>{cash(offers.debt.principal)} available. {offers.debt.aprBps/100}% APR; monthly interest. Principal due after {offers.debt.months} months, or repay early.</p><button className="f-secondary" disabled={!offers.debt.available} onClick={()=>setConfirm(offers.debt)}>{s.debt?'Loan outstanding':!offers.debt.available?`Needs ${cash(P.debt_min_mrr_cents)} eligible MRR`:'Review loan terms'}</button></article>
++      <article><span>OPTION 02 / VENTURE CAPITAL</span><h2>Take the growth bet.</h2><p>{cash(offers.vc.cash)} cash for {P.vcOwnershipSoldBps/100}% dilution. Grow eligible ARR every full quarter. Flat or down ends the run.</p><button className="f-secondary" disabled={!offers.vc.available} onClick={()=>setConfirm(offers.vc)}>{s.vc?'VC mandate active':!offers.vc.available?`Needs ${cash(P.vc_min_arr_cents)} eligible ARR`:'Review equity terms'}</button></article></div>
++    {rejected&&<p role="status">{last.reason==='unaffordable'?'Cash changed: the repayment is no longer affordable.':'These terms changed or are no longer available. Review the current offer.'}</p>}
++    {confirm&&<div className="f-capital-confirm" role="region" aria-label="Confirm capital terms">
++      <h3>{confirm.kind==='debt'?'Interest now. Principal later.':confirm.kind==='vc'?'A full quarter to prove growth.':'Close the loan.'}</h3>
++      {confirm.kind==='debt'?<p>{cash(confirm.principal)} cash. {cash(confirm.interest)} first monthly interest in {time(P.ticks_per_month)} after acceptance. {confirm.aprBps/100}% APR; {confirm.months} months. All principal plus final interest becomes due at maturity. Early payoff includes accrued interest; no fee.</p>:confirm.kind==='vc'?<p>{cash(confirm.cash)} cash; founder ownership becomes {(confirm.ownership/100).toFixed(2)}%. {confirm.baselineLocked?`Opening eligible ARR: ${cash(confirm.baseline)}.`:`Opening ARR locks in ${time(confirm.startsAt-s.tick)}.`} First review at Q{confirm.due/QUARTER_TICKS} close, in {time(confirm.due-s.tick)}. Finish strictly above opening; flat/down fails. The partial funding quarter is exempt.</p>:payoff&&<p>{cash(payoff.principal)} principal + {cash(payoff.interest)} accrued interest = {cash(payoff.total)} now. Cash left: {cash(s.cash-payoff.total)}. Future loan bills stop. Accrued interest updates while time runs.</p>}
++      {stale?<><p role="status">The offer changed while you reviewed it. Nothing was accepted.</p><button className="f-secondary" disabled={!currentOffer?.available} onClick={()=>currentOffer&&setConfirm(currentOffer)}>Refresh terms</button></>:<button className="f-primary" disabled={confirm.kind==='repay'&&(!payoff||s.cash<payoff.total||s.debt?.id!==confirm.loanId)} onClick={accept}>{confirm.kind==='repay'?`Repay ${cash(payoff?.total??0)}`:'Accept these terms'}</button>}
++      <button className="f-secondary" onClick={()=>setConfirm(null)}>Keep current financing</button>
++    </div>}
++    {latest&&<div className="f-quarter-report"><span className="f-eyebrow">QUARTER {latest.quarter} / THE RECORD</span><h2>{money(latest.closing-latest.opening)} net ARR change.</h2><p>{money(latest.opening)} opening + {money(latest.newArr)} new + {money(latest.expansion)} expansion − {money(latest.churn)} churn = {money(latest.closing)} closing ARR.</p><p>{cash(latest.collected)} collected · {cash(latest.expenses)} expenses · {cash(latest.cash)} liquid at close.</p></div>}
++    <details className="f-ledger"><summary>Why this company is worth {money(m.valuation)}</summary><p>{money(m.arr)} eligible ARR × {m.multiple.toFixed(2)} growth multiple × {m.stability.toFixed(3)} stability. Growth uses a trailing three-month window. Stability reflects operating strain, context rot, burn and forecast coverage. Financing creates cash, never ARR.</p><p>Lifetime earned {cash(s.lifetimeEarned)} = collected {cash(s.lifetimeCollected)} + receivables {cash(m.receivables)} + unbilled {cash(m.unbilled)} + bad debt {cash(s.badDebt)}.</p><p>Founder ownership {(s.ownership/100).toFixed(2)}% · contractual ARR {money(arr(s))}. Candidate game economy.</p></details>
+   </div>;
+ }
++function FinanceAlerts({s,send}:{s:Company;send:Send}){
++  const payment=s.debt?loanPayment(s.debt):null;
++  return <>{s.debt&&payment&&<button className={s.cash<payment.total?'f-alert':'f-obligation'} onClick={()=>send({type:'focus',work:'finance'})}><span>{payment.principal?'LOAN PRINCIPAL + INTEREST':'LOAN INTEREST'}</span><strong>{cash(payment.total)}</strong><small>In {time(s.debt.due-s.tick)} · principal {cash(s.debt.principal)} due in {time(s.debt.maturity-s.tick)}</small></button>}{s.vc&&<button className="f-alert" onClick={()=>send({type:'focus',work:'finance'})}>{s.vc.baselineLocked?`${s.vc.rule==='quarter-growth'?'Beat':'Reach'} ${cash(s.vc.rule==='quarter-growth'?s.vc.baseline:s.vc.target)} eligible ARR`:'VC grace: next full quarter counts'}<small style={{display:'block'}}>First/next review in {time(s.vc.due-s.tick)}{!s.vc.baselineLocked?` · baseline locks in ${time(s.vc.startsAt-s.tick)}`:''}</small></button>}</>;
++}
++
+ function BuildContext({s}:{s:Company}){
+   const agents=FUNCTIONS.reduce((n,f)=>n+agentCount(s,f),0),consumables=Object.entries(s.inventory.consumables).filter(([,count])=>count>0);
+   const relics=s.inventory.relics.map(id=>draftOption(s,id,s.quarter)?.name??id),skillRanks=FUNCTIONS.reduce((n,f)=>n+AXES.reduce((sum,a)=>sum+s.ranks[f][a],0),0);
+--- a/src/components/founder/founder.css
++++ b/src/components/founder/founder.css
+@@ -29,3 +29,9 @@
+ .f-garage-scene{position:relative;isolation:isolate;min-height:calc(100dvh - 160px);background:linear-gradient(120deg,#141510e8 0 19%,transparent 19% 79%,#12130fe8 79%),radial-gradient(ellipse at 55% 12%,#c5a96e16,transparent 34%),linear-gradient(#24231d,#171815 52%,#0f100e);overflow:hidden}.f-garage-scene:after{content:'';position:absolute;z-index:-1;left:14%;right:13%;bottom:0;height:17%;background:linear-gradient(105deg,#302719,#171612 48%,#292116);transform:perspective(800px) rotateX(58deg);transform-origin:bottom;box-shadow:0 -14px 28px #0008}.f-garage-pegboard{position:absolute;right:3%;top:36px;width:150px;height:155px;opacity:.34;background-image:radial-gradient(#817251 1px,transparent 1px);background-size:12px 12px;border:1px solid #71644a}.f-garage-pegboard i{position:absolute;width:3px;background:#887951;box-shadow:2px 3px 4px #0008}.f-garage-pegboard i:nth-child(1){height:70px;left:38px;top:24px;transform:rotate(33deg)}.f-garage-pegboard i:nth-child(2){height:54px;left:88px;top:35px;transform:rotate(-41deg)}.f-garage-pegboard i:nth-child(3){height:47px;left:116px;top:77px;transform:rotate(56deg)}.f-garage-lamp{position:absolute;z-index:-1;top:-85px;left:37%;width:290px;height:250px;background:radial-gradient(ellipse,#d7bb7180,transparent 63%);filter:blur(6px);pointer-events:none}.f-garage-scene .f-layout{position:relative;z-index:1;background:#171815be;backdrop-filter:blur(1px)}.f-garage-scene .f-main{margin:18px 0;background:linear-gradient(145deg,#24251f,#11120f);border:1px solid #625b46;border-radius:13px;box-shadow:inset 0 1px 1px #dfd4b033,inset 0 0 0 8px #0a0b09,0 20px 35px #0008}.f-garage-scene .f-main:after{content:'TEMPORARY LAPTOP SHELL · FINAL 2.5D ART REQUEST OPEN';position:absolute;left:14px;right:14px;bottom:9px;text-align:center;font:6px monospace;letter-spacing:.12em;color:#a19678}.f-garage-scene .f-toy{padding-bottom:18px}.f-demand-helper{max-width:660px;margin:0 auto 8px;padding:9px 12px;display:flex;gap:11px;border-left:2px solid var(--f-accent);background:#d7bc7b0d;font-size:10px;color:var(--f-muted)}.f-demand-helper b{font:8px monospace;color:var(--f-accent);white-space:nowrap}.f-signal.quality-qualified header b{color:#3d6c4a}.f-signal.quality-uncertain header b{color:#8b6a33}.f-signal.quality-noise header b{color:#8a4f43}.f-demand-result{max-width:660px;margin:14px auto 0;padding:12px;border:1px solid var(--f-line);display:grid;grid-template-columns:1fr auto;gap:5px 15px;background:#11120d}.f-demand-result b{font-size:12px;color:var(--f-accent)}.f-demand-result span{font-size:10px;color:var(--f-muted)}.f-demand-result button{grid-column:2;grid-row:1/3;color:var(--f-accent);font-size:10px;min-height:42px;border-left:1px solid var(--f-line)!important;padding-left:14px}.f-demand-result.declined b{color:#df9a7b}
+ @media(max-width:650px){.f-garage-scene{min-height:0;background:linear-gradient(#1e1f1a,#12130f)}.f-garage-pegboard,.f-garage-lamp{display:none}.f-garage-scene .f-layout{display:block;background:none}.f-garage-scene .f-navigation{display:none}.f-garage-scene .f-main{margin:0;padding:16px 13px 38px;border-radius:0;border-inline:0;box-shadow:inset 0 1px 1px #dfd4b022,inset 0 0 0 5px #0a0b09}.f-garage-scene .f-awareness{display:block;padding:12px 14px;border:0;border-top:1px solid var(--f-line);background:#12130f}.f-garage-scene .f-awareness-title,.f-garage-scene .f-company-scope,.f-garage-scene .f-health,.f-garage-scene .f-pressure,.f-garage-scene .f-earned-hud,.f-garage-scene .f-save-status{display:none}.f-garage-scene .f-pipeline{padding:6px 0}.f-garage-scene .f-obligation{margin:2px 0;padding:10px 0!important}.f-garage-scene .f-obligation strong{font-size:18px;margin:5px 0}.f-demand-helper{margin-bottom:5px}.f-demand-result{margin-top:9px;padding:10px}.f-demand-result button{min-height:44px}.f-swipe-stage{min-height:min(55dvh,430px);padding-inline:8px}.f-signal{width:min(100%,355px);min-height:310px}.f-signal-body{padding-inline:20px}.f-channel-picker{overflow:auto;justify-content:flex-start}.f-channel-picker>button{flex:0 0 auto}.f-gesture-caption>span{font-size:8px}.f-main .f-room-heading{margin-bottom:12px}.f-main .f-room-heading p{font-size:11px}.f-work-stamp{display:none}}
+ .f-build-context{border-top:1px solid var(--f-line);margin-top:16px;padding-top:14px}.f-build-context>span{font:8px monospace;color:var(--f-accent);letter-spacing:.1em}.f-build-context dl{margin:10px 0;font-size:9px}.f-build-context dl>div{display:flex;justify-content:space-between;gap:8px;margin:6px 0}.f-build-context dt{color:var(--f-muted)}.f-build-context dd{margin:0;text-align:right}.f-build-context p,.f-build-context small{display:block;margin:8px 0 0;font-size:9px;color:var(--f-muted);line-height:1.45}.f-build-context small{color:var(--f-accent)}
++
++/* S11 financing: exact monetary amounts remain readable on narrow screens. */
++.f-finance-metrics .f-metric,.f-finance .f-obligations>div,.f-finance .f-ledger>div{min-width:0}
++.f-finance-metrics .f-metric>strong,.f-finance .f-obligations b,.f-finance .f-cash-bridge b,.f-finance .f-ledger b,.f-awareness .f-obligation strong{overflow-wrap:anywhere;white-space:normal;font-variant-numeric:tabular-nums}
++.f-finance .f-capital-confirm button,.f-finance .f-obligations button{min-height:44px}
++@media(max-width:650px){.f-finance .f-obligations>div,.f-finance .f-ledger>div{display:flex;flex-direction:column;align-items:flex-start;gap:5px}.f-finance .f-finance-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.f-finance .f-cash-bridge{flex-wrap:wrap}.f-finance .f-capital-confirm{padding:16px}.f-finance .f-capital-confirm button{max-width:100%;white-space:normal}.f-awareness .f-alert small{line-height:1.5}}
+--- a/package.json
++++ b/package.json
+@@ -23,7 +23,7 @@
+     "test:integration": "vitest run tests/integration",
+     "validate:content": "vitest run tests/unit/content-validation.test.ts",
+     "test": "vitest run",
+-    "test:founder": "vitest run tests/integration/founder-automation.test.ts tests/integration/founder-state-save.test.ts tests/integration/founder-company.test.ts tests/integration/founder-policy.test.ts tests/integration/founder-toys.test.ts",
++    "test:founder": "vitest run tests/integration/founder-finance.test.ts tests/integration/founder-automation.test.ts tests/integration/founder-state-save.test.ts tests/integration/founder-company.test.ts tests/integration/founder-policy.test.ts tests/integration/founder-toys.test.ts",
+     "postbuild": "node scripts/prepare-founder-offline.mjs"
+   },
+   "dependencies": {
+--- a/tests/integration/founder-state-save.test.ts
++++ b/tests/integration/founder-state-save.test.ts
+@@ -75,8 +75,8 @@
+     expect(migrated.incidents).toEqual([]);expect(migrated.jobs.reservations.some(r=>r.jobId.startsWith('operations:'))).toBe(false);expect(replayCompany(migrated)).toEqual(migrated);
+   });
+ 
+-  it('keeps unresolved cash death as a named non-decision',()=>{
+-    const s=start(76);s.cash=0;expect(evaluateCashDeath(s)).toBe(CASH_DEATH_POLICY);expect(s.phase).toBe('active');
++  it('keeps owner-approved cash death tied to mandatory obligations',()=>{
++    const s=start(76);s.cash=0;expect(evaluateCashDeath(s)).toBe(CASH_DEATH_POLICY);expect(CASH_DEATH_POLICY.status).toBe('owner-approved');expect(s.phase).toBe('active');
+   });
+ 
+   it('commits the visible Demand profile deterministically and persists its cash-to-Product consequence',()=>{
+--- a/docs/exec-plans/active/2026-09-16-founder-revamp/DECISIONS.md
++++ b/docs/exec-plans/active/2026-09-16-founder-revamp/DECISIONS.md
+@@ -50,8 +50,8 @@
+ | ID | Decision needed | Affected task | Proposed handling until resolved |
+ |---|---|---|---|
+ | O01 RESOLVED | Tickets are random at Luck 0; variance increases with Luck, and net-positive outcomes support automation/scale. | S09 | Use a named ticket RNG stream, sample each ticket once, and persist its outcomes. Quantitative payout tables remain candidate tuning. |
+-| O02 | Exact cash-death boundary: literal zero cash immediately, zero at a round boundary, or inability to meet a due obligation (possibly while some cash remains). | S01 phase contract, S11 finance | Keep this a named policy decision. Existing candidate.5 uses unpaid due obligations plus zero at quarter close. Do not silently present that old behaviour as the new approved rule. Other state/UX repairs can proceed. |
+-| O03 | Debt amortisation versus interest payments followed by principal at maturity; VC growth baseline/first assessment timing. | S11 finance | Recommended candidate: disclosed interest schedule plus principal at maturity; eligible ARR must grow relative to the agreed prior-quarter baseline, with first review date explicit before accepting VC. Exact terms need a small decision before implementation, not a return to broad discovery. |
++| O02 RESOLVED | Fail only when a mandatory payment cannot be settled. Exactly zero cash alone is survivable, including quarter close. | S01 phase contract, S11 finance | Owner selected the recommendation; named policy is now owner-approved. |
++| O03 RESOLVED | New debt pays monthly interest, with principal due at the disclosed term end and early payoff available. New VC assesses the first full game quarter after funding; eligible ARR must close above its opening baseline. | S11 finance | Owner confirmed these rules; see the detailed answers below. Existing accepted legacy financing remains preserved and labeled. |
+ 
+ Ticket prices, payout tables, reward counts, rank costs, time constants and late-stage milestone thresholds are candidate tuning work. Do not promote old illustrative numbers into canon. Four purchasable ranks per axis (96 total across six functions) is the planned initial scope retained from the existing candidate; each needs an actual implemented effect. Broader subbranch/catalogue expansion is outside this delivery unless requested.
+ 
+@@ -60,3 +60,10 @@
+ - Lock visual milestone unlocks by highest earned valuation so equipment does not flicker or regress when valuation moves; current distress can still affect environment cues. Validate this reversible presentation choice in S13.
+ - Keep non-ticket skill checks deterministic at rank 0 and apply explicit Luck effects after the base resolver at higher ranks. Do not reintroduce independent hidden lotteries under renamed variables.
+ - Assess Operations manual selective-play EV separately from whole-ticket automated EV, including ticket cost, repair utility, time, capacity and downside tails. For Operations, measure expected net ticket outcome after its purchase price and separately measure agent/upkeep costs. Net-positive ticket EV must enable viable automation, but does not imply guaranteed survival or unlimited zero-time ticket supply.
++
++## S11 owner answers (2026-09-18)
++
++- O02: owner selected mandatory-payment failure only. Cash of exactly zero does not itself end a run, including at quarter close; inability to settle a mandatory payment does.
++- O03 debt: owner requested rolling interest-only debt and a repayment tenure, then explicitly confirmed principal is due at term end with early repayment available throughout. No forced monthly principal amortisation for new loans.
++- O03 VC: owner selected the first full game quarter after funding. Ignore the partial funding quarter, capture eligible ARR at the opening of the first assessed full quarter, and fail if its close is flat or below that opening. Subsequent quarters compare to their own opening (the preceding close). No inherited +50% target for new VC.
++- Existing six-month tenor, 18% nominal APR, borrowing capacity/eligibility and equity amount/dilution remain candidate tuning. No numerical balance is locked by these answers. Previously accepted saved financing terms must be explicitly preserved as legacy terms during migration.
+--- a/docs/exec-plans/active/2026-09-16-founder-revamp/queue.json
++++ b/docs/exec-plans/active/2026-09-16-founder-revamp/queue.json
+@@ -202,10 +202,17 @@
+       "depends_on": [
+         "S10"
+       ],
+-      "status": "pending",
++      "status": "implemented_unverified",
+       "packet": "tasks/S11.md",
+-      "evidence": [],
+-      "code_ready_dependency_exceptions": []
++      "evidence": [
++        "artifacts/qa/founder-revamp/S11/validation.json",
++        "artifacts/qa/founder-revamp/S11/loan-schedule.json",
++        "artifacts/qa/founder-revamp/S11/SCENARIOS.md"
++      ],
++      "code_ready_dependency_exceptions": [
++        "Owner authorized S11 after S10 headless validation; inherited visual acceptance and independent Sol review remain pending.",
++        "S11 headless state/accounting gates pass; browser/computer-use is disabled, so rendered terms, repayment controls, warnings and responsive acceptance remain pending."
++      ]
+     },
+     {
+       "id": "S12",
+--- a/docs/exec-plans/active/2026-09-16-founder-revamp/CHECKPOINT.md
++++ b/docs/exec-plans/active/2026-09-16-founder-revamp/CHECKPOINT.md
+@@ -1,6 +1,6 @@
+ # Revamp checkpoint
+ 
+-Updated: 2026-09-18. S10 is implemented and headless-validated. S00-S09 remain preserved. Browser/computer-use acceptance and separate Sol review remain pending. Stop before S11.
++Updated: 2026-09-19. S11 is implemented and headless-validated; visual acceptance remains pending. S00-S10 preserved. Browser/computer-use remains disabled. S12 has not started.
+ 
+ ## Repository identity
+ 
+@@ -13,15 +13,17 @@
+ 
+ ## Next task
+ 
+-**S11 — Choose bootstrap, debt or VC survival pressure**, Sol / high. S11 has not started. On continuation, read tasks/S11.md and resolve O02/O03 narrowly before changing dependent financial rules. No push or deployment.
++**S12 — Build runs with relics, consumables and contextual content**, Terra / medium. Stop here until S12 is explicitly authorized. Read tasks/S12.md, DECISIONS.md and queue.json; preserve the authoritative finance schedules and accepted legacy terms. No push or deployment.
+ 
+-Completed S10: shared scheduler eligibility/status; staged persisted Product automation; finite per-tick pipeline work and bounded credits; ownership transfer across focus/install/toggle; recurring Retention and Expansion lifecycle repairs; consumed-cohort IDs; pressure-driven deterministic agent pace; truthful compute/active-capacity telemetry; candidate.9 migration preserving paid and partial work. Monetisation preview matches the finite batch and contract signing remains cash-neutral. Terminal agent failure cannot enter quarter rewards or victory.
++Completed S11: mandatory-payment-only cash failure; exact-cent shared loan math; monthly interest-only payments with principal due at maturity and optional prorated early payoff; VC first-full-quarter eligible-ARR growth mandate; explicit reviewed terms, stale-offer checks and right-HUD obligations; save migration preserving old agreements. New funding creates cash, never ARR. Version is founder-candidate.11; contract/content/save versions unchanged.
+ 
+-Evidence: `artifacts/qa/founder-revamp/S10/validation.json` and `pressure.json`. Root validation passed **72/72 Founder tests**, contract, smoke, determinism, typecheck and lint. Production build passed with 24 immutable offline files, build `68334b566820`. `git diff --check` passed. Version is `founder-candidate.10`, contract/content/save versions unchanged.
++Evidence: artifacts/qa/founder-revamp/S11/validation.json, SCENARIOS.md and loan-schedule.json. All **89/89 Founder tests** passed, along with contract, balance-schema, smoke and determinism checks. The aggregate validate command then caught a possibly undefined draft lookup in the test harness. After its guard-only fix and two test-local prefer-const fixes, final typecheck and lint passed separately. The unchanged long simulation was not repeated solely for those static fixes. Production build passed: 24 immutable offline files, build 69e7bdc154ed. git diff --check passed.
+ 
+-Browser/computer-use stays disabled. S10 rendered telemetry, handoff gestures, desktop/mobile/compact layouts and reduced-motion acceptance remain pending. A separate Sol review was not run; this task retained its active model. Seeded diagnostic fixtures establish causal pressure differences, not a balanced 30–45 minute run or player enjoyment. Legacy balance remains `runtimeReady=false` (41 required unresolved entries).
++The six-run policy sweep records four failures and two survivors at the unchanged 45-minute horizon, with no wins. This establishes accounting/progress boundaries, not viable build balance, desired human pacing or enjoyment. The sweep took about 245 seconds; preserve the per-seed timings for S14 performance work. S15 must measure and tune successful-run pacing. Legacy balance remains runtimeReady=false with 41 required unresolved entries.
+ 
+-Recovery: `artifacts/qa/founder-revamp/S10/baseline.json` records the pre-S10 mixed checkout. `S10.patch` isolates this slice. Do not reset the worktree or erase supplied folders, partial jobs, paid tickets or last-known-good saves. Implementation is coherent and tested; no partial code edit remains.
++Browser/computer-use stays disabled. S11 rendered terms, review/repayment controls, warnings, desktop/mobile layout and reduced-motion acceptance remain pending. No separate Sol review or model switch was performed in this inherited primary task.
++
++Recovery: baseline.json records the pre-S11 mixed checkout; S11.patch isolates this slice against those snapshots. The policy-test baseline was captured before its first S11 edit. Do not reset the worktree or erase supplied folders, partial jobs, paid tickets or last-known-good saves. Preparation evidence is historical and superseded by validation.json. No partial implementation remains.
+ 
+ ## Completed decisions
+ 
+@@ -30,11 +32,12 @@
+ - $1B valuation, paused quarter draft, improved Expansion merging confirmed.
+ - Manual Operations selection and automated whole-ticket resolution are distinct.
+ - Central laptop, persistent founder environment and specified HUD panel roles confirmed.
++- O02/O03 resolved: zero cash is survivable until an unpaid mandatory payment; interest-only debt has principal due at term end with early payoff; VC starts with the first full-quarter growth assessment.
+ 
+-## Remaining narrow decisions
++## Finance decisions and remaining calibration
+ 
+-- O02: exact cash-death boundary remains unresolved. S01 isolates it as a named policy and introduces no standalone zero-cash failure; existing unaffordable due-obligation failure remains. Resolve before S11 changes the rule.
+-- O03: debt repayment form and exact VC baseline/first assessment, before S11 financial changes.
++- O02 resolved: mandatory-payment failure only; zero cash alone does not fail.
++- O03 resolved: interest-only debt, principal at maturity and optional early repayment; VC first full-quarter eligible-ARR growth.
+ - Numerical profiles and later milestone treatments are candidate implementation/calibration choices, never implicitly locked balance.
+ 
+ ## S01 handoff history
+@@ -158,3 +161,15 @@
+ - Validation: npm run validate passed including 72 tests (14 new integration tests); npm run build passed, offline build 68334b566820; git diff --check passed. Earlier failing diagnostic setups were corrected for finite purchase cash and a deliberately unscaled Retention bottleneck; production behavior was not tuned to force the pressure comparison.
+ - Measurement: seed 1010, funded diagnostic companies at 600 ticks. Controlled strain 0, compute 18,000 cents/month, first customer survives. Overextended strain 100.97, compute 198,000 cents/month, first customer churns. Disabling agents and buying Operations capacity reduces strain to 89.77 by tick 1200. These are not earned runs or locked balance.
+ - Remaining: O02/O03 before S11; browser/device/human acceptance; independent Sol review; legacy balance registry unresolved. No deployment or publication.
++
++## S11 handoff history
++
++- Task: S11 implementation and headless gates finished; queue status implemented_unverified because rendered acceptance is owner-disabled. S12 not started.
++- Actual execution: inherited GPT-6-based primary task; requested Sol/high assignment was not a model switch or independent review.
++- Branch/HEAD: main / 70d8b0e550126849a524573098d051f288fcc706. All pre-existing S00-S10 and supplied reference-folder changes preserved.
++- Changed implementation: src/game/founder/{finance,engine,model,profile,contracts,save}.ts; src/components/founder/{FounderGame.tsx,founder.css}; package.json; tests/integration/{founder-finance,founder-state-save,founder-policy}.test.ts. Planning/checkpoint and QA evidence updated; policy output regenerated.
++- Versions: founder-state.1 / founder-candidate.11 / founder-content.candidate.5 / save envelope 2.
++- Final outcomes: 26 focused finance/save tests, 89 complete Founder tests, contract/balance-schema/smoke/determinism, corrected typecheck/lint and production build pass. Aggregate validate initially exited 2 on the test-only missing undefined guard; final static rerun exited 0. Exact logs and earlier interrupted/failed diagnostic runs are retained in S11 evidence.
++- Harness repair: select available rewards from authoritative inventory, remove obsolete out-of-phase drafts, guard simulation progress, report horizon censoring, and yield only wall-clock execution for Vitest heartbeats. No skipped simulation time and no balance constants changed to force passing outcomes.
++- Remaining: browser/device/human acceptance; independent review; S14 late-run update performance; S15 quantitative/human balance and pacing. Candidate APR/tenure and other numeric values are not locked. No deployment or publication.
++- Next action: on explicit authorization, implement S12 only. Restore no old amortisation or +50% mandate for new financing; preserve those terms only for accepted migrated legacy agreements.
+--- a/tests/integration/founder-policy.test.ts
++++ b/tests/integration/founder-policy.test.ts
+@@ -1,11 +1,11 @@
+-import {productBrief} from '../../src/game/founder/toys';
++import {productBrief,draftOption} from '../../src/game/founder/toys';
+ import {it, expect} from 'vitest';
+ import {advance,command,createCompany,metrics,priceTarget,skillCost,validateCompany,signal,ready} from '../../src/game/founder/engine';
+ import {FUNCTIONS, type Work, type Axis} from '../../src/game/founder/profile';
+ import {encodeSave} from '../../src/game/founder/save';
+-import {writeFileSync,mkdirSync} from 'node:fs';
++import {writeFileSync,mkdirSync,writeSync} from 'node:fs';
+ 
+-export function operate(seed:number, maxTicks=45000,capital:'bootstrap'|'debt'='bootstrap'){
++export async function operate(seed:number, maxTicks=45000,capital:'bootstrap'|'debt'='bootstrap'){
+  let s=command(createCompany(seed),{type:'start'});s=command(s,{type:'channel',channel:2});
+  const buy=(f:Work,a:Axis)=>{s=command(s,{type:'buy',work:f,axis:a,rank:s.ranks[f][a]+1});};
+  buy('demand','automate');buy('product','automate');
+@@ -13,10 +13,13 @@
+  for(let n=0;n<maxTicks/10&&!['failure','unicorn'].includes(s.phase);n++){
+    if(s.phase==='quarter-draft'){
+      const report=s.reports.find(r=>r.quarter===s.pendingDraftQuarter);
+-     const id=report?.choices.find(id=>!s.upgrades.includes(id));
+-     s=id&&s.cash>15000*(report?.quarter??1)+metrics(s).cost*3?command(s,{type:'draft',quarter:report!.quarter,id}):command(s,{type:'draft-skip',quarter:report!.quarter});
++     if(!report)throw new Error('Quarter draft has no pending report');
++     const id=report.choices.find(id=>draftOption(s,id,report.quarter)?.available);
++     s=id?command(s,{type:'draft',quarter:report.quarter,id}):command(s,{type:'draft-skip',quarter:report.quarter});
+    }
+    if(s.phase==='paused')s=command(s,{type:'continue'});
++   if(s.phase!=='active'&&s.phase!=='continuation')throw new Error(`Policy stalled in ${s.phase} at tick ${s.tick}`);
++   const beforeTick=s.tick;
+    const m=metrics(s);
+    if(capital==='debt'&&!s.debt&&m.mrr>=10000&&s.cash<s.expenseAccrued+m.cost*(600-s.tick%600)/600+m.cost*.5)s=command(s,{type:'borrow'});
+    // Invest only while current bills and a reserve are covered. Buy capacity only with current bills and a reserve covered.
+@@ -27,7 +30,6 @@
+      if(c.a==='scale'&&s.ranks[c.f].craft<s.ranks[c.f].scale+1)continue;
+      if(s.cash>c.cost+Math.max(30000,m.cost*3)&&s.tick>s.deployed[c.f]){buy(c.f,c.a);break;}
+    }
+-   for(const r of s.reports){if(!r.chosen){const id=r.choices.find(id=>!s.upgrades.includes(id));if(id&&s.cash>15000*r.quarter+m.cost*3)s=command(s,{type:'draft',quarter:r.quarter,id});}}
+    // Founder protects threats and assists the slowest live handoff.
+    const threat=s.accounts.find(a=>a.active&&a.threat);
+    if(threat&&threat.problem&&ready(s,'retention')){s=command(s,{type:'focus',work:'retention'});for(let attempt=0;attempt<16;attempt++){const problem=s.accounts.find(a=>a.id===threat.id)?.problem;if(!problem)break;const before=problem.workCompleted;s=command(s,{type:'squash-problem',account:threat.id,problem:problem.id,expected:before});if(s.accounts.find(a=>a.id===threat.id)?.problem?.workCompleted===before)break;}}
+@@ -35,28 +37,39 @@
+    else if(s.leads.length&&ready(s,'product')){s=command(s,{type:'focus',work:'product'});const lead=s.leads[0];productBrief(s,lead).parts.forEach((part,slot)=>{s=command(s,{type:'part',job:lead.id,slot,part});});s=command(s,{type:'test-build',job:lead.id});s=command(s,{type:'ship',job:lead.id,early:false});}
+    else if(ready(s,'demand')&&s.leads.length<2){s=command(s,{type:'focus',work:'demand'});if(signal(s).quality==='noise')s=command(s,{type:'demand',pursue:false,signal:s.signal});s=command(s,{type:'demand',pursue:true,signal:s.signal});}
+    s=advance(s,10);
+-   if(s.tick%1800===0){validateCompany(s);checkpoints.push({tick:s.tick,quarter:s.quarter,cash:s.cash,...metrics(s),ranks:s.ranks});}
++   if(s.tick===beforeTick&&!['failure','unicorn'].includes(s.phase))throw new Error(`Policy made no progress at tick ${s.tick}`);
++   // Long-lived companies must yield to Vitest's worker heartbeat; simulation time is unchanged.
++   if(n%50===0)await new Promise<void>(resolve=>setImmediate(resolve));
++   if(s.tick%1800===0){if(process.env.FOUNDER_POLICY_PROGRESS)writeSync(1,`Policy ${capital}/${seed}: tick ${s.tick}, ${s.phase}, ${s.actions.length} actions\n`);validateCompany(s);checkpoints.push({tick:s.tick,quarter:s.quarter,cash:s.cash,...metrics(s),ranks:s.ranks});}
+  }
+  validateCompany(s);return {s,checkpoints};
+ }
+-it('validates viable bootstrap and debt runs, plus genuine cashflow failure',()=>{
++it('validates bootstrap and debt accounting through failures and horizon-censored survivors',async()=>{
+  mkdirSync('artifacts/qa/founder',{recursive:true});
+- const results=(['bootstrap','debt'] as const).flatMap(capital=>[19,77,84022].map(seed=>{
+-   const {s,checkpoints}=operate(seed,27000,capital);
++ const results=[];
++ for(const capital of ['bootstrap','debt'] as const)for(const seed of [19,77,84022]){
++   const started=performance.now();
++   const {s,checkpoints}=await operate(seed,27000,capital);
++   const outcome=s.phase==='failure'?'failure':s.phase==='unicorn'?'unicorn':'horizon-censored';
+    if(capital==='bootstrap'&&seed===19&&s.phase==='unicorn'){
+      writeFileSync('artifacts/qa/founder/earned-winner.json',encodeSave(s));
+      const apex=command(command(command(s,{type:'continue'}),{type:'focus',work:'operations'}),{type:'pause'});
+      writeFileSync('artifacts/qa/founder/earned-apex.json',encodeSave(apex));
+    }
+-   return{seed,capital,status:s.phase,tick:s.tick,quarter:s.quarter,failure:s.failure,valuation:metrics(s).valuation,cash:s.cash,ranks:s.ranks,checkpoints};
+- }));
++   results.push({seed,capital,status:s.phase,outcome,horizonTicks:27000,elapsedMs:Math.round(performance.now()-started),tick:s.tick,quarter:s.quarter,failure:s.failure,valuation:metrics(s).valuation,cash:s.cash,ranks:s.ranks,checkpoints});
++ }
+  writeFileSync('artifacts/qa/founder/policy.json',JSON.stringify(results,null,2));
+- console.log(results.map(({seed,capital,status,tick,valuation,failure})=>({seed,capital,status,tick,valuation,failure})));
++ console.log(results.map(({seed,capital,status,outcome,tick,valuation,failure,elapsedMs})=>({seed,capital,status,outcome,tick,valuation,failure,elapsedMs})));
+  // Candidate balance is not locked. This policy is a deterministic accounting
+  // regression, not evidence that every fixed policy reaches a unicorn.
+- expect(results.every(r=>r.status==='failure'||r.status==='unicorn')).toBe(true);
++ // Survival at the 45-minute horizon is neither a win nor a failure.
++ // Preserve the horizon and disclose censoring rather than forcing an outcome.
++ for(const r of results){
++   if(r.outcome==='horizon-censored'){expect(r.tick).toBe(r.horizonTicks);expect(['active','quarter-draft','paused']).toContain(r.status);expect(r.failure).toBe('');}
++   else expect(['failure','unicorn']).toContain(r.status);
++ }
+  for(const capital of ['bootstrap','debt'])expect(results.some(r=>r.capital===capital&&r.status==='failure')).toBe(true);
+  const idle=command(createCompany(404),{type:'start'});idle.cash=1;const idleFailure=advance(idle,600);
+  expect(idleFailure.phase).toBe('failure');expect(idleFailure.failure).toContain('operating bill');
+  expect(results.filter(r=>r.status==='unicorn').every(r=>r.valuation>=100000000000)).toBe(true);
+-},120000);
++},600000);
+--- /dev/null
++++ b/src/game/founder/finance.ts
+@@ -0,0 +1,46 @@
++// Game accounting in integer cents and annual basis points. This helper does
++// not choose a loan term or repayment policy; accepted loan terms do that.
++export const MONTHLY_INTEREST_DENOMINATOR = 12 * 10_000;
++export function accrueMonthlyInterest(principal:number,aprBps:number,remainder=0){
++  for(const value of [principal,aprBps,remainder])if(!Number.isSafeInteger(value)||value<0)throw new Error('Invalid loan accounting input.');
++  if(remainder>=MONTHLY_INTEREST_DENOMINATOR)throw new Error('Invalid fractional-cent interest carry.');
++  const raw=BigInt(principal)*BigInt(aprBps)+BigInt(remainder);
++  const interest=Number(raw/BigInt(MONTHLY_INTEREST_DENOMINATOR));
++  if(!Number.isSafeInteger(interest))throw new Error('Loan interest exceeds the supported cents range.');
++  return {interest,remainder:Number(raw%BigInt(MONTHLY_INTEREST_DENOMINATOR))};
++}
++
++import type { Company, Loan } from './model';
++import { P } from './profile';
++
++export const QUARTER_TICKS=P.ticks_per_month*P.months_per_quarter;
++export function loanPayment(loan:Loan){
++  const {interest,remainder}=accrueMonthlyInterest(loan.principal,loan.aprBps,loan.remainder);
++  const principal=loan.mode==='amortising'?Math.ceil(loan.principal/loan.months):loan.months===1?loan.principal:0;
++  return {principal,interest,total:principal+interest,remainder,at:loan.due};
++}
++export function loanPayoff(loan:Loan,tick:number){
++  // Early repayment includes interest earned since the last interest date.
++  // Fractional cents carry across regular bills; closing waives less than 1 cent.
++  const elapsed=Math.max(0,Math.min(P.ticks_per_month,tick-loan.lastPaymentAt));
++  const raw=BigInt(loan.principal)*BigInt(loan.aprBps)*BigInt(elapsed)+BigInt(loan.remainder)*BigInt(P.ticks_per_month);
++  const interest=Number(raw/BigInt(MONTHLY_INTEREST_DENOMINATOR*P.ticks_per_month));
++  const total=loan.principal+interest;
++  return {principal:loan.principal,interest,total,key:`payoff:${loan.id}:${total}`};
++}
++export function loanSchedule(loan:Loan,end=loan.maturity){
++  const copy={...loan},payments:ReturnType<typeof loanPayment>[]=[];
++  for(;copy.months>0&&copy.due<=end;copy.months--,copy.due+=P.ticks_per_month){
++    const payment=loanPayment(copy);payments.push(payment);copy.principal-=payment.principal;copy.remainder=payment.remainder;
++  }
++  return payments;
++}
++export function financeOffers(s:Company,eligibleArr:number){
++  const principal=Math.floor(eligibleArr/12)*P.debt_capacity_mrr_multiple,aprBps=P.default_loan_apr_bps,months=P.default_loan_term_months;
++  const startsAt=s.tick%QUARTER_TICKS===0?s.tick:s.tick-s.tick%QUARTER_TICKS+QUARTER_TICKS,due=startsAt+QUARTER_TICKS;
++  const ownership=Math.floor(s.ownership*(10_000-P.vcOwnershipSoldBps)/10_000);
++  const debt={kind:'debt' as const,available:!s.debt&&Math.floor(eligibleArr/12)>=P.debt_min_mrr_cents,principal,aprBps,months,interest:accrueMonthlyInterest(principal,aprBps).interest,key:`loan:${principal}:${aprBps}:${months}:interest-only`};
++  const vc={kind:'vc' as const,available:!s.vc&&eligibleArr>=P.vc_min_arr_cents,cash:eligibleArr,ownership,startsAt,due,baseline:eligibleArr,baselineLocked:startsAt===s.tick,key:`vc:${eligibleArr}:${ownership}:${startsAt}:${due}:quarter-growth`};
++  return {debt,vc};
++}
++export type CapitalOffer=ReturnType<typeof financeOffers>['debt'|'vc'];
+--- /dev/null
++++ b/tests/integration/founder-finance.test.ts
+@@ -0,0 +1,164 @@
++import { describe, expect, it } from 'vitest';
++import { advance, arr, command, createCompany, random, rebaseCompany, replayCompany, validateCompany } from '../../src/game/founder/engine';
++import { accrueMonthlyInterest } from '../../src/game/founder/finance';
++
++describe('S11 finance accounting',()=>{
++  it('collects a due invoice before bills but rejects a rescue that arrives after a failed obligation',()=>{
++    let seed=1;while(random(seed,'collection',200,1)>=.95)seed++;
++    const make=(delay:number)=>{
++      const s=command(createCompany(seed),{type:'start'});s.tick=599;s.cash=100;s.serial=500;s.expenseAccrued=10_000;
++      s.accounts=[{id:100,origin:100,segment:0,count:1,price:4000,basePrice:4000,fit:1,health:100,defects:0,born:0,caredUntil:100000,addons:0,threat:0,earned:0,remainder:0,active:true}];
++      s.debt={id:1,principal:10_000,months:2,due:600,remainder:0,mode:'amortising',aprBps:1800,acceptedAt:0,lastPaymentAt:0,maturity:1200};s.invoices=[{id:200,account:100,cents:20_000,due:600+delay,attempts:0}];s.lifetimeEarned=20_000;
++      return rebaseCompany(s);
++    };
++    const paid=advance(make(0));expect(paid.phase).toBe('active');expect(paid.lifetimeCollected).toBe(20_000);expect(paid.cash).toBeGreaterThan(0);expect(paid.debt?.months).toBe(1);validateCompany(paid);expect(replayCompany(paid)).toEqual(paid);
++    const failed=advance(make(1),20);expect(failed.phase).toBe('failure');expect(failed.tick).toBe(600);expect(failed.lifetimeCollected).toBe(0);const cash=failed.cash,baseArr=arr(failed);
++    for(const type of ['borrow','raise'] as const){const attempt=command(failed,{type});expect(attempt.cash).toBe(cash);expect(arr(attempt)).toBe(baseArr);expect(attempt.actionResults.at(-1)?.reason).toBe('phase-not-allowed');}
++    expect(advance(failed,10)).toBe(failed);validateCompany(failed);
++  });
++
++  it('carries fractional cents instead of independently rounding each interest bill',()=>{
++    let remainder=0,paid=0;
++    for(let month=0;month<6;month++){
++      const next=accrueMonthlyInterest(101,1800,remainder);paid+=next.interest;remainder=next.remainder;
++    }
++    expect(paid).toBe(9);expect(remainder).toBe(10800);
++    expect(accrueMonthlyInterest(10_000,1800)).toEqual({interest:150,remainder:0});
++  });
++  it('preserves integer-cent precision across the supported money range',()=>{
++    const principal=Number.MAX_SAFE_INTEGER,apr=1800,raw=BigInt(principal)*BigInt(apr);
++    expect(accrueMonthlyInterest(principal,apr)).toEqual({interest:Number(raw/BigInt(120000)),remainder:Number(raw%BigInt(120000))});
++    expect(()=>accrueMonthlyInterest(100,1800,120000)).toThrow();
++    expect(()=>accrueMonthlyInterest(100.5,1800)).toThrow();
++    expect(()=>accrueMonthlyInterest(-1,1800)).toThrow();
++  });
++});
++
++import { capitalOffers, eligibleArr, forecast, metrics } from '../../src/game/founder/engine';
++import { loanPayment, loanPayoff, loanSchedule, QUARTER_TICKS } from '../../src/game/founder/finance';
++import { checksum, decodeSave, encodeSave } from '../../src/game/founder/save';
++import { P } from '../../src/game/founder/profile';
++import type { Company } from '../../src/game/founder/model';
++import { mkdirSync, writeFileSync } from 'node:fs';
++
++const financedFixture=(tick=100)=>{
++  const s=command(createCompany(711),{type:'start'});s.tick=tick;s.quarter=Math.floor(tick/QUARTER_TICKS)+1;s.serial=500;s.cash=10_000_000;s.focus='finance';
++  s.accounts=[{id:100,origin:100,segment:0,count:10,price:10_000,basePrice:10_000,fit:1,health:100,defects:0,born:0,caredUntil:100000,addons:0,threat:0,earned:0,remainder:0,active:true}];return rebaseCompany(s);
++};
++function advanceThroughDrafts(input:Company,target:number){
++  let s=input;
++  while(s.tick<target&&s.phase!=='failure'&&s.phase!=='unicorn'){
++    if(s.phase==='quarter-draft')s=command(s,{type:'draft-skip',quarter:s.pendingDraftQuarter!});
++    if(s.phase==='paused')s=command(s,{type:'continue'});
++    s=advance(s,target-s.tick);
++  }
++  return s;
++}
++
++describe('S11 approved survival and financing',()=>{
++  it('survives exact zero until an obligation is unpaid, including a zero-cash quarter close',()=>{
++    let s=command(createCompany(710),{type:'start'});s.cash=0;s=rebaseCompany(s);s=advance(s,599);expect(s.phase).toBe('active');
++    s=advance(s);expect(s.phase).toBe('failure');expect(s.failure).toContain('Monthly operating bill');
++    const zero=command(createCompany(712),{type:'start'});zero.tick=1799;zero.cash=16;zero.expenseAccrued=0;zero.expenseRemainder=0;
++    const closed=advance(rebaseCompany(zero));expect(closed.cash).toBe(0);expect(closed.phase).toBe('quarter-draft');expect(closed.reports).toHaveLength(1);validateCompany(closed);
++  });
++
++  it('funds only once, creates no ARR, charges interest monthly and principal only at maturity',()=>{
++    let s=financedFixture();const before=arr(s),cash=s.cash,offer=capitalOffers(s).debt;
++    s=command(s,{type:'borrow',quote:offer.key});expect(s.cash-cash).toBe(offer.principal);expect(arr(s)).toBe(before);
++    expect(s.debt).toMatchObject({mode:'interest-only',months:6,aprBps:1800,acceptedAt:100,due:700,maturity:3700});
++    const loan=structuredClone(s.debt!),payments=loanSchedule(loan);expect(payments).toHaveLength(6);expect(payments.slice(0,5).every(p=>p.principal===0)).toBe(true);expect(payments[5].principal).toBe(offer.principal);
++    expect(payments.reduce((n,p)=>n+p.principal,0)).toBe(offer.principal);expect(payments.reduce((n,p)=>n+p.interest,0)).toBe(27000);
++    const repeated=command(s,{type:'borrow'});expect(repeated.cash).toBe(s.cash);expect(repeated.actionResults.at(-1)?.reason).toBe('invalid-command');
++    const projected=forecast(s).events.filter(e=>e.label.startsWith('Loan'));expect(projected[0]).toMatchObject({at:700,cents:-4500,estimated:false});
++    s=advanceThroughDrafts(s,700);expect(s.debt?.principal).toBe(offer.principal);expect(s.debt?.months).toBe(5);expect(s.debt?.remainder).toBe(0);
++    s=advanceThroughDrafts(s,3700);expect(s.debt).toBeNull();expect(s.phase).toBe('active');expect(replayCompany(s)).toEqual(s);validateCompany(s);
++    mkdirSync('artifacts/qa/founder-revamp/S11',{recursive:true});writeFileSync('artifacts/qa/founder-revamp/S11/loan-schedule.json',JSON.stringify({profile:P.version,seed:711,scenario:'Synthetic eligible company; six dated interest-only payments, then principal; not balance certification',offer,loan,payments},null,2)+'\n');
++  });
++
++  it('repays early with prorated interest, charges principal outside expenses and rejects duplicates',()=>{
++    let s=command(financedFixture(),{type:'borrow'});const id=s.debt!.id;s=advance(s,300);
++    const payoff=loanPayoff(s.debt!,s.tick),cash=s.cash,expenses=s.expenses,arrBefore=arr(s);expect(payoff).toMatchObject({principal:300000,interest:2250,total:302250});
++    const later=advance(s,2),stale=command(later,{type:'repay-debt',loanId:id,quote:payoff.key});expect(stale.actionResults.at(-1)?.reason).toBe('stale-job');expect(stale.cash).toBe(later.cash);expect(stale.debt).toEqual(later.debt);
++    s=command(s,{type:'repay-debt',loanId:id,quote:payoff.key});expect(s.debt).toBeNull();expect(cash-s.cash).toBe(payoff.total);expect(s.expenses-expenses).toBe(payoff.interest);expect(arr(s)).toBe(arrBefore);
++    expect(forecast(s).events.some(e=>e.label.startsWith('Loan'))).toBe(false);
++    const again=command(s,{type:'repay-debt',loanId:id});expect(again.cash).toBe(s.cash);expect(again.actionResults.at(-1)?.reason).toBe('stale-job');expect(replayCompany(s)).toEqual(s);validateCompany(s);
++  });
++
++  it('does not kill a run for an unaffordable optional payoff and keeps exact carry across save/reload',()=>{
++    let s=command(financedFixture(),{type:'borrow'});s.cash=1;s=rebaseCompany(s);
++    const failedAttempt=command(s,{type:'repay-debt',loanId:s.debt!.id});expect(failedAttempt.phase).toBe('active');expect(failedAttempt.cash).toBe(1);expect(failedAttempt.actionResults.at(-1)?.reason).toBe('unaffordable');
++    let tiny=financedFixture(0);tiny.accounts=[];tiny.debt={id:600,principal:101,months:6,due:600,remainder:0,mode:'interest-only',aprBps:1800,acceptedAt:0,lastPaymentAt:0,maturity:3600};tiny=rebaseCompany(tiny);
++    tiny=advance(tiny,600);expect(tiny.debt?.remainder).toBe(61800);const loaded=decodeSave(encodeSave(tiny));expect(loaded.debt).toEqual(tiny.debt);
++    const a=advanceThroughDrafts(tiny,3600),b=advanceThroughDrafts(loaded,3600);expect(a).toEqual(b);expect(a.debt).toBeNull();expect(replayCompany(a)).toEqual(a);
++  });
++
++  it('fails a missed interest bill or maturity payment, but an exact funded payment survives',()=>{
++    const loan=command(financedFixture(0),{type:'borrow'}).debt!;
++    const due=(maturity:boolean,cash:number)=>{
++      const s=financedFixture(maturity?3599:599);s.accounts=[];s.cash=cash;s.debt={...loan,months:maturity?1:6,due:maturity?3600:600,lastPaymentAt:maturity?3000:0};s.expenseAccrued=0;s.expenseRemainder=0;return rebaseCompany(s);
++    };
++    const unpaidInterest=advance(due(false,4499));expect(unpaidInterest.failure).toContain('Loan interest');expect(unpaidInterest.debt?.principal).toBe(300000);
++    const unpaidPrincipal=advance(due(true,304499));expect(unpaidPrincipal.failure).toContain('Loan principal and interest');expect(unpaidPrincipal.reports).toHaveLength(0);expect(unpaidPrincipal.debt?.months).toBe(1);
++    const exact=advance(due(true,304516));expect(exact.debt).toBeNull();expect(exact.cash).toBe(0);expect(exact.phase).toBe('quarter-draft');validateCompany(exact);
++  });
++
++  it('warns before interest failure and never rescues a failed run with later funding',()=>{
++    let s=command(financedFixture(),{type:'borrow'});s.cash=0;s.accounts=[];s.tick=599;s.expenseAccrued=0;s.expenseRemainder=0;s=rebaseCompany(s);
++    // Suppress this diagnostic operating bill so the named loan deadline is the failure.
++    s.cash=10000;s=rebaseCompany(s);s=advance(s);expect(s.log.some(l=>l.text.includes('Loan interest due in 10s'))).toBe(true);
++    s.cash=0;s=rebaseCompany(s);s=advance(s,100);expect(s.failure).toContain('Loan interest');expect(s.tick).toBe(700);
++    expect(command(s,{type:'raise'}).actionResults.at(-1)?.reason).toBe('phase-not-allowed');
++  });
++
++  it('captures VC baseline after the partial quarter and freezes all schedules during the draft',()=>{
++    let s=financedFixture();const offer=capitalOffers(s).vc,cash=s.cash,base=arr(s);s=command(s,{type:'raise',quote:offer.key});
++    expect(s.cash-cash).toBe(base);expect(arr(s)).toBe(base);expect(s.ownership).toBe(8000);expect(s.vc).toMatchObject({startsAt:1800,due:3600,baselineLocked:false,rule:'quarter-growth'});
++    // Growth before the first full quarter becomes its baseline, not a free future pass.
++    s.accounts[0].price+=100;s=rebaseCompany(s);s=advance(s,1700);expect(s.phase).toBe('quarter-draft');expect(s.vc?.baseline).toBe(1_212_000);expect(s.vc?.target).toBe(1_212_001);expect(s.vc?.baselineLocked).toBe(true);
++    const saved=decodeSave(encodeSave(s));expect(advance(saved,5000)).toBe(saved);const dates=structuredClone(s.vc);
++    s=command(saved,{type:'draft-skip',quarter:1});expect(advance(s,5000)).toBe(s);expect(s.vc).toEqual(dates);
++    s=command(s,{type:'continue'});s=advance(s,1800);expect(s.phase).toBe('failure');expect(s.failure).toContain('Flat or falling ARR');expect(s.log.some(l=>l.text.includes('VC review in 10s'))).toBe(true);expect(s.reports).toHaveLength(1);expect(replayCompany(s)).toEqual(s);
++  });
++
++  it.each([0,-1,1])('assesses a full VC quarter for monthly price delta %i, without imposing bootstrap growth',delta=>{
++    let s=command(financedFixture(),{type:'raise'});s.tick=3599;s.quarter=2;s.vc!.baselineLocked=true;s.vc!.baseline=1_200_000;s.vc!.target=1_200_001;s.accounts[0].price+=delta;s=rebaseCompany(s);
++    const boot=structuredClone(s);boot.vc=null;const free=advance(rebaseCompany(boot));expect(free.phase).toBe('quarter-draft');
++    const reviewed=advance(s);expect(reviewed.phase).toBe(delta>0?'quarter-draft':'failure');
++    if(delta>0){expect(reviewed.vc).toMatchObject({baseline:1_200_120,target:1_200_121,startsAt:3600,due:5400});expect(reviewed.reports).toHaveLength(1);}
++    else{expect(reviewed.reports).toHaveLength(0);expect(reviewed.pendingDraftQuarter).toBeNull();}
++    expect(replayCompany(reviewed)).toEqual(reviewed);validateCompany(reviewed);
++  });
++
++  it('treats funding exactly at a quarter opening as a full assessed quarter and rejects changed offers',()=>{
++    let s=financedFixture(1800);const offer=capitalOffers(s).vc;expect(offer).toMatchObject({startsAt:1800,due:3600,baselineLocked:true});s=command(s,{type:'raise',quote:offer.key});expect(s.vc?.baselineLocked).toBe(true);
++    const before=s.cash;const duplicate=command(s,{type:'raise'});expect(duplicate.cash).toBe(before);expect(duplicate.actionResults.at(-1)?.reason).toBe('invalid-command');
++    let changed=financedFixture();const old=capitalOffers(changed);changed.accounts[0].price+=100;changed=rebaseCompany(changed);const cash=changed.cash;
++    for(const [type,quote] of [['borrow',old.debt.key],['raise',old.vc.key]] as const){const rejected=command(changed,{type,quote});expect(rejected.cash).toBe(cash);expect(rejected.actionResults.at(-1)?.reason).toBe('stale-job');}
++    const under=command(createCompany(713),{type:'start'});expect(command(under,{type:'borrow'}).actionResults.at(-1)?.reason).toBe('invalid-command');expect(command(under,{type:'raise'}).actionResults.at(-1)?.reason).toBe('invalid-command');
++  });
++
++  it('uses eligible ARR and resolves a due VC failure before a possible unicorn award',()=>{
++    let s=command(financedFixture(),{type:'raise'});s.tick=3599;s.quarter=2;s.vc!.baselineLocked=true;s.vc!.baseline=1_200_000;s.vc!.target=1_200_001;
++    s.invoices=[{id:600,account:100,cents:100,due:s.tick-P.collection_grace_ticks-1,attempts:0}];s.lifetimeEarned=100;
++    // A late contract is not eligible growth even when its contractual ARR exists.
++    expect(eligibleArr(s)).toBe(0);expect(arr(s)).toBe(1_200_000);
++    s.invoices=[];s.lifetimeEarned=0;s.accounts[0].count=1_000_000;s.vc!.baseline=arr(s);s.vc!.target=arr(s)+1;s.cash=1_000_000_000_000;s=rebaseCompany(s);
++    const result=advance(s);expect(metrics(result).valuation).toBeGreaterThanOrEqual(P.win_valuation_cents);expect(result.phase).toBe('failure');expect(result.wonAt).toBeNull();expect(result.reports).toHaveLength(0);
++  });
++
++  it('normalizes old financed saves before rebuilding missing quarter score metadata',()=>{
++    const s=financedFixture(1900),data=JSON.parse(JSON.stringify(s));data.version='founder-candidate.10';data.debt={principal:120001,months:4,due:2200,remainder:119000};
++    data.reports=[{quarter:1,opening:0,closing:1200000,collected:0,expenses:10000,newArr:1200000,expansion:0,churn:0,cash:s.cash,choices:[],chosen:'passed'}];
++    const raw=JSON.stringify(data);const migrated=decodeSave(JSON.stringify({version:2,contractVersion:s.contractVersion,contentVersion:s.contentVersion,balanceVersion:data.version,data:raw,checksum:checksum(raw)}));
++    expect(migrated.reports[0].score).toBeDefined();expect(migrated.reports[0].openingCash).toBe(s.cash);expect(migrated.debt?.mode).toBe('amortising');expect(replayCompany(migrated)).toEqual(migrated);validateCompany(migrated);
++  });
++
++  it('migrates accepted legacy financing without repricing obligations or rerunning old actions',()=>{
++    const s=financedFixture(1000),data=JSON.parse(JSON.stringify(s));data.version='founder-candidate.10';data.debt={principal:120001,months:4,due:1300,remainder:119000};data.vc={baseline:1200000,target:1800000,due:2300};
++    const raw=JSON.stringify(data),migrated=decodeSave(JSON.stringify({version:2,contractVersion:s.contractVersion,contentVersion:s.contentVersion,balanceVersion:data.version,data:raw,checksum:checksum(raw)}));
++    expect(migrated.version).toBe(P.version);expect(migrated.cash).toBe(s.cash);expect(migrated.debt).toMatchObject({...data.debt,mode:'amortising',aprBps:1800,maturity:3100,lastPaymentAt:700});
++    expect(loanPayment(migrated.debt!).principal).toBe(30001);expect(migrated.vc).toMatchObject({...data.vc,rule:'legacy-target',baselineLocked:true});expect(replayCompany(migrated)).toEqual(migrated);validateCompany(migrated);
++    const restored=decodeSave(encodeSave(migrated));expect(restored.debt).toEqual(migrated.debt);expect(restored.vc).toEqual(migrated.vc);
++  });
++});

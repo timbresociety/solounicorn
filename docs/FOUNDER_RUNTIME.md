@@ -1,5 +1,15 @@
 # Founder runtime: playable candidate
 
+Historical implementation record for candidate.5 and earlier. For requested future behaviour, use the [2026-09-16 revamp](exec-plans/active/2026-09-16-founder-revamp/README.md). The older continuous-quarter, negative-Luck, piggy-bank and repair-only descriptions below are not authority for the revamp.
+
+## Revamp persistence contract (S01)
+
+The root Founder runtime now persists one authoritative company under contract `founder-state.1`, content `founder-content.candidate.5`, balance profile `founder-candidate.5`, and save envelope version 2. Its explicit phases are setup, active, settlement, quarter draft, pause, failure, unicorn and continuation. Quarter drafts and explicit pauses consume no ticks, bills, work credits or RNG draws. A selected or passed draft enters a safe pause until Continue.
+
+Semantic actions have stable IDs and committed/rejected result records with reason codes and before/after quantities. Partial Product, Retention, Expansion and Operations jobs retain founder ownership across room changes and reload; completion, expiry and cancellation close that job identity. Presentation-only pointer and animation state is not persisted.
+
+Candidate.2–candidate.5 saves migrate through an explicit checkpoint rebase that preserves the company ledger and unfinished supported toys without replaying historical gestures under the new contract. Save writes preserve a separately checksummed last-known-good slot. O02 remains unresolved: zero cash alone has no new failure rule in S01, while an unaffordable mandatory obligation still fails at its due time under the existing candidate behavior.
+
 The active entry is `app/page.tsx` → `src/components/founder/FounderGame.tsx`. Simulation, commands, accounting, replay and saves live in `src/game/founder`. The previous V2 runtime and its original saved runs remain preserved.
 
 ## Authority and numerical status
@@ -81,3 +91,15 @@ Active profile is **founder-candidate.5**. Manual room gestures no longer acquir
 Monetisation now gives every activated cohort a stable seeded target window. The marker bounces continuously and the submitted tap is scored against the exact highlighted customer window. Window position cannot reroll from navigation, resize, reload or frame rate. Product and Expansion pointer drags use frame-coalesced movement, stable pointer capture, live drop-target highlighting and the existing tap-then-place alternative. Operations exposes only current damage and accepts a continuous scratch from reveal through application; untouched repair patches are not shown as arbitrary rewards.
 
 Candidate.4 saves preserve company state, financial history and previous commands, then establish a candidate.5 replay baseline because the timing resolver changed. Interaction and deterministic regression evidence do not establish full-run balance; the profile remains candidate-only.
+
+## S09 paid Operations tickets, 2026-09-18
+
+The current revamp profile is **founder-candidate.9**. This section supersedes the historical repair-only Operations descriptions above while retaining their requirement that the scratch gesture operates on real company state. Values remain candidate tuning.
+
+- A ticket follows one persisted lifecycle: offered, bought once, partially inspected, selectively claimed or abandoned, then closed. Its named seeded patch outcomes are sampled only at purchase and survive navigation, reload, replay and founder-agent handoff.
+- Inspection reveals the exact signed modeled value and typed effect without applying it. Manual play may settle chosen positive patches and abandon the rest; the non-refundable ticket price remains spent. Operations automation purchases only from finite quarterly supply and settles every unclaimed patch, including negative ones. A shared claimed-patch ledger prevents duplicate settlement.
+- Patches apply finite typed cash, strain, function-specific context-rot and operating-incident effects. Live incidents add real load and monthly expense until a matching repair resolves them. Unaffordable negative cash settlement uses the existing mandatory-obligation failure path. O02 remains isolated: S09 does not invent a separate zero-cash death rule.
+- Operations has four named ranks in each of Craft, Scale, Automate and Luck. Craft strengthens beneficial operational work, Scale expands patch count and finite quarterly supply, Automate changes actual ticket throughput and allocated upkeep, and Luck adds zero-mean shared and local shocks that widen the persisted ticket distribution. Tickets remain random at Luck 0 under owner decision D07.
+- Return ledgers separate manual selection from automated whole-ticket resolution and deduct price plus allocated automation upkeep. Cross-effect reporting uses modeled operational-value cents so cash, strain, rot and incidents can be measured together; only cash patches directly change liquid cash.
+
+The 100,000-seed S09 measurement reports rank-zero automated whole-ticket mean net of **+181.476 cents** after price and allocated upkeep, with a 43.033% losing-ticket rate and range from −3014 to +3386 cents. Scale 4, Luck 4 and Automate 4 report **+570.369 cents** after price and upkeep, with wider variance and a range from −13270 to +14806 cents. This demonstrates a positive expected automation path with meaningful downside, not locked balance or guaranteed survival. Headless validation covers reload, replay, duplicates, abandon, mixed manual-agent handoff, finite supply, failures, incidents and all 16 Operations ranks. Browser/computer-use remains disabled, so rendered scratch, responsive, reduced-motion and touch acceptance remain pending.

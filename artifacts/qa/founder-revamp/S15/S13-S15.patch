@@ -1,0 +1,1189 @@
+--- a/src/game/founder/engine.ts
++++ b/src/game/founder/engine.ts
+@@ -5,6 +5,12 @@
+ import { CASH_DEATH_POLICY, FOUNDER_CONTENT_VERSION, FOUNDER_CONTRACT_VERSION, phaseAdvancesTime, phaseAllows, type ActionReason } from './contracts';
+ import type { Account, ActionRecord, ActionResult, Command, Company, Lead, OperationsPatch, OperationsReturnBucket, OperationsTicketState, PricingResolution, QuantitySnapshot, RetentionProblem, RetentionResolution } from './model';
+ 
++// Event records are immutable after commit. Copy their arrays without deep-cloning
++// every historic receipt on each 100ms tick. Economic mutable state is still isolated.
++function cloneCompany(current:Company):Company {
++ const {actions,actionResults,migratedActions,replayBase,jobs,reports,...live}=current;
++ return {...structuredClone(live),jobs:{reservations:jobs.reservations.map(r=>({...r})),closed:{...jobs.closed}},reports:reports.map(r=>({...r})),actions,actionResults,...(migratedActions?{migratedActions}:{}),...(replayBase?{replayBase}:{})};
++}
+ const clamp = (n:number, low=0, high=1) => Math.max(low, Math.min(high,n));
+ const empty = <T>(make:()=>T) => Object.fromEntries(FUNCTIONS.map(f=>[f,make()])) as Record<Work,T>;
+ const emptyOperationsReturn=():OperationsReturnBucket=>({tickets:0,patchValue:0,prices:0,upkeep:0,net:0});
+@@ -52,7 +58,8 @@
+ export function evaluateCashDeath(s:Company){void s;return CASH_DEATH_POLICY;}
+ export function eligibleArr(s:Company):number {
+   const late=s.invoices.filter(i=>s.tick-i.due>P.collection_grace_ticks);
+-  const origins=new Set(late.map(i=>s.accounts.find(a=>a.id===i.account)?.origin));
++  const byId=late.length?new Map(s.accounts.map(a=>[a.id,a.origin])):null;
++  const origins=new Set(late.map(i=>byId?.get(i.account)));
+   return s.accounts.reduce((n,a)=>n+(a.active&&!origins.has(a.origin)?a.price*a.count*12:0),0);
+ }
+ export function pressure(s:Company) {
+@@ -83,7 +90,8 @@
+   const end=s.tick+P.forecast_ticks;
+   const items=new Map<string,{at:number;label:string;cents:number;estimated:boolean}>();
+   const add=(at:number,label:string,cents:number,estimated=true)=>{if(at>s.tick&&at<=end){const key=`${at}:${label}`;const old=items.get(key);items.set(key,{at,label,cents:(old?.cents??0)+cents,estimated});}};
+-  for(const i of s.invoices){const a=s.accounts.find(a=>a.id===i.account);add(i.due,'Expected collections',Math.floor(i.cents*P.forecast_collection_haircut*(a?P.collectionChance[a.segment]:0)));}
++  const accountsById=new Map(s.accounts.map(a=>[a.id,a]));
++  for(const i of s.invoices){const a=accountsById.get(i.account);add(i.due,'Expected collections',Math.floor(i.cents*P.forecast_collection_haircut*(a?P.collectionChance[a.segment]:0)));}
+   const nextMonth=s.tick-s.tick%600+600;
+   for(let at=nextMonth;at<=end;at+=600){
+     add(at,'Operating bill',-Math.round((at===nextMonth?s.expenseAccrued:0)+projectedOperatingCost(s,at===nextMonth?s.tick:at-600,at)));
+@@ -364,7 +372,7 @@
+  note(s,`${NAMES[f]} ${a} ${s.ranks[f][a]} installing. Online in 5 seconds.`,'good');
+ }
+ function resolve(current:Company,c:Command,actionId:string):Company {
+-  const s=structuredClone(current);
++  const s=cloneCompany(current);
+   if(c.type==='start'){s.phase='active';note(s,`One founder. $${(s.cash/100).toLocaleString('en-US')} starting cash. Find a real customer need.`);return s;}
+   if(c.type==='continue'){if(current.phase==='unicorn'){s.phase=s.pendingDraftQuarter===null?'continuation':'quarter-draft';s.resumePhase='continuation';}else s.phase=s.resumePhase;return s;}
+   if(c.type==='pause'){s.resumePhase=current.phase==='continuation'?'continuation':'active';s.phase='paused';return s;}
+@@ -524,9 +532,9 @@
+   const duplicate=current.actions.find(a=>a.id===entry.id);
+   if(duplicate){const snapshot=quantities(current);return {company:current,result:{id:current.actionResults.length+1,actionId:entry.id,tick:current.tick,type:'ACTION_REJECTED',command:entry.command.type,reason:'duplicate-action',before:snapshot,after:snapshot}};}
+   const before=quantities(current),reason=preflight(current,entry.command);
+-  const next=reason==='committed'?resolve(current,entry.command,entry.id):structuredClone(current);
++  const next=reason==='committed'?resolve(current,entry.command,entry.id):cloneCompany(current);
+   next.actionCursor++;
+-  next.actions.push({id:entry.id,tick:entry.tick,command:structuredClone(entry.command)});
++  next.actions=[...current.actions,{id:entry.id,tick:entry.tick,command:structuredClone(entry.command)}];
+   const pricing=next.pricingResolution?.actionId===entry.id?structuredClone(next.pricingResolution):undefined;
+   const demand=next.demandResolution?.actionId===entry.id?structuredClone(next.demandResolution):undefined;
+   const product=next.productResolution?.actionId===entry.id?structuredClone(next.productResolution):undefined;
+@@ -534,7 +542,7 @@
+   const expansion=next.expansionResolution?.actionId===entry.id?structuredClone(next.expansionResolution):undefined;
+   const operations=next.operationsResolution?.actionId===entry.id?structuredClone(next.operationsResolution):undefined;
+   const result:ActionResult={id:next.actionResults.length+1,actionId:entry.id,tick:current.tick,type:reason==='committed'?'ACTION_COMMITTED':'ACTION_REJECTED',command:entry.command.type,reason,jobId:commandJobId(entry.command),before,after:quantities(next),...(pricing?{pricing}:{}),...(demand?{demand}:{}),...(product?{product}:{}),...(retention?{retention}:{}),...(expansion?{expansion}:{}),...(operations?{operations}:{})};
+-  next.actionResults.push(result);
++  next.actionResults=[...current.actionResults,result];
+   return {company:next,result};
+ }
+ export function command(current:Company,c:Command):Company {
+@@ -615,7 +623,7 @@
+ }
+ export function advance(current:Company,ticks=1):Company {
+   if(!phaseAdvancesTime(current.phase))return current;
+-  const s=structuredClone(current);
++  const s=cloneCompany(current);
+   for(let t=0;t<ticks&&phaseAdvancesTime(s.phase);t++){
+     s.tick++;
+     for(const buff of s.inventory.active)if(buff.until<=s.tick)note(s,`${rewardById(buff.id)?.name??'Consumable'} expired. Its temporary effect has ended.`);
+@@ -695,7 +703,7 @@
+       evaluateCashDeath(s);
+       // Every due receipt, loan, operating bill and mandate above has resolved
+       // before this immutable close record, then before either reward or win.
+-      const score=metrics(s),closedQuarter=s.quarter,closing=arr(s);
++      const score=metrics(s);s.peakValuation=Math.max(s.peakValuation??0,score.valuation);const closedQuarter=s.quarter,closing=arr(s);
+       s.reports.push({quarter:closedQuarter,opening:s.openingArr,closing,openingCash:s.openingCash,collected:s.collected,expenses:s.expenses,newArr:s.newArr,expansion:s.expansion,churn:s.churn,cash:s.cash,score:{eligibleArr:score.arr,multiple:score.multiple,stability:score.stability,valuation:score.valuation},choices:quarterChoices(s)});
+       s.openingArr=closing;s.openingCash=s.cash;s.quarter++;s.collected=0;s.expenses=0;s.newArr=0;s.expansion=0;s.churn=0;
+       s.pendingDraftQuarter=closedQuarter;
+@@ -703,11 +711,12 @@
+       s.phase='quarter-draft';note(s,'Quarter closed. Time is frozen while you choose what changes.','good');
+     }
+     if(s.tick%10===0){s.history.push({tick:s.tick,arr:eligibleArr(s)});s.history=s.history.filter(h=>h.tick>=s.tick-1810);}
+-    if(s.tick%10===0&&s.wonAt===null&&metrics(s).valuation>=P.win_valuation_cents){s.wonAt=s.tick;s.phase='unicorn';note(s,'One person. One billion. Your founder history remembers.','good');}
++    if(s.tick%10===0){const valuation=metrics(s).valuation;s.peakValuation=Math.max(s.peakValuation??0,valuation);if(s.wonAt===null&&valuation>=P.win_valuation_cents){s.wonAt=s.tick;s.phase='unicorn';note(s,'One person. One billion. Your founder history remembers.','good');}}
+   }
+   return s;
+ }
+ export function validateCompany(s:Company){
++  if(s.peakValuation!==undefined&&(!Number.isSafeInteger(s.peakValuation)||s.peakValuation<0))throw new Error('Invalid environment milestone.');
+   if(s.contractVersion!==FOUNDER_CONTRACT_VERSION||s.contentVersion!==FOUNDER_CONTENT_VERSION)throw new Error('Checkpoint contract or content version is incompatible.');
+   if(!Array.isArray(s.actions)||!Array.isArray(s.actionResults)||!Number.isSafeInteger(s.actionCursor)||s.actionCursor<s.actions.length||!s.risky||!s.accounts.every(a=>Number.isSafeInteger(a.origin)))throw new Error('Checkpoint is missing required provenance.');
+   if(!s.jobs||!Array.isArray(s.jobs.reservations)||new Set(s.jobs.reservations.map(r=>r.jobId)).size!==s.jobs.reservations.length)throw new Error('Invalid job ownership ledger.');
+--- a/src/game/founder/model.ts
++++ b/src/game/founder/model.ts
+@@ -42,7 +42,7 @@
+ };
+ export type Company = {
+   version:string; contractVersion:string; contentVersion:string; replayBase?:string; migratedActions?:Array<{tick:number;command:Command}|ActionRecord>; seed:number; tick:number; serial:number; actionCursor:number; actions:ActionRecord[]; actionResults:ActionResult[]; phase:EnginePhase; resumePhase:'active'|'continuation'; focus:Work|'finance'|'skills';
+-  cash:number; quarter:number; openingArr:number; openingCash:number; collected:number; expenses:number; newArr:number; expansion:number; churn:number;
++  peakValuation?:number; cash:number; quarter:number; openingArr:number; openingCash:number; collected:number; expenses:number; newArr:number; expansion:number; churn:number;
+   ranks:Record<Work,Ranks>; rot:Record<Work,number>; credits:Record<Work,number>; attempts:Record<Work,number>; lastManual:Record<Work,number>; deployed:Record<Work,number>; enabled:Record<Work,boolean>; risky:Record<Work,boolean>; completed:Record<Work,number>;
+   leads:Lead[]; trials:Lead[]; accounts:Account[]; invoices:Invoice[]; market:number[]; signal:number; channel:number;
+   recipe:{id:number; slots:Array<number|null>; tested?:boolean; verification?:'incomplete'|'incorrect'|'verified'}; package:{id:number; merged:number[]; board?:Array<{family:number;tier:number}|null>; supplied?:number; recovered?:boolean}; evidence:number[];
+--- a/src/game/founder/profile.ts
++++ b/src/game/founder/profile.ts
+@@ -3,7 +3,10 @@
+ // Candidate tuning, never locked balance. Master units are cents and 0.1s ticks.
+ export const P = {
+   ...master,
+-  version: 'founder-candidate.12',
++  version: 'founder-candidate.15',
++  // S15 candidate capacity calibration. Final craft is a full production batch;
++  // all outputs still consume finite inputs. Evidence in S15 matrix.
++  craft_batch_by_rank: [1,2,4,8,32],
+   // S12 candidate effect budgets; no locked balance is claimed. Existing legacy
+   // reductions are reused; new scoped service/rot/compute savings require S15 calibration.
+   rewardOverheadFactor: .75, rewardCollectionFactor: .5, rewardDemandFactor: .65,
+@@ -81,31 +84,31 @@
+ });
+ export const SKILL_RANKS:Partial<Record<Work,Record<Axis,readonly SkillRankDefinition[]>>>={
+   demand:{
+-    craft:[rank('demand.craft.1','Sharper profile read','2 qualified work units per committed profile.','Finite market and Product buffer still cap output.','Profile receipt shows work units.'),rank('demand.craft.2','Signal clustering','4 units per committed profile.','A poor visible profile still spends its acquisition stake.','Opportunity stack grows in visible pairs.'),rank('demand.craft.3','Segment synthesis','8 units per committed profile.','Downstream Product capacity becomes the bottleneck.','Profile stack fills a full lane.'),rank('demand.craft.4','Market instrument','16 units per committed profile.','No extra market is invented once the finite pool is exhausted.','A single triage can fill the available buffer.')],
++    craft:[rank('demand.craft.1','Sharper profile read','2 qualified work units per committed profile.','Finite market and Product buffer still cap output.','Profile receipt shows work units.'),rank('demand.craft.2','Signal clustering','4 units per committed profile.','A poor visible profile still spends its acquisition stake.','Opportunity stack grows in visible pairs.'),rank('demand.craft.3','Segment synthesis','8 units per committed profile.','Downstream Product capacity becomes the bottleneck.','Profile stack fills a full lane.'),rank('demand.craft.4','Market instrument','32 units per committed profile.','No extra market is invented once the finite pool is exhausted.','A single triage can fill the available buffer.')],
+     scale:[rank('demand.scale.1','Second channel','2 Demand lanes and twice the autonomous triage capacity.','Extra lane adds upkeep and coordination load.','The room lane meter opens a second bay.'),rank('demand.scale.2','Signal rack','4 Demand lanes and fourfold autonomous triage capacity.','Idle lanes still cost runway.','Four intake bays are shown.'),rank('demand.scale.3','Market desk','8 lanes and an eightfold buffer.','Load can create strain without Operations.','The queue meter becomes an eight-lane rail.'),rank('demand.scale.4','Distribution floor','16 lanes and the largest finite buffer.','Capacity does not create qualified prospects.','Full-scale intake is visible in the capacity rail.')],
+     automate:[rank('demand.automate.1','Profile assistant','An agent performs routine profile triage from the live market.','Compute upkeep and context rot begin.','A live assistant progress signal appears.','Compute upkeep per active lane'),rank('demand.automate.2','Signal operator','Faster autonomous triage consumes the same market and Product buffer.','More compute and rot per routine pass.','Agent telemetry moves faster.','Compute upkeep per active lane'),rank('demand.automate.3','Research loop','High-throughput triage works while you operate another room.','Can stall at a full downstream buffer.','The queue rail calls out the real stall.','Compute upkeep per active lane'),rank('demand.automate.4','Autonomous desk','Routine Demand workflow is fully automated.','A larger swarm amplifies coordination pressure.','The intake line remains visibly self-running.','Compute upkeep per active lane')],
+     luck:[rank('demand.luck.1','Weak signal amplifier','Named seeded output variance begins after the visible profile resolver.','A favorable profile can yield less work.','Receipt names the Luck delta.'),rank('demand.luck.2','Pattern breaker','Wider seeded output distribution with a small positive raw mean.','Finite buffer caps upside first.','Capacity preview shows capped expected work.'),rank('demand.luck.3','Trend capture','Advanced variance can create larger qualified batches.','Shared market shocks affect every lane.','Luck stream is attributed in the work receipt.'),rank('demand.luck.4','Category moment','Largest candidate variance and slightly positive expected output.','Never bypasses finite market or queue caps.','Preview reports raw and capped distribution.')],
+   },
+   product:{
+-    craft:[rank('product.craft.1','Recipe templates','2 verified work units per cooked order.','Finite trials buffer can stop a completed recipe.','Recipe pass shows doubled portions.'),rank('product.craft.2','Component library','4 verified units per order.','Incorrect assembly remains incorrect.','The station batch readout increases.'),rank('product.craft.3','Build rig','8 verified units per order.','Quality is still bounded by the acquired lead.','Multiple trial portions leave one recipe.'),rank('product.craft.4','Release line','16 verified units per order.','No trial is duplicated past its real lead count.','The output stamp shows the full batch.')],
++    craft:[rank('product.craft.1','Recipe templates','2 verified work units per cooked order.','Finite trials buffer can stop a completed recipe.','Recipe pass shows doubled portions.'),rank('product.craft.2','Component library','4 verified units per order.','Incorrect assembly remains incorrect.','The station batch readout increases.'),rank('product.craft.3','Build rig','8 verified units per order.','Quality is still bounded by the acquired lead.','Multiple trial portions leave one recipe.'),rank('product.craft.4','Release line','32 verified units per order.','No trial is duplicated past its real lead count.','The output stamp shows the full batch.')],
+     scale:[rank('product.scale.1','Second station','2 stations and twice the Monetisation buffer.','Extra station adds upkeep and coordination load.','Station capacity reads 2 lanes.'),rank('product.scale.2','Build bench','4 stations and a larger trial buffer.','A filled pricing queue blocks further shipping.','Four station lanes are shown.'),rank('product.scale.3','Release bay','8 stations for parallel routine work.','Idle capacity remains a cash commitment.','The capacity rail opens eight bays.'),rank('product.scale.4','Product floor','16 stations, limited by actual qualified leads.','Scale never creates Demand.','The release rail marks 16 finite lanes.')],
+     automate:[rank('product.automate.1','Assembly helper','Agent completes routine verified recipes from the real lead queue.','Compute upkeep and context rot begin.','Recipe queue gains an active helper signal.','Compute upkeep per active station'),rank('product.automate.2','Build worker','Faster agent uses the same lead-to-trial resolver.','Cannot take a founder-reserved recipe.','Reserved orders stay visibly founder-owned.','Compute upkeep per active station'),rank('product.automate.3','Release cell','Parallel routine cooking continues off-room.','Stops at a full Monetisation buffer.','Station rail shows a downstream stop.','Compute upkeep per active station'),rank('product.automate.4','Autonomous kitchen','Routine Product workflow runs fully through real finite jobs.','Swarm load and rot can slow it.','Completed trial count advances live.','Compute upkeep per active station')],
+     luck:[rank('product.luck.1','Prototype spark','Named seeded work-output variance begins after verified assembly.','A correct recipe can yield less finite output.','Receipt separates base batch from Luck.'),rank('product.luck.2','Unexpected fit','Wider distribution with small positive raw expected work.','Trial-buffer cap limits upside.','Preview reports the capped expectation.'),rank('product.luck.3','Breakout build','Higher variance can produce larger trial batches.','Shared shocks cannot be diversified away.','The outcome names its seeded stream.'),rank('product.luck.4','Category release','Largest candidate output variance.','Never duplicates a lead or bypasses verification.','Raw versus capped output stays visible.')],
+   },
+   monetisation:{
+-    craft:[rank('monetisation.craft.1','Closing script','2 customers from one valid timed trial cohort.','Only real activated trials can be signed.','Closing receipt shows customers committed.'),rank('monetisation.craft.2','Deal desk','4 customers per valid timed cohort.','A miss still signs nobody at Luck zero.','The contract stamp shows the batch.'),rank('monetisation.craft.3','Pricing playbook','8 customers per valid timing window.','Finite trial count caps the batch.','The pricing rail reports remaining trial capacity.'),rank('monetisation.craft.4','Revenue line','16 customers from a valid finite cohort.','Cash remains deferred to billing and collection.','ARR receipt separates signed contracts from cash.')],
++    craft:[rank('monetisation.craft.1','Closing script','2 customers from one valid timed trial cohort.','Only real activated trials can be signed.','Closing receipt shows customers committed.'),rank('monetisation.craft.2','Deal desk','4 customers per valid timed cohort.','A miss still signs nobody at Luck zero.','The contract stamp shows the batch.'),rank('monetisation.craft.3','Pricing playbook','8 customers per valid timing window.','Finite trial count caps the batch.','The pricing rail reports remaining trial capacity.'),rank('monetisation.craft.4','Revenue line','32 customers from a valid finite cohort.','Cash remains deferred to billing and collection.','ARR receipt separates signed contracts from cash.')],
+     scale:[rank('monetisation.scale.1','Second closing lane','2 closing lanes and a larger trial buffer.','Extra lane adds upkeep and coordination load.','Capacity meter opens a second pricing lane.'),rank('monetisation.scale.2','Contract desk','4 lanes can hold more activated trials.','Scale does not turn a missed timing hit into ARR.','Four pricing bays are visible.'),rank('monetisation.scale.3','Revenue pod','8 lanes support parallel routine contracts.','Finite trial cohorts still gate throughput.','The rail shows eight finite closers.'),rank('monetisation.scale.4','Commercial floor','16 lanes, capped by actual trials.','Capacity never creates Product output.','The right rail exposes the active capacity.')],
+     automate:[rank('monetisation.automate.1','Pricing assistant','Agent resolves routine offers through the authoritative pricing resolver.','Compute upkeep, rot and any bought Luck variance apply.','A closing signal moves on the live timing rail.','Compute upkeep per active lane'),rank('monetisation.automate.2','Contract operator','Faster agent consumes the same finite trial cohorts.','Cannot steal a founder-held timed offer.','Founder-held contracts remain reserved.','Compute upkeep per active lane'),rank('monetisation.automate.3','Revenue loop','Routine pricing runs while you work another room.','Stops cleanly when no trials exist.','The lane meter identifies an empty pipeline.','Compute upkeep per active lane'),rank('monetisation.automate.4','Autonomous closer','Routine valid pricing is fully automated from real trials.','Cash still follows billing, not the agent action.','Signed ARR and collection timing remain separate.','Compute upkeep per active lane')],
+     luck:[rank('monetisation.luck.1','Pricing instinct','Named seeded contract-price variance begins after a valid timed outcome.','A signed contract can price below its base.','The receipt names the Luck price delta.'),rank('monetisation.luck.2','Market read','Wider price distribution with positive candidate expected ARR.','Finite customer count caps output.','Preview reports expected ARR and variance.'),rank('monetisation.luck.3','Negotiation edge','Advanced variance can improve contract ARR.','The same stream can worsen a good contract.','Base and Luck-adjusted price stay visible.'),rank('monetisation.luck.4','Category pricing','Largest candidate contract-price variance.','Never introduces a hidden rank-zero timing rejection.','Distribution summary remains on the skill board.')],
+   },
+   retention:{
+-    craft:[rank('retention.craft.1','Support playbook','Each squash applies 2 intervention units to a real customer problem.','A problem still needs its finite response work.','The squash stamp shows stronger intervention.'),rank('retention.craft.2','Incident pairing','Each squash applies 4 units and restores more account health.','Capacity cannot invent a customer problem.','The response meter advances in larger segments.'),rank('retention.craft.3','Customer recovery','Each squash applies 8 units and resolves severe exposure faster.','Priority still belongs to the nearest deadline.','Critical targets visibly lose more damage per squash.'),rank('retention.craft.4','Trust intervention','Each squash applies 16 units with the strongest health recovery.','Existing ARR is protected, never rebooked.','A completed rescue shows its exact protected value.')],
++    craft:[rank('retention.craft.1','Support playbook','Each squash applies 2 intervention units to a real customer problem.','A problem still needs its finite response work.','The squash stamp shows stronger intervention.'),rank('retention.craft.2','Incident pairing','Each squash applies 4 units and restores more account health.','Capacity cannot invent a customer problem.','The response meter advances in larger segments.'),rank('retention.craft.3','Customer recovery','Each squash applies 8 units and resolves severe exposure faster.','Priority still belongs to the nearest deadline.','Critical targets visibly lose more damage per squash.'),rank('retention.craft.4','Trust intervention','Each squash applies 32 units with the strongest health recovery.','Existing ARR is protected, never rebooked.','A completed rescue shows its exact protected value.')],
+     scale:[rank('retention.scale.1','Second service lane','2 concurrent customer problems can be active.','More lanes add upkeep and coordination load.','The problem shelf opens a second response lane.'),rank('retention.scale.2','Success desk','4 active service lanes and a wider visible queue.','Capacity does not defer a customer deadline.','Four active targets can be prioritised.'),rank('retention.scale.3','Recovery pod','8 active service lanes for simultaneous account pressure.','Idle capacity remains a cash commitment.','The urgency rail expands to eight finite cases.'),rank('retention.scale.4','Customer floor','16 active service lanes, limited by real active accounts.','Scale never creates ARR or removes churn consequences.','The service shelf exposes its full capacity.')],
+     automate:[rank('retention.automate.1','Triage assistant','Agent squashes finite customer problems through the same resolver.','Compute upkeep and context rot begin.','An assistant reticle joins the active problem.'),rank('retention.automate.2','Response operator','Faster agent progresses the most urgent unreserved problem.','Cannot take a founder-reserved intervention.','Founder-held targets remain visibly reserved.'),rank('retention.automate.3','Customer loop','Parallel service continues while you work another room.','Stops when every active problem is covered.','The queue identifies when there is nothing to resolve.'),rank('retention.automate.4','Autonomous success','Routine problems are fully worked from their finite inputs.','Automation cannot save an already expired deadline.','The response reticle remains visibly active.')],
+     luck:[rank('retention.luck.1','Empathy read','Named seeded recovery variance begins after the deterministic intervention.','A rescue can recover less health.','Receipt names the Luck health delta.'),rank('retention.luck.2','Save instinct','Wider response variance can reduce a severe-case concession.','Finite issue severity caps the upside.','The receipt exposes base and Luck recovery.'),rank('retention.luck.3','Escalation sense','Advanced variance can improve the recovered account health.','The same stream can require a larger concession.','The named response stream is attributed.'),rank('retention.luck.4','Customer intuition','Largest candidate recovery variance with a slightly positive mean.','Never creates ARR or hides rank-zero variance.','Protected ARR and any concession remain separate.')],
+   },
+   expansion:{
+-    craft:[rank('expansion.craft.1','Package proof','A served package applies 2× its base addon ARR to one real account slot.','Service cost rises; slots remain finite.','Receipt shows base and upgraded ARR.'),rank('expansion.craft.2','Solution bundle','A served package applies 4× base addon ARR.','Higher value does not add slots.','Target shows contract value.'),rank('expansion.craft.3','Platform edition','A served package applies 8× base addon ARR.','Account health and maturity still gate it.','Order becomes a platform package.'),rank('expansion.craft.4','Expansion line','A served package applies 16× base addon ARR.','Collection remains delayed.','Receipt separates ARR, service and cash timing.')],
++    craft:[rank('expansion.craft.1','Package proof','A served package applies 2× its base addon ARR to one real account slot.','Service cost rises; slots remain finite.','Receipt shows base and upgraded ARR.'),rank('expansion.craft.2','Solution bundle','A served package applies 4× base addon ARR.','Higher value does not add slots.','Target shows contract value.'),rank('expansion.craft.3','Platform edition','A served package applies 8× base addon ARR.','Account health and maturity still gate it.','Order becomes a platform package.'),rank('expansion.craft.4','Expansion line','A served package applies 32× base addon ARR.','Collection remains delayed.','Receipt separates ARR, service and cash timing.')],
+     scale:[rank('expansion.scale.1','Second assembly rail','Opens 10 usable board cells.','Supply stays finite.','Two board sockets unlock.'),rank('expansion.scale.2','Package bench','Opens 12 usable board cells.','Wrong requests cannot be fulfilled.','A third rail appears.'),rank('expansion.scale.3','Solution floor','Opens 14 usable board cells.','Unmerged parts occupy real space.','Seven paired sockets unlock.'),rank('expansion.scale.4','Portfolio line','Opens all 16 usable board cells.','Capacity creates neither slots nor ARR.','The full board perimeter unlocks.')],
+     automate:[rank('expansion.automate.1','Merge helper','Agent supplies and merges a live eligible package through this board.','Compute upkeep and rot begin.','Assembly lamp advances.'),rank('expansion.automate.2','Package operator','Agent uses the same finite board and slot checks faster.','Stops at missing customers or supply.','Board shows agent ownership.'),rank('expansion.automate.3','Expansion loop','Agent moves from a completed package to the next eligible account.','It cannot serve stale or full accounts.','Order queue advances.'),rank('expansion.automate.4','Autonomous packaging','Routine assembly and serving runs from finite customer needs.','Cash still waits for collection.','Service receipt remains visible.')],
+     luck:[rank('expansion.luck.1','Account read','Named seeded package-value variance begins after a valid serve.','A package can add less ARR.','Receipt names Luck delta.'),rank('expansion.luck.2','Expansion instinct','Wider package value has a small positive candidate mean.','Finite slots cap upside.','Target shows base and adjusted ARR.'),rank('expansion.luck.3','Portfolio sense','Advanced variance can improve a real addon contract.','The same stream can reduce it.','Receipt attributes the seeded stream.'),rank('expansion.luck.4','Category expansion','Largest candidate package-value variance.','Never creates rank-zero serve failure.','Service load stays account-attached.')],
+--- a/src/game/founder/save.ts
++++ b/src/game/founder/save.ts
+@@ -102,12 +102,13 @@
+   }
+   if(company.version==='founder-candidate.11'){
+     if(!['founder-content.candidate.5',FOUNDER_CONTENT_VERSION].includes(company.contentVersion))throw new Error('Unsupported reward content version.');
+-    company.version=P.version;company.contentVersion=FOUNDER_CONTENT_VERSION;
++    company.version='founder-candidate.12';company.contentVersion=FOUNDER_CONTENT_VERSION;
+     company.inventory.active=[];
+     company.migratedActions=[...(company.migratedActions??[]),...company.actions];
+     company.actions=[];company.actionResults=[];company.actionCursor=0;migratedFinance=true;
+     // Preserve existing offers, owned relics, charges and accepted financing.
+   }
++  if(company.version==='founder-candidate.12'){company.version=P.version;company.migratedActions=[...(company.migratedActions??[]),...company.actions];company.actions=[];company.actionResults=[];company.actionCursor=0;migratedFinance=true;}
+   if(!Number.isSafeInteger(company.openingCash))company.openingCash=company.cash;
+   for(const report of company.reports){
+     if(!Number.isSafeInteger(report.openingCash))report.openingCash=report.cash;
+--- a/src/components/founder/founder.css
++++ b/src/components/founder/founder.css
+@@ -26,7 +26,7 @@
+ /* Keep the toy usable on short portrait screens; vertical swipes may scroll the paper. */
+ @media(max-width:650px){.f-hud{min-height:calc(104px + env(safe-area-inset-top));padding-top:calc(12px + env(safe-area-inset-top));padding-bottom:12px;gap:10px 14px}.f-mobile-actions{position:sticky;top:calc(104px + env(safe-area-inset-top));z-index:13;background:var(--f-bg);padding-top:5px;padding-bottom:5px}.f-signal{touch-action:pan-y}.f-room-heading{margin-bottom:16px}.f-main{padding-top:20px}.f-receipt{min-height:48px;padding-top:10px;padding-bottom:calc(10px + env(safe-area-inset-bottom))}.f-hud .f-metric{gap:4px}}
+ @media(max-width:650px) and (max-height:650px){.f-hud{min-height:calc(88px + env(safe-area-inset-top));gap:8px 10px;padding:10px 14px;padding-top:calc(10px + env(safe-area-inset-top))}.f-hud .f-metric>small{display:none}.f-mobile-actions{top:calc(88px + env(safe-area-inset-top))}.f-main{padding-top:15px}.f-room-heading h1{font-size:26px;margin:9px 0}.f-room-heading p{font-size:10px}.f-room-heading{margin-bottom:12px}.f-channel-picker{margin-bottom:6px}.f-channel-picker>button{padding:6px 8px;min-height:38px}.f-swipe-stage{min-height:285px;padding-top:6px}.f-signal{min-height:275px}.f-signal-body{padding:12px 17px 8px}.f-signal h2{font-size:23px;margin:7px 0 9px}.f-signal dl>div{margin:8px 0}.f-signal-rule{margin-top:12px}.f-signal header{padding:12px 17px}.f-signal footer{padding:9px 17px}.f-quote-mark{font-size:34px;height:18px}.f-signal-body>p{font-size:8px}.f-job-label{margin-bottom:12px}.f-scratch{min-height:180px}.f-scratch-cover{inset:65px 0 0}.f-scratch-evidence{margin-top:24px}.f-underbench{margin-top:8px}}
+-.f-garage-scene{position:relative;isolation:isolate;min-height:calc(100dvh - 160px);background:linear-gradient(120deg,#141510e8 0 19%,transparent 19% 79%,#12130fe8 79%),radial-gradient(ellipse at 55% 12%,#c5a96e16,transparent 34%),linear-gradient(#24231d,#171815 52%,#0f100e);overflow:hidden}.f-garage-scene:after{content:'';position:absolute;z-index:-1;left:14%;right:13%;bottom:0;height:17%;background:linear-gradient(105deg,#302719,#171612 48%,#292116);transform:perspective(800px) rotateX(58deg);transform-origin:bottom;box-shadow:0 -14px 28px #0008}.f-garage-pegboard{position:absolute;right:3%;top:36px;width:150px;height:155px;opacity:.34;background-image:radial-gradient(#817251 1px,transparent 1px);background-size:12px 12px;border:1px solid #71644a}.f-garage-pegboard i{position:absolute;width:3px;background:#887951;box-shadow:2px 3px 4px #0008}.f-garage-pegboard i:nth-child(1){height:70px;left:38px;top:24px;transform:rotate(33deg)}.f-garage-pegboard i:nth-child(2){height:54px;left:88px;top:35px;transform:rotate(-41deg)}.f-garage-pegboard i:nth-child(3){height:47px;left:116px;top:77px;transform:rotate(56deg)}.f-garage-lamp{position:absolute;z-index:-1;top:-85px;left:37%;width:290px;height:250px;background:radial-gradient(ellipse,#d7bb7180,transparent 63%);filter:blur(6px);pointer-events:none}.f-garage-scene .f-layout{position:relative;z-index:1;background:#171815be;backdrop-filter:blur(1px)}.f-garage-scene .f-main{margin:18px 0;background:linear-gradient(145deg,#24251f,#11120f);border:1px solid #625b46;border-radius:13px;box-shadow:inset 0 1px 1px #dfd4b033,inset 0 0 0 8px #0a0b09,0 20px 35px #0008}.f-garage-scene .f-main:after{content:'TEMPORARY LAPTOP SHELL · FINAL 2.5D ART REQUEST OPEN';position:absolute;left:14px;right:14px;bottom:9px;text-align:center;font:6px monospace;letter-spacing:.12em;color:#a19678}.f-garage-scene .f-toy{padding-bottom:18px}.f-demand-helper{max-width:660px;margin:0 auto 8px;padding:9px 12px;display:flex;gap:11px;border-left:2px solid var(--f-accent);background:#d7bc7b0d;font-size:10px;color:var(--f-muted)}.f-demand-helper b{font:8px monospace;color:var(--f-accent);white-space:nowrap}.f-signal.quality-qualified header b{color:#3d6c4a}.f-signal.quality-uncertain header b{color:#8b6a33}.f-signal.quality-noise header b{color:#8a4f43}.f-demand-result{max-width:660px;margin:14px auto 0;padding:12px;border:1px solid var(--f-line);display:grid;grid-template-columns:1fr auto;gap:5px 15px;background:#11120d}.f-demand-result b{font-size:12px;color:var(--f-accent)}.f-demand-result span{font-size:10px;color:var(--f-muted)}.f-demand-result button{grid-column:2;grid-row:1/3;color:var(--f-accent);font-size:10px;min-height:42px;border-left:1px solid var(--f-line)!important;padding-left:14px}.f-demand-result.declined b{color:#df9a7b}
++.f-garage-scene{position:relative;isolation:isolate;min-height:calc(100dvh - 160px);background:linear-gradient(120deg,#141510e8 0 19%,transparent 19% 79%,#12130fe8 79%),radial-gradient(ellipse at 55% 12%,#c5a96e16,transparent 34%),linear-gradient(#24231d,#171815 52%,#0f100e);overflow:hidden}.f-garage-scene:after{content:'';position:absolute;z-index:-1;left:14%;right:13%;bottom:0;height:17%;background:linear-gradient(105deg,#302719,#171612 48%,#292116);transform:perspective(800px) rotateX(58deg);transform-origin:bottom;box-shadow:0 -14px 28px #0008}.f-garage-pegboard{position:absolute;right:3%;top:36px;width:150px;height:155px;opacity:.34;background-image:radial-gradient(#817251 1px,transparent 1px);background-size:12px 12px;border:1px solid #71644a}.f-garage-pegboard i{position:absolute;width:3px;background:#887951;box-shadow:2px 3px 4px #0008}.f-garage-pegboard i:nth-child(1){height:70px;left:38px;top:24px;transform:rotate(33deg)}.f-garage-pegboard i:nth-child(2){height:54px;left:88px;top:35px;transform:rotate(-41deg)}.f-garage-pegboard i:nth-child(3){height:47px;left:116px;top:77px;transform:rotate(56deg)}.f-garage-lamp{position:absolute;z-index:-1;top:-85px;left:37%;width:290px;height:250px;background:radial-gradient(ellipse,#d7bb7180,transparent 63%);filter:blur(6px);pointer-events:none}.f-garage-scene .f-layout{position:relative;z-index:1;background:#171815be;backdrop-filter:blur(1px)}.f-garage-scene .f-main{margin:18px 0;background:linear-gradient(145deg,#24251f,#11120f);border:1px solid #625b46;border-radius:13px;box-shadow:inset 0 1px 1px #dfd4b033,inset 0 0 0 8px #0a0b09,0 20px 35px #0008}.f-garage-scene .f-main:after{content:'ONE PERSON / PERSONAL COMPUTER';position:absolute;left:14px;right:14px;bottom:9px;text-align:center;font:6px monospace;letter-spacing:.12em;color:#a19678}.f-garage-scene .f-toy{padding-bottom:18px}.f-demand-helper{max-width:660px;margin:0 auto 8px;padding:9px 12px;display:flex;gap:11px;border-left:2px solid var(--f-accent);background:#d7bc7b0d;font-size:10px;color:var(--f-muted)}.f-demand-helper b{font:8px monospace;color:var(--f-accent);white-space:nowrap}.f-signal.quality-qualified header b{color:#3d6c4a}.f-signal.quality-uncertain header b{color:#8b6a33}.f-signal.quality-noise header b{color:#8a4f43}.f-demand-result{max-width:660px;margin:14px auto 0;padding:12px;border:1px solid var(--f-line);display:grid;grid-template-columns:1fr auto;gap:5px 15px;background:#11120d}.f-demand-result b{font-size:12px;color:var(--f-accent)}.f-demand-result span{font-size:10px;color:var(--f-muted)}.f-demand-result button{grid-column:2;grid-row:1/3;color:var(--f-accent);font-size:10px;min-height:42px;border-left:1px solid var(--f-line)!important;padding-left:14px}.f-demand-result.declined b{color:#df9a7b}
+ @media(max-width:650px){.f-garage-scene{min-height:0;background:linear-gradient(#1e1f1a,#12130f)}.f-garage-pegboard,.f-garage-lamp{display:none}.f-garage-scene .f-layout{display:block;background:none}.f-garage-scene .f-navigation{display:none}.f-garage-scene .f-main{margin:0;padding:16px 13px 38px;border-radius:0;border-inline:0;box-shadow:inset 0 1px 1px #dfd4b022,inset 0 0 0 5px #0a0b09}.f-garage-scene .f-awareness{display:block;padding:12px 14px;border:0;border-top:1px solid var(--f-line);background:#12130f}.f-garage-scene .f-awareness-title,.f-garage-scene .f-company-scope,.f-garage-scene .f-health,.f-garage-scene .f-pressure,.f-garage-scene .f-earned-hud,.f-garage-scene .f-save-status{display:none}.f-garage-scene .f-pipeline{padding:6px 0}.f-garage-scene .f-obligation{margin:2px 0;padding:10px 0!important}.f-garage-scene .f-obligation strong{font-size:18px;margin:5px 0}.f-demand-helper{margin-bottom:5px}.f-demand-result{margin-top:9px;padding:10px}.f-demand-result button{min-height:44px}.f-swipe-stage{min-height:min(55dvh,430px);padding-inline:8px}.f-signal{width:min(100%,355px);min-height:310px}.f-signal-body{padding-inline:20px}.f-channel-picker{overflow:auto;justify-content:flex-start}.f-channel-picker>button{flex:0 0 auto}.f-gesture-caption>span{font-size:8px}.f-main .f-room-heading{margin-bottom:12px}.f-main .f-room-heading p{font-size:11px}.f-work-stamp{display:none}}
+ .f-build-context{border-top:1px solid var(--f-line);margin-top:16px;padding-top:14px}.f-build-context>span{font:8px monospace;color:var(--f-accent);letter-spacing:.1em}.f-build-context dl{margin:10px 0;font-size:9px}.f-build-context dl>div{display:flex;justify-content:space-between;gap:8px;margin:6px 0}.f-build-context dt{color:var(--f-muted)}.f-build-context dd{margin:0;text-align:right}.f-build-context p,.f-build-context small{display:block;margin:8px 0 0;font-size:9px;color:var(--f-muted);line-height:1.45}.f-build-context small{color:var(--f-accent)}
+ 
+@@ -41,3 +41,40 @@
+ .f-relic,.f-consumables{border-top:1px solid var(--f-line);padding:7px 0}.f-relic summary,.f-consumables summary{cursor:pointer;min-height:44px;align-content:center;font-size:12px;line-height:1.4;overflow-wrap:anywhere}.f-relic summary small{display:block;color:var(--f-accent);font-size:9px}.f-relic p,.f-consumable p{font-size:11px;line-height:1.6;margin:8px 0}.f-relic>small{font-size:10px;color:var(--f-muted);line-height:1.5}
+ .f-consumable{padding:12px 0;border-bottom:1px solid var(--f-line)}.f-consumable>b{font-size:12px}.f-consumable select,.f-consumable button{width:100%;min-width:0;min-height:44px;margin-top:8px;white-space:normal;overflow-wrap:anywhere}.f-consumable select{background:var(--f-panel);color:var(--f-text);border:1px solid var(--f-line);font-size:12px;padding:8px}.f-active-consumable{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px;padding:10px 0;border-top:1px solid var(--f-line)}.f-active-consumable b{font-variant-numeric:tabular-nums;color:var(--f-accent)}.f-active-consumable small{flex-basis:100%;font-size:10px}
+ @media(max-width:700px){.f-garage-scene .f-build-context{width:100%;grid-column:1/-1}.f-consumable select{font-size:16px}.f-relic summary,.f-consumables summary{min-height:48px}}
++
++/* S13: authored six-room atlas, stable peripheral composition. */
++.f-garage-scene{background-image:url('/founder-assets/environments.png');background-size:300% 200%;background-repeat:no-repeat}
++.f-garage-scene .f-layout{background:#090b0ea8;backdrop-filter:none;padding-top:35px}
++.f-garage-pegboard,.f-garage-lamp{display:none}
++.f-garage-scene .f-main{background:#101316f5;border-color:#687078;position:relative}
++.f-milestone{position:absolute;z-index:2;top:0;left:0;right:0;display:flex;gap:18px;align-items:center;padding:9px 22px;background:#0b0d10e8;font-size:12px;pointer-events:none}
++.f-milestone b{color:#dce5ed;animation:f-earned .7s ease-out}.f-milestone span{color:#a7afb8}.f-milestone small{margin-left:auto;color:#c6d4dd;font-size:11px}
++.f-milestone.cash,.f-milestone.strain,.f-milestone.failed{border-bottom:2px solid #ffb84d}
++.f-metric strong{animation:f-score .28s ease-out;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
++.f-feedback-control{display:flex;gap:10px;align-items:center;font-size:12px}.f-feedback-control select{background:#14181d;color:#f4f6f7;border:1px solid #6f7882;min-height:44px;font-size:16px}
++.f-run-summary{text-align:left;width:100%;font-size:14px}.f-run-summary summary,.f-run-summary button{min-height:44px;cursor:pointer}.f-run-summary dl>div{display:grid;grid-template-columns:90px 1fr;gap:15px;margin:12px 0}.f-run-summary dd{margin:0}.f-run-summary pre{max-height:220px;overflow:auto;font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere}
++@keyframes f-score{from{transform:translateY(3px);color:#74e89a}to{transform:translateY(0)}}
++@keyframes f-earned{from{opacity:.5;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
++.founder-game[data-intensity=quiet] *,.founder-game[data-intensity=off] *{animation:none!important;transition:none!important;scroll-behavior:auto!important}
++@media(prefers-reduced-motion:reduce){.founder-game *{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
++@media(max-width:650px){.f-garage-scene{background-size:300% 200%}.f-garage-scene .f-layout{padding-top:46px}.f-milestone{font-size:11px;gap:6px;padding:8px 13px;flex-wrap:wrap}.f-milestone small{width:100%;margin:0;font-size:10px}.f-milestone span{margin-left:auto}.f-garage-scene .f-main{margin:0 5px;border-radius:8px}.f-hud .f-metric>span,.f-hud .f-metric>small{font-size:10px}.f-run-summary dl>div{grid-template-columns:65px 1fr}}
++/* S14 responsive and keyboard recovery controls. */
++.founder-game :focus-visible{outline:3px solid #77b9ff;outline-offset:3px}
++.f-confirm::backdrop{background:#000c}.f-confirm{color:var(--f-text);max-width:min(520px,calc(100vw - 28px));max-height:calc(100dvh - 28px);overflow:auto;margin:auto}
++.pwa-update{position:fixed;z-index:25;bottom:0;left:0;right:0;padding:10px 16px calc(10px + env(safe-area-inset-bottom));background:#1a1f25;color:#f4f6f7;font:14px system-ui;text-align:center}
++.f-save-status{overflow-wrap:anywhere}.f-nav-bottom button{min-height:44px}.f-hud{padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}
++@media(max-width:950px) and (orientation:landscape){.f-hud{min-height:80px}.f-main{min-width:0}.f-metric strong{font-size:24px}.f-layout{grid-template-columns:140px minmax(0,1fr)}.f-awareness{grid-column:1/-1}}
++
++/* Native modal geometry; no inherited centered-div transform. */
++dialog.f-confirm{inset:0;transform:none;height:max-content;box-shadow:0 12px 50px #0008}
++
++@media(max-width:650px){.f-garage-scene .f-save-status{display:block;font-size:12px;margin-top:10px}.f-mobile-actions>button{min-height:44px;font-size:12px}}
++/* Keep all six work functions reachable on phones, including quiet Operations. */
++@media(max-width:650px){
++ .f-garage-scene .f-navigation{display:flex;overflow-x:auto;padding:0 60px 0 0;min-height:48px;background:#090b0eed}
++ .f-garage-scene .f-navigation>button{min-width:100px;min-height:48px;flex-shrink:0}
++ .f-garage-scene .f-navigation>button:nth-of-type(n+7){display:none}
++ .f-garage-scene .f-navigation button>span:nth-child(2){font-size:12px}
++ .f-feedback-control{padding:8px 14px}.f-feedback-control select{max-width:140px}
++ .f-skill-detail p,.f-skill-detail dl,.f-axis-list small,.f-skill-functions>button{font-size:12px}
++}
+--- a/src/components/founder/FounderGame.tsx
++++ b/src/components/founder/FounderGame.tsx
+@@ -1,14 +1,18 @@
+ 'use client';
+ import { useEffect, useMemo, useRef, useState } from 'react';
+-import { advance, agentCount, agentStatus, computeCost, capitalOffers, demandStake, arr, batch, command, count, createCompany, forecast, luckDistribution, metrics, queueCap, signal, skillCost, STAGES, tier, units, unlocked } from '../../game/founder/engine';
++import { advance, agentCount, agentStatus, computeCost, capitalOffers, demandStake, arr, batch, command, count, createCompany, forecast, luckDistribution, metrics, queueCap, signal, skillCost, tier, units, unlocked } from '../../game/founder/engine';
+ import { AXES, FUNCTIONS, NAMES, P, SEGMENTS, skillRank, UPGRADES, type Axis, type Work } from '../../game/founder/profile';
+ import { loanPayment, loanPayoff, loanSchedule, QUARTER_TICKS, type CapitalOffer } from '../../game/founder/finance';
+ import type { Command, Company } from '../../game/founder/model';
+-import { BACKUP_SAVE_KEY, decodeLastKnownGood, encodeSave, HISTORY_KEY, SAVE_KEY, verifiedBackup } from '../../game/founder/save';
++import { BACKUP_SAVE_KEY, encodeSave, HISTORY_KEY, SAVE_KEY } from '../../game/founder/save';
+ import {ProductToy,ExpansionToy,RetentionToy,OperationsToy,PricingToy,QuarterDraft} from './ToyRooms';
+ import { measureOperationsTickets } from '../../game/founder/toys';
+ import { BUILD_FAMILIES, REWARD_EFFECTS, consumableUse, rewardById } from '../../game/founder/rewards';
+ import { decodeFounderHistory, syncFounderHistory } from '../../game/founder/history';
++import { environment, decodePresentation, PRESENTATION_KEY, type FeedbackIntensity } from '../../game/founder/presentation';
++import { Milestone, RunSummary } from './RunPresentation';
++import { persistCheckpoint, recoverCheckpoint, exportCheckpoints, PENDING_SAVE_KEY } from '../../game/founder/storage';
++import { openCheckpointStore, type CheckpointStore } from '../../game/founder/checkpoint-db';
+ import './founder.css';
+ import './toys.css';
+ 
+@@ -19,60 +23,70 @@
+ const TITLES:Record<Work,[string,string]>={demand:['Find the signal.','Swipe right to pursue a real need. Left to keep your cash.'],product:['Less roadmap. More recipe.','Read the brief, combine the ingredients, test the build. Then ship something useful.'],monetisation:['Stick the landing.','Choose your price. Catch the sweet spot. Try not to negotiate with yourself.'],retention:['Put out the customer fires.','Clear real problems before the clock turns customers into churn.'],expansion:['Small features. Bigger deals.','Merge matching pieces into higher tiers. Serve the customer’s next big ask.'],operations:['Read the fine print.','Pay, scratch, inspect. Finish worthwhile patches or walk away from the ticket.']};
+ 
+ export default function FounderGame(){
++  const [intensity,setIntensity]=useState<FeedbackIntensity>('full');
++  const requestSave=useRef<(()=>Promise<void>)|null>(null);const checkpointStore=useRef<CheckpointStore|null>(null);const replacing=useRef(false);const saveBlocked=useRef(false);const [recoveryBlocked,setRecoveryBlocked]=useState(false);const confirmDialog=useRef<HTMLDialogElement>(null);
++
+   const [gesture,setGesture]=useState(false);
+   useEffect(()=>{const down=()=>setGesture(true),up=()=>setGesture(false);window.addEventListener('pointerdown',down);window.addEventListener('pointerup',up);window.addEventListener('pointercancel',up);window.addEventListener('blur',up);return()=>{window.removeEventListener('pointerdown',down);window.removeEventListener('pointerup',up);window.removeEventListener('pointercancel',up);window.removeEventListener('blur',up);};},[]);
+   const [s,setS]=useState<Company>(()=>createCompany(84022));const current=useRef(s);const [boot,setBoot]=useState(false);const [saveStatus,setSaveStatus]=useState('Saved on this device');const [notice,setNotice]=useState('');const [sound,setSound]=useState(false);const audio=useRef<AudioContext|null>(null);const [newRun,setNewRun]=useState(false);const [settings,setSettings]=useState(false);
++  useEffect(()=>{if(newRun)confirmDialog.current?.showModal();},[newRun]);
+   const commit=(next:Company)=>{current.current=next;setS(next);};
+   const send:Send=c=>{
+-    const next=command(current.current,c);commit(next);
+-    if(sound&&c.type!=='focus'&&c.type!=='channel'){try{audio.current??=new AudioContext();void audio.current.resume();const o=audio.current.createOscillator(),g=audio.current.createGain();o.type='sine';o.frequency.setValueAtTime(c.type==='buy'?520:180,audio.current.currentTime);o.frequency.exponentialRampToValueAtTime(90,audio.current.currentTime+.07);g.gain.setValueAtTime(.035,audio.current.currentTime);g.gain.exponentialRampToValueAtTime(.0001,audio.current.currentTime+.1);o.connect(g);g.connect(audio.current.destination);o.start();o.stop(audio.current.currentTime+.12);}catch{setSound(false);}}
++    if(replacing.current)return;
++    const priorPhase=current.current.phase,next=command(current.current,c);commit(next);if(next.phase!==priorPhase||['pause','draft','draft-skip','buy','consume','borrow','raise','repay-debt'].includes(c.type))void requestSave.current?.();
++    if(sound&&next.actionResults.at(-1)?.type==='ACTION_COMMITTED'&&c.type!=='focus'&&c.type!=='channel'){try{audio.current??=new AudioContext();void audio.current.resume();const o=audio.current.createOscillator(),g=audio.current.createGain();o.type='sine';o.frequency.setValueAtTime(c.type==='buy'?520:180,audio.current.currentTime);o.frequency.exponentialRampToValueAtTime(90,audio.current.currentTime+.07);g.gain.setValueAtTime(.035,audio.current.currentTime);g.gain.exponentialRampToValueAtTime(.0001,audio.current.currentTime+.1);o.connect(g);g.connect(audio.current.destination);o.start();o.stop(audio.current.currentTime+.12);}catch{setSound(false);}}
+   };
+   useEffect(()=>{
+     let disposed=false;
+-    void Promise.resolve().then(()=>{ if(disposed)return;
+-    try{const raw=localStorage.getItem(SAVE_KEY),backup=localStorage.getItem(BACKUP_SAVE_KEY);if(raw||backup){const restored=decodeLastKnownGood(raw,backup);let loaded=restored.company;let historyNotice='';try{syncFounderHistory(localStorage,loaded);}catch{historyNotice='Company restored. Founder history could not be saved; preserve this run and check device storage.';}if(loaded.phase==='active'||loaded.phase==='continuation')loaded=command(loaded,{type:'pause'});current.current=loaded;setS(loaded);setNotice(historyNotice||(restored.source==='backup'?'Primary checkpoint was invalid. Restored the last-known-good copy.':'Checkpoint restored. Resume when you are ready.'));}else{const h=decodeFounderHistory(localStorage.getItem(HISTORY_KEY));const fresh=createCompany(crypto.getRandomValues(new Uint32Array(1))[0],h.wins.length);current.current=fresh;setS(fresh);}}
+-    catch{setNotice('The saved checkpoint could not be verified. It has not been overwritten. Start a new company to recover.');setSaveStatus('Unverified checkpoint preserved');}
++    void openCheckpointStore().then(store=>{ if(disposed){store.close();return;}checkpointStore.current=store;
++    try{const prefs=decodePresentation(localStorage.getItem(PRESENTATION_KEY));setSound(prefs.sound);setIntensity(prefs.intensity);const restored=recoverCheckpoint(store);if(restored){saveBlocked.current=restored.invalid.length>0;setRecoveryBlocked(saveBlocked.current); let loaded=restored.company;let historyNotice='';try{syncFounderHistory(localStorage,loaded);}catch{historyNotice='Company restored. Founder history could not be saved; preserve this run and check device storage.';}if(loaded.phase==='active'||loaded.phase==='continuation')loaded=command(loaded,{type:'pause'});current.current=loaded;setS(loaded);setNotice(historyNotice||(restored.source!==SAVE_KEY?'Primary checkpoint was invalid. Restored the last-known-good copy.':'Checkpoint restored. Resume when you are ready.'));}else{const h=decodeFounderHistory(localStorage.getItem(HISTORY_KEY));const fresh=createCompany(crypto.getRandomValues(new Uint32Array(1))[0],h.wins.length);current.current=fresh;setS(fresh);}}
++    catch{saveBlocked.current=true;setRecoveryBlocked(true);setNotice('The saved checkpoint could not be verified. It has not been overwritten. Start a new company to recover.');setSaveStatus('Unverified checkpoint preserved');}
+     setBoot(true);
+-    });
+-    return()=>{disposed=true;void audio.current?.close();};
++    }).catch(()=>{if(!disposed){saveBlocked.current=true;setRecoveryBlocked(true);setSaveStatus('Checkpoint storage unavailable');setNotice('Checkpoint storage could not be opened. Close other game tabs and reload. Existing saves remain untouched.');setBoot(true);}});
++    return()=>{disposed=true;checkpointStore.current?.close();void audio.current?.close();};
+   },[]);
+   useEffect(()=>{
+     if(!boot)return;let previous=performance.now(),carry=0,lastSave=0;let frame=0;
+-    let lastSaved:Company|null=null;
+-    const save=()=>{if(current.current.phase==='setup'||current.current===lastSaved)return;try{const prior=verifiedBackup(localStorage.getItem(SAVE_KEY));if(prior)localStorage.setItem(BACKUP_SAVE_KEY,prior);localStorage.setItem(SAVE_KEY,encodeSave(current.current));syncFounderHistory(localStorage,current.current);lastSaved=current.current;setSaveStatus('Saved on this device');}catch{setSaveStatus('Storage unavailable · keep this tab open');}};
+-    const loop=(now:number)=>{carry+=Math.min(250,now-previous);previous=now;if(carry>=100){const ticks=Math.floor(carry/100);carry-=ticks*100;if(!document.hidden){try{const next=advance(current.current,ticks);if(next!==current.current){current.current=next;setS(next);if(next.phase==='unicorn')save();}}catch{current.current=command(current.current,{type:'pause'});setS(current.current);setNotice('Simulation interrupted. Your company is paused; the last checkpoint is preserved.');}}}if(now-lastSave>5000){lastSave=now;save();}frame=requestAnimationFrame(loop);};
++    let lastSaved:Company|null=null,saving=false,saveAgain=false;
++    const save=async()=>{if(saving){saveAgain=true;return;}if(replacing.current||!checkpointStore.current||saveBlocked.current||current.current.phase==='setup'||current.current===lastSaved)return;const snapshot=current.current;saving=true;setSaveStatus('Saving checkpoint…');try{persistCheckpoint(checkpointStore.current,snapshot);await checkpointStore.current.flush();syncFounderHistory(localStorage,snapshot);lastSaved=snapshot;setSaveStatus('Saved on this device');}catch(error){setSaveStatus(error instanceof Error?`${error.message} Export checkpoint in Settings.`:'Storage unavailable · export checkpoint in Settings');}finally{saving=false;if(saveAgain){saveAgain=false;void save();}}};
++    requestSave.current=save;
++    const loop=(now:number)=>{carry+=Math.min(250,now-previous);previous=now;if(carry>=100){const ticks=Math.floor(carry/100);carry-=ticks*100;if(!document.hidden&&!replacing.current){try{const next=advance(current.current,ticks);if(next!==current.current){current.current=next;setS(next);if(['unicorn','quarter-draft','failure'].includes(next.phase))void save();}}catch{current.current=command(current.current,{type:'pause'});setS(current.current);setNotice('Simulation interrupted. Your company is paused; the last checkpoint is preserved.');}}}if(now-lastSave>5000){lastSave=now;save();}frame=requestAnimationFrame(loop);};
+     frame=requestAnimationFrame(loop);
+     const hide=()=>{if(document.hidden&&(current.current.phase==='active'||current.current.phase==='continuation')){current.current=command(current.current,{type:'pause'});setS(current.current);}save();previous=performance.now();carry=0;};
+     document.addEventListener('visibilitychange',hide);window.addEventListener('pagehide',save);
+-    return()=>{cancelAnimationFrame(frame);document.removeEventListener('visibilitychange',hide);window.removeEventListener('pagehide',save);};
++    return()=>{requestSave.current=null;cancelAnimationFrame(frame);document.removeEventListener('visibilitychange',hide);window.removeEventListener('pagehide',save);};
+   },[boot]);
+-  const reset=()=>{try{
++  const reset=async()=>{if(replacing.current)return;replacing.current=true;try{
++    const store=checkpointStore.current;if(!store)throw new Error("Checkpoint storage is not ready");
+     const history=syncFounderHistory(localStorage,current.current),fresh=createCompany(crypto.getRandomValues(new Uint32Array(1))[0],history.wins.length),raw=encodeSave(fresh);
+-    localStorage.setItem(BACKUP_SAVE_KEY,raw);localStorage.setItem(SAVE_KEY,raw);commit(fresh);setNewRun(false);setNotice('');
+-  }catch{setNotice('Could not preserve this run and founder history. Free device storage before starting another company.');}};
++    store.setItem(PENDING_SAVE_KEY,raw);store.setItem(BACKUP_SAVE_KEY,raw);store.setItem(SAVE_KEY,raw);store.removeItem(PENDING_SAVE_KEY);await store.flush();saveBlocked.current=false;setRecoveryBlocked(false);commit(fresh);setNewRun(false);setNotice('');
++  }catch{setNotice('Could not preserve this run and founder history. Free device storage before starting another company.');}finally{replacing.current=false;}};
++  useEffect(()=>{if(boot){try{localStorage.setItem(PRESENTATION_KEY,JSON.stringify({sound,intensity}));}catch{/* Cosmetic preferences never block a run. */}}},[boot,sound,intensity]);
++  const exportRun=()=>{try{const data=saveBlocked.current?exportCheckpoints(checkpointStore.current??localStorage):JSON.stringify({company:encodeSave(current.current),history:localStorage.getItem(HISTORY_KEY)},null,2);const url=URL.createObjectURL(new Blob([data],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=`solounicorn-${current.current.seed}.json`;a.click();URL.revokeObjectURL(url);return true;}catch{setNotice('Export failed. Keep this tab open and free device storage.');return false;}};
++  const acceptRecovery=async()=>{if(replacing.current||!exportRun())return;replacing.current=true;try{const store=checkpointStore.current;if(!store)return;const raw=encodeSave(current.current);store.setItem(PENDING_SAVE_KEY,raw);store.setItem(BACKUP_SAVE_KEY,raw);store.setItem(SAVE_KEY,raw);store.removeItem(PENDING_SAVE_KEY);await store.flush();saveBlocked.current=false;setRecoveryBlocked(false);setNotice('Recovered company saved. Prior stored copies were exported.');}catch{setNotice('Recovery write failed. Keep the exported checkpoint and this tab open.');}finally{replacing.current=false;}};
+   if(!boot)return <main className="founder-game f-boot">Opening the garage…</main>;
+-  const m=metrics(s),stage=tier(s),latest=s.log.at(-1),report=s.reports.at(-1),threats=s.accounts.filter(a=>a.active&&a.threat),pricing=s.pricingResolution;
++  const e=environment(s),m=metrics(s),stage=tier(s),latest=s.log.at(-1),report=s.reports.at(-1),threats=s.accounts.filter(a=>a.active&&a.threat),pricing=s.pricingResolution;
+   const queue=(f:Work)=>f==='demand'?s.market[s.channel]:f==='product'?count(s.leads):f==='monetisation'?count(s.trials):f==='retention'?threats.length:f==='expansion'?s.accounts.filter(a=>a.active&&a.addons<2&&a.health>=60&&s.tick-a.born>=1200).length:Math.round(s.strain+m.rot*100);
+-  return <main className={`founder-game f-tier-${stage}`} data-room={s.focus} data-phase={s.phase} data-tick={s.tick}>
+-    {s.phase==='setup'?<div className="f-entry"><div className="f-wordmark">ONE PERSON<br/><b>UNICORN</b><span>AN OPERATING SIMULATION</span></div><div className="f-entry-scene"><div className="f-entry-orbit"/><span className="f-serial">COMPANY NO. {String(s.seed).slice(-6)}</span><div className="f-founder-object"><div/><i/><b>1</b></div><p>YOU ARE THE ENTIRE COMPANY.</p></div><div className="f-entry-copy"><span className="f-eyebrow">GARAGE → $1,000,000,000</span><h1>Build the thing.<br/>Become the machine.</h1><p>Six jobs. One pair of hands. Turn real work into customers, then teach agents to do it. Survive the company you create.</p><dl><div><dt>STARTING CASH</dt><dd>{money(s.cash)}</dd></div><div><dt>GROWTH DEADLINE</dt><dd>Only if you take VC</dd></div><div><dt>YOUR FIRST MOVE</dt><dd>Find a customer need</dd></div></dl>{s.inheritedWins>0&&<p>{s.inheritedWins} successful companies · {money(s.inheritedWins*P.winCashBonus)} inherited starting cash</p>}<button className="f-primary" onClick={()=>send({type:'start'})}>Open the garage <span>↗</span></button>{notice&&<p role="status">{notice}</p>}<small>A roguelike founder sim · Local save · Candidate balance</small></div></div>:<>
+-          <header className="f-hud"><div className="f-brand"><b>ONE / PERSON</b><span>{STAGES[stage]}</span></div><Metric label="VALUATION" value={money(m.valuation)} sub="TARGET $1B" major/><Metric label="ARR" value={money(m.arr)} sub={`${s.accounts.filter(a=>a.active).reduce((n,a)=>n+a.count,0)} paying customers`}/><Metric label="LIQUID CASH" value={money(s.cash)} sub={`${money(s.expenseAccrued)} bill accruing`} warning={s.cash<m.cost}/><div className="f-clock"><span>QUARTER {String(s.quarter).padStart(2,'0')}</span><strong>{time(1800-s.tick%1800)}</strong><div><i style={{width:`${(s.tick%1800)/18}%`}}/></div></div><button className="f-pause" onClick={()=>send(s.phase==='paused'?{type:'continue'}:{type:'pause'})} disabled={!['active','continuation','paused'].includes(s.phase)}>{s.phase==='paused'?'Continue':'Pause'}</button></header>
++  return <main className={`founder-game f-tier-${stage}`} data-intensity={intensity} data-environment={e.index} data-distress={e.distress} data-room={s.focus} data-phase={s.phase} data-tick={s.tick}>
++    {s.phase==='setup'?<div className="f-entry"><div className="f-wordmark">ONE PERSON<br/><b>UNICORN</b><span>AN OPERATING SIMULATION</span></div><div className="f-entry-scene"><div className="f-entry-orbit"/><span className="f-serial">COMPANY NO. {String(s.seed).slice(-6)}</span><div className="f-founder-object"><div/><i/><b>1</b></div><p>YOU ARE THE ENTIRE COMPANY.</p></div><div className="f-entry-copy"><span className="f-eyebrow">GARAGE → $1,000,000,000</span><h1>Build the thing.<br/>Become the machine.</h1><p>Six jobs. One pair of hands. Turn real work into customers, then teach agents to do it. Survive the company you create.</p><dl><div><dt>STARTING CASH</dt><dd>{money(s.cash)}</dd></div><div><dt>GROWTH DEADLINE</dt><dd>Only if you take VC</dd></div><div><dt>YOUR FIRST MOVE</dt><dd>Find a customer need</dd></div></dl>{s.inheritedWins>0&&<p>{s.inheritedWins} successful companies · {money(s.inheritedWins*P.winCashBonus)} inherited starting cash</p>}<button className="f-primary" disabled={recoveryBlocked} onClick={()=>send({type:'start'})}>Open the garage <span>↗</span></button>{notice&&<p role="status">{notice}</p>}{recoveryBlocked&&<div><button onClick={exportRun}>Export stored checkpoints</button><button onClick={()=>setNewRun(true)}>Replace company…</button></div>}<small>A roguelike founder sim · Local save · Candidate balance</small></div></div>:<>
++          <header className="f-hud"><div className="f-brand"><b>ONE / PERSON</b><span>{e.name}</span></div><Metric label="VALUATION" value={money(m.valuation)} sub="TARGET $1B" major/><Metric label="ARR" value={money(m.arr)} sub={`${s.accounts.filter(a=>a.active).reduce((n,a)=>n+a.count,0)} paying customers`}/><Metric label="LIQUID CASH" value={money(s.cash)} sub={`${money(s.expenseAccrued)} bill accruing`} warning={s.cash<m.cost}/><div className="f-clock"><span>QUARTER {String(s.quarter).padStart(2,'0')}</span><strong>{time(1800-s.tick%1800)}</strong><div><i style={{width:`${(s.tick%1800)/18}%`}}/></div></div><button className="f-pause" onClick={()=>send(s.phase==='paused'?{type:'continue'}:{type:'pause'})} disabled={!['active','continuation','paused'].includes(s.phase)}>{s.phase==='paused'?'Continue':'Pause'}</button></header>
+       {pricing?.actionId===s.actionResults.at(-1)?.actionId&&<PricingFlash pricing={pricing!}/>}
+-      <div className="f-garage-scene"><div className="f-garage-pegboard" aria-hidden="true"><i/><i/><i/></div><div className="f-garage-lamp" aria-hidden="true"/><div className="f-layout"><aside className="f-navigation"><div className="f-nav-caption">YOUR ATTENTION</div>{FUNCTIONS.map((f,i)=><button key={f} disabled={!unlocked(s,f)} onClick={()=>send({type:'focus',work:f})} className={s.focus===f?'selected':''} aria-current={s.focus===f?'page':undefined}><span className="f-nav-no">0{i+1}</span><span>{NAMES[f]}<small>{agentCount(s,f)?`${agentCount(s,f)} agent${agentCount(s,f)>1?'s':''} · ${agentStatus(s,f).label}`:unlocked(s,f)?'Manual':'Needs customers'}</small></span><b>{queue(f)||'·'}</b></button>)}<div className="f-nav-caption">BUILD THE COMPANY</div><button className={s.focus==='skills'?'selected':''} onClick={()=>send({type:'focus',work:'skills'})}><span className="f-nav-no">↗</span><span>Skill trees<small>Craft · Scale · Automate · Luck</small></span></button><button className={s.focus==='finance'?'selected':''} onClick={()=>send({type:'focus',work:'finance'})}><span className="f-nav-no">$</span><span>Finance<small>{report&&!report.chosen&&report.choices.length>0?'Quarter choice ready':'Cashflow & capital'}</small></span><b>{report&&!report.chosen&&report.choices.length>0?'!':''}</b></button><div className="f-nav-bottom"><span>SEED {s.seed}</span><button onClick={()=>setSound(!sound)}>{sound?'Sound on':'Sound off'}</button><button onClick={()=>setNewRun(true)}>New company</button></div></aside>
+-      <div className="f-mobile-actions"><button onClick={()=>send({type:'focus',work:'skills'})}>Skill trees ↗</button><button onClick={()=>send({type:'focus',work:'finance'})}>Finance {report&&!report.chosen&&report.choices.length>0?'· NEW CHOICE':'$'}</button><button onClick={()=>setSettings(!settings)}>Settings</button>{settings&&<div><button onClick={()=>setSound(!sound)}>{sound?'Mute sound':'Enable sound'}</button><button onClick={()=>setNewRun(true)}>New company</button></div>}{threats.length>0&&<button className="f-mobile-threat" onClick={()=>send({type:'focus',work:'retention'})}>{threats.length} account threats · {time(Math.min(...threats.map(a=>a.threat))-s.tick)} left →</button>}</div><section className="f-main">
++      <div className="f-garage-scene" style={{backgroundPosition:`${(e.tile%3)*50}% ${Math.floor(e.tile/3)*100}%`}}><Milestone s={s}/><div className="f-garage-pegboard" aria-hidden="true"><i/><i/><i/></div><div className="f-garage-lamp" aria-hidden="true"/><div className="f-layout"><aside className="f-navigation"><div className="f-nav-caption">YOUR ATTENTION</div>{FUNCTIONS.map((f,i)=><button key={f} disabled={!unlocked(s,f)} onClick={()=>send({type:'focus',work:f})} className={s.focus===f?'selected':''} aria-current={s.focus===f?'page':undefined}><span className="f-nav-no">0{i+1}</span><span>{NAMES[f]}<small>{agentCount(s,f)?`${agentCount(s,f)} agent${agentCount(s,f)>1?'s':''} · ${agentStatus(s,f).label}`:unlocked(s,f)?'Manual':'Needs customers'}</small></span><b>{queue(f)||'·'}</b></button>)}<div className="f-nav-caption">BUILD THE COMPANY</div><button className={s.focus==='skills'?'selected':''} onClick={()=>send({type:'focus',work:'skills'})}><span className="f-nav-no">↗</span><span>Skill trees<small>Craft · Scale · Automate · Luck</small></span></button><button className={s.focus==='finance'?'selected':''} onClick={()=>send({type:'focus',work:'finance'})}><span className="f-nav-no">$</span><span>Finance<small>{report&&!report.chosen&&report.choices.length>0?'Quarter choice ready':'Cashflow & capital'}</small></span><b>{report&&!report.chosen&&report.choices.length>0?'!':''}</b></button><div className="f-nav-bottom"><span>SEED {s.seed}</span><button onClick={()=>setSound(!sound)}>{sound?'Sound on':'Sound off'}</button><label className="f-feedback-control">Motion<select value={intensity} onChange={event=>setIntensity(event.target.value as FeedbackIntensity)}><option value="full">Full</option><option value="quiet">Reduced</option><option value="off">Off</option></select></label><button onClick={exportRun}>Export checkpoint</button>{recoveryBlocked&&<button onClick={acceptRecovery}>Export originals and save recovered company</button>}<button onClick={()=>setNewRun(true)}>New company</button></div></aside>
++      <div className="f-mobile-actions"><button onClick={()=>send({type:'focus',work:'skills'})}>Skill trees ↗</button><button onClick={()=>send({type:'focus',work:'finance'})}>Finance {report&&!report.chosen&&report.choices.length>0?'· NEW CHOICE':'$'}</button><button onClick={()=>setSettings(!settings)}>Settings</button>{settings&&<div><button onClick={()=>setSound(!sound)}>{sound?'Mute sound':'Enable sound'}</button><label className="f-feedback-control">Motion<select value={intensity} onChange={event=>setIntensity(event.target.value as FeedbackIntensity)}><option value="full">Full</option><option value="quiet">Reduced</option><option value="off">Off</option></select></label><button onClick={exportRun}>Export checkpoint</button>{recoveryBlocked&&<button onClick={acceptRecovery}>Export originals and save recovered company</button>}<button onClick={()=>setNewRun(true)}>New company</button></div>}{threats.length>0&&<button className="f-mobile-threat" onClick={()=>send({type:'focus',work:'retention'})}>{threats.length} account threats · {time(Math.min(...threats.map(a=>a.threat))-s.tick)} left →</button>}</div><section className="f-main">
+         {s.phase==='quarter-draft'&&<QuarterDraft defer={gesture} s={s} send={send}/>}
+-        {s.phase==='failure'||s.phase==='unicorn'?<div className="f-terminal"><span className="f-eyebrow">{s.phase==='unicorn'?'THE ONE PERSON UNICORN':'THE RUN IS OVER'}</span><h1>{s.phase==='unicorn'?'One founder.\nOne billion.':'The company\nran out of road.'}</h1><p>{s.phase==='unicorn'?`This win earns +${money(P.winCashBonus)} starting cash on future runs. Keep operating, or bring that experience to a fresh garage.`:`${s.failure} ${s.wonAt!==null?'Your earlier unicorn win stays in founder history.':'Failed runs award no new starting advantage.'}`}</p><p>{s.inventory.relics.length} relics · {s.reports.filter(r=>r.chosen&&r.chosen!=='passed').length} quarter choices · {s.vc?'VC mandate':s.debt?'Debt financed':'Self-funded now'}</p><div><Metric label="FINAL VALUATION" value={money(m.valuation)}/><Metric label="TIME OPERATING" value={time(s.tick)}/></div>{s.phase==='unicorn'&&<button className="f-primary" onClick={()=>send({type:'continue'})}>Keep operating ↗</button>}<button className="f-secondary" onClick={reset}>Start another company</button></div>:s.phase==='paused'?<div className="f-paused"><span className="f-eyebrow">FOUNDER AWAY</span><h1>Take a breath.</h1><p>Your build is saved. Queues, consumable timers and bills wait for Continue.</p><button className="f-primary" onClick={()=>send({type:'continue'})}>Continue ↗</button><small>{notice||saveStatus}</small></div>:s.focus==='skills'?<Skills s={s} send={send}/>:s.focus==='finance'?<Finance s={s} send={send}/>:<>
++        {s.phase==='failure'||s.phase==='unicorn'?<div className="f-terminal"><span className="f-eyebrow">{s.phase==='unicorn'?'THE ONE PERSON UNICORN':'THE RUN IS OVER'}</span><h1>{s.phase==='unicorn'?'One founder.\nOne billion.':'The company\nran out of road.'}</h1><p>{s.phase==='unicorn'?`This win earns +${money(P.winCashBonus)} starting cash on future runs. Keep operating, or bring that experience to a fresh garage.`:`${s.failure} ${s.wonAt!==null?'Your earlier unicorn win stays in founder history.':'Failed runs award no new starting advantage.'}`}</p><p>{s.inventory.relics.length} relics · {s.reports.filter(r=>r.chosen&&r.chosen!=='passed').length} quarter choices · {s.vc?'VC mandate':s.debt?'Debt financed':'Self-funded now'}</p><RunSummary s={s}/><div><Metric label="FINAL VALUATION" value={money(m.valuation)}/><Metric label="TIME OPERATING" value={time(s.tick)}/></div>{s.phase==='unicorn'&&<button className="f-primary" onClick={()=>send({type:'continue'})}>Keep operating ↗</button>}<button className="f-secondary" onClick={reset}>Start another company</button></div>:s.phase==='paused'?<div className="f-paused"><span className="f-eyebrow">FOUNDER AWAY</span><h1>Take a breath.</h1><p>Your build is saved. Queues, consumable timers and bills wait for Continue.</p><button className="f-primary" onClick={()=>send({type:'continue'})}>Continue ↗</button><small>{notice||saveStatus}</small></div>:s.focus==='skills'?<Skills s={s} send={send}/>:s.focus==='finance'?<Finance s={s} send={send}/>:<>
+         <div className="f-room-heading"><div><span className="f-eyebrow">0{FUNCTIONS.indexOf(s.focus)+1} / {NAMES[s.focus].toUpperCase()} <i/> {s.ranks[s.focus].automate?'FOUNDER + AGENTS':'HANDS ON'}</span><h1>{TITLES[s.focus][0]}</h1><p>{TITLES[s.focus][1]}</p></div><span className="f-work-stamp">{s.deployed[s.focus]>s.tick?'INSTALLING':'READY'}<b>{batch(s,s.focus)}×</b>OUTPUT / WORK<small>{units(s,s.focus)} lane{units(s,s.focus)===1?'':'s'} · {queueCap(s,s.focus)} finite slots</small></span></div>
+         <div className="f-toy" key={s.focus}>{s.focus==='demand'?<Demand s={s} send={send}/>:s.focus==='product'?<ProductToy s={s} send={send}/>:s.focus==='monetisation'?<PricingToy s={s} send={send}/>:s.focus==='retention'?<RetentionToy s={s} send={send}/>:s.focus==='expansion'?<ExpansionToy s={s} send={send}/>:<OperationsToy s={s} send={send}/>}</div>
+         <div className="f-underbench"><span>{s.ranks[s.focus].automate?`${s.completed[s.focus]} outputs · ${Math.round(s.rot[s.focus]*100)}% context rot`:'ONE FOUNDER. STILL ONLY TWO HANDS.'}</span><button onClick={()=>send({type:'focus',work:'skills'})}>{s.ranks[s.focus].automate?'Improve this system':'Teach an agent this job'} ↗</button></div>
+         </>}
+       </section>
+-      <aside className="f-awareness"><div className="f-awareness-title"><span>THE COMPANY</span><i className={s.phase==='paused'?'paused':''}/></div><CompanyScope s={s}/><div className="f-pipeline"><button onClick={()=>send({type:'focus',work:'product'})}><b>{count(s.leads)}</b><span>qualified<br/>opportunities</span></button><i>→</i><button onClick={()=>send({type:'focus',work:'monetisation'})}><b>{count(s.trials)}</b><span>activated<br/>trials</span></button></div><div className="f-health"><span>OPERATING STABILITY</span><b>{Math.round(m.stability*100)}%</b><div><i style={{width:`${m.stability*100}%`}}/></div><p>{m.overload>.3?'Coordination is slowing work. Repair strain or improve Operations.':m.rot>.2?'Your agents are drifting. Operations can refresh their context.':'Room to breathe. Keep the next bill covered.'}</p></div>{(stage>0||m.rot>0||s.strain>0)&&<dl className="f-pressure"><div><dt>Strain backlog</dt><dd>{s.strain.toFixed(1)}</dd></div><div><dt>Worst context rot</dt><dd>{Math.round(m.rot*100)}%</dd></div><div><dt>Agent pace</dt><dd>{Math.round(m.speed*100)}% before context rot</dd></div><div><dt>Coordination</dt><dd>{m.load.toFixed(1)} / {m.capacity.toFixed(1)}</dd></div></dl>}<button className="f-obligation" onClick={()=>send({type:'focus',work:'finance'})}><span>NEXT OPERATING BILL</span><strong>~{money(m.nextBill)}</strong><small>Due in {time(600-s.tick%600)} · cash {money(s.cash)}</small></button>{threats.length>0&&<button className="f-alert" onClick={()=>send({type:'focus',work:'retention'})}>{threats.length} churn threat{threats.length>1?'s':''} · {time(Math.min(...threats.map(a=>a.threat))-s.tick)} left →</button>}<FinanceAlerts s={s} send={send}/>{report&&!report.chosen&&report.choices.length>0&&<button className="f-quarter-notice" onClick={()=>send({type:'focus',work:'finance'})}>Q{report.quarter} closed. Choose what changes. ↗</button>}<BuildContext s={s} send={send}/><ProgressiveHUD s={s}/><small className="f-save-status">{saveStatus}</small></aside></div></div>
++      <aside className="f-awareness"><div className="f-awareness-title"><span>THE COMPANY</span><i className={s.phase==='paused'?'paused':''}/></div><CompanyScope s={s} intensity={intensity}/><div className="f-pipeline"><button onClick={()=>send({type:'focus',work:'product'})}><b>{count(s.leads)}</b><span>qualified<br/>opportunities</span></button><i>→</i><button onClick={()=>send({type:'focus',work:'monetisation'})}><b>{count(s.trials)}</b><span>activated<br/>trials</span></button></div><div className="f-health"><span>OPERATING STABILITY</span><b>{Math.round(m.stability*100)}%</b><div><i style={{width:`${m.stability*100}%`}}/></div><p>{m.overload>.3?'Coordination is slowing work. Repair strain or improve Operations.':m.rot>.2?'Your agents are drifting. Operations can refresh their context.':'Room to breathe. Keep the next bill covered.'}</p></div>{(stage>0||m.rot>0||s.strain>0)&&<dl className="f-pressure"><div><dt>Strain backlog</dt><dd>{s.strain.toFixed(1)}</dd></div><div><dt>Worst context rot</dt><dd>{Math.round(m.rot*100)}%</dd></div><div><dt>Agent pace</dt><dd>{Math.round(m.speed*100)}% before context rot</dd></div><div><dt>Coordination</dt><dd>{m.load.toFixed(1)} / {m.capacity.toFixed(1)}</dd></div></dl>}<button className="f-obligation" onClick={()=>send({type:'focus',work:'finance'})}><span>NEXT OPERATING BILL</span><strong>~{money(m.nextBill)}</strong><small>Due in {time(600-s.tick%600)} · cash {money(s.cash)}</small></button>{threats.length>0&&<button className="f-alert" onClick={()=>send({type:'focus',work:'retention'})}>{threats.length} churn threat{threats.length>1?'s':''} · {time(Math.min(...threats.map(a=>a.threat))-s.tick)} left →</button>}<FinanceAlerts s={s} send={send}/>{report&&!report.chosen&&report.choices.length>0&&<button className="f-quarter-notice" onClick={()=>send({type:'focus',work:'finance'})}>Q{report.quarter} closed. Choose what changes. ↗</button>}<BuildContext s={s} send={send}/><ProgressiveHUD s={s}/><small className="f-save-status" role="status">{recoveryBlocked?"Saving paused to preserve incompatible data. Export in Settings.":saveStatus}</small></aside></div></div>
+       <footer className={`f-receipt ${latest?.kind??''}`} role="status"><span>{latest?time(latest.tick):'0:00'} / FIELD NOTES</span><p key={latest?.id}>{latest?.text??'The company is running.'}</p><b>01 FOUNDER / {s.accounts.filter(a=>a.active).reduce((n,a)=>n+a.count,0)} CUSTOMERS</b></footer>
+     </>}
+-    {newRun&&<div className="f-confirm" role="dialog" aria-modal="true" aria-label="Start a new company"><h2>Close this company?</h2><p>This replaces the current local run. Your successful founder history stays.</p><button className="f-primary" onClick={reset}>Start a new company</button><button className="f-secondary" onClick={()=>setNewRun(false)}>Keep this run</button></div>}
++    {newRun&&<dialog ref={confirmDialog} className="f-confirm" onCancel={()=>setNewRun(false)} aria-label="Start a new company"><h2>Close this company?</h2><p>This replaces the current local run. Your successful founder history stays.</p><button className="f-primary" onClick={reset}>Start a new company</button><button className="f-secondary" onClick={()=>setNewRun(false)}>Keep this run</button></dialog>}
+   </main>;
+ }
+-function Metric({label,value,sub,major,warning}:{label:string;value:string;sub?:string;major?:boolean;warning?:boolean}){return <div className={`f-metric ${major?'major':''} ${warning?'warning':''}`}><span>{label}</span><strong>{value}</strong>{sub&&<small>{sub}</small>}</div>;}
++function Metric({label,value,sub,major,warning}:{label:string;value:string;sub?:string;major?:boolean;warning?:boolean}){return <div className={`f-metric ${major?'major':''} ${warning?'warning':''}`}><span>{label}</span><strong key={value}>{value}</strong>{sub&&<small>{sub}</small>}</div>;}
+ function PricingFlash({pricing}:{pricing:NonNullable<Company['pricingResolution']>}){return <div className={`f-pricing-flash ${pricing.outcome}`} role="status"><b>{pricing.outcome==='signed'?`+${money(pricing.arrDelta)} ARR`:'NO ARR'}</b><span>{pricing.customers} customer{pricing.customers===1?'':'s'} · cash follows billing{pricing.luckDelta?` · Luck ${pricing.luckDelta>0?'+':'−'}${Math.abs(pricing.luckDelta)*4}%`:''}</span></div>;}
+ function Demand({s,send}:{s:Company;send:Send}){
+   const [drag,setDrag]=useState(0);const origin=useRef<{x:number;y:number;signal:number;pointer:number;axis:'pending'|'x'|'y'}|null>(null);const candidate=signal(s);const clear=()=>{origin.current=null;setDrag(0);};
+@@ -100,7 +114,7 @@
+ }
+ function Skills({s,send}:{s:Company;send:Send}){
+   const [f,setF]=useState<Work>('demand');const [axis,setAxis]=useState<Axis>('automate');const rank=s.ranks[f][axis],next=rank+1,cost=skillCost(s,f,axis);const m=metrics(s);const preview=structuredClone(s);if(rank<4)preview.ranks[f][axis]++;const nextMetrics=metrics(preview);const definition=skillRank(f,axis,next);const finiteCap=f==='demand'?Math.max(0,Math.min(s.market[s.channel],units(preview,'product')*P.queue_slots_per_unit*batch(preview,'product')-count(s.leads))):f==='product'?Math.max(0,Math.min(count(s.leads),units(preview,'monetisation')*P.queue_slots_per_unit*batch(preview,'monetisation')-count(s.trials))):f==='monetisation'?count(s.trials):batch(preview,f);const luck=luckDistribution(next,batch(preview,f),finiteCap),operationsLuck=useOperationsLuck(f==='operations'&&axis==='luck',s.ranks.operations.scale,next,s.ranks.operations.automate,s.inventory.relics.includes('relic:reserved-instances'));
+-  return <div className="f-management"><span className="f-eyebrow">CAPABILITY / PERMANENT FOR THIS RUN</span><h1>Buy back your attention.</h1><p>Improve one part of the machine. Every new capability has a cash and coordination cost.</p><div className="f-skill-functions">{FUNCTIONS.map(x=><button key={x} aria-pressed={x===f} onClick={()=>setF(x)}>{NAMES[x]}<small>{AXES.reduce((n,a)=>n+s.ranks[x][a],0)} / 16 ranks</small></button>)}</div><div className="f-skill-tree"><div className="f-axis-list">{AXES.map(a=><button key={a} aria-pressed={axis===a} onClick={()=>setAxis(a)}><span>{a.toUpperCase()}</span><div>{[1,2,3,4].map(n=><i key={n} className={n<=s.ranks[f][a]?'owned':''}/>)}</div><small>{a==='craft'?'Better work':a==='scale'?'More work units':a==='automate'?'Hands become systems':'Choose more variance'}</small></button>)}</div><article className="f-skill-detail"><span>{NAMES[f].toUpperCase()} / {axis.toUpperCase()}</span><div className="f-rank-number">{rank===4?'04':`0${next}`}<small>/ 04</small></div><h2>{rank===4?'Fully installed.':definition?.name??(axis==='automate'?'A faster autonomous system.':axis==='craft'?'Make each attempt count.':axis==='scale'?'Give the work more room.':'Let the tails get wider.')}</h2><p>{rank===4?'This branch is fully deployed. Your next bottleneck lives elsewhere.':skillEffect(s,f,axis)}</p>{rank<4&&<><dl><div><dt>PREREQUISITE</dt><dd>{definition?.prerequisite??'Previous rank in this branch'}</dd></div><div><dt>CASH AFTER PURCHASE</dt><dd>{money(s.cash-cost)}</dd></div><div><dt>MONTHLY BILL AFTER INSTALL</dt><dd>{money(nextMetrics.cost)} <small>({money(nextMetrics.cost-m.cost)} change)</small></dd></div><div><dt>COMMITMENT</dt><dd>{definition?.recurringCommitment??'5 seconds to deploy'}</dd></div><div><dt>VISIBLE CHANGE</dt><dd>{definition?.visibleChange??'Capability instruments update'}</dd></div>{axis==='luck'&&operationsLuck?<><div><dt>WHOLE-TICKET NET</dt><dd>E {money(operationsLuck.automated.meanAfterPrice)} after price</dd></div><div><dt>AUTOMATED NET</dt><dd>E {money(operationsLuck.automated.meanAfterPriceAndUpkeep)} after allocated upkeep</dd></div><div><dt>TAIL RANGE</dt><dd>{money(operationsLuck.automated.minimum)} to {money(operationsLuck.automated.maximum)}</dd></div></>:axis==='luck'&&<><div><dt>RAW OUTPUT</dt><dd>E {luck.raw.mean.toFixed(2)} · variance {luck.raw.variance.toFixed(2)}</dd></div><div><dt>FINITE INPUT CAP</dt><dd>E {luck.capped.mean.toFixed(2)} / {finiteCap} · variance {luck.capped.variance.toFixed(2)}</dd></div></>}</dl><p className="f-risk-note">{definition?.downside??'Finite inputs and operating pressure still apply.'}</p><button className="f-primary" disabled={s.cash<cost} onClick={()=>send({type:'buy',work:f,axis,rank:next})}>Install {axis} {next} <b>{money(cost)}</b></button>{s.cash-cost<nextMetrics.cost&&<small className="f-risk-note">This purchase leaves less than one projected monthly bill in cash.</small>}</>}</article></div>{s.ranks[f].automate>0&&<button className="f-secondary" onClick={()=>send({type:'automation',work:f})}>{s.enabled[f]?'Switch off':'Restart'} {NAMES[f]} agents · {s.enabled[f]?'stop compute upkeep and new rot':'resume autonomous production'}</button>}{s.ranks[f].luck>0&&<button className="f-secondary f-risk-toggle" onClick={()=>send({type:'risk',work:f})} aria-pressed={s.risky[f]}>Luck exposure {s.risky[f]?'on':'off'} · {s.risky[f]?'disable risk':'enable explained seeded swings'}</button>}<div className="f-hud-progression"><span>YOUR WORKSPACE EVOLVES WITH INSTALLED CAPABILITY</span>{STAGES.map((label,i)=><b key={label} className={tier(s)>=i?'active':''}>{label}</b>)}</div></div>;
++  return <div className="f-management"><span className="f-eyebrow">CAPABILITY / PERMANENT FOR THIS RUN</span><h1>Buy back your attention.</h1><p>Improve one part of the machine. Every new capability has a cash and coordination cost.</p><div className="f-skill-functions">{FUNCTIONS.map(x=><button key={x} aria-pressed={x===f} onClick={()=>setF(x)}>{NAMES[x]}<small>{AXES.reduce((n,a)=>n+s.ranks[x][a],0)} / 16 ranks</small></button>)}</div><div className="f-skill-tree"><div className="f-axis-list">{AXES.map(a=><button key={a} aria-pressed={axis===a} onClick={()=>setAxis(a)}><span>{a.toUpperCase()}</span><div>{[1,2,3,4].map(n=><i key={n} className={n<=s.ranks[f][a]?'owned':''}/>)}</div><small>{a==='craft'?'Better work':a==='scale'?'More work units':a==='automate'?'Hands become systems':'Choose more variance'}</small></button>)}</div><article className="f-skill-detail"><span>{NAMES[f].toUpperCase()} / {axis.toUpperCase()}</span><div className="f-rank-number">{rank===4?'04':`0${next}`}<small>/ 04</small></div><h2>{rank===4?'Fully installed.':definition?.name??(axis==='automate'?'A faster autonomous system.':axis==='craft'?'Make each attempt count.':axis==='scale'?'Give the work more room.':'Let the tails get wider.')}</h2><p>{rank===4?'This branch is fully deployed. Your next bottleneck lives elsewhere.':skillEffect(s,f,axis)}</p>{rank<4&&<><dl><div><dt>PREREQUISITE</dt><dd>{definition?.prerequisite??'Previous rank in this branch'}</dd></div><div><dt>CASH AFTER PURCHASE</dt><dd>{money(s.cash-cost)}</dd></div><div><dt>MONTHLY BILL AFTER INSTALL</dt><dd>{money(nextMetrics.cost)} <small>({money(nextMetrics.cost-m.cost)} change)</small></dd></div><div><dt>COMMITMENT</dt><dd>{definition?.recurringCommitment??'5 seconds to deploy'}</dd></div><div><dt>VISIBLE CHANGE</dt><dd>{definition?.visibleChange??'Capability instruments update'}</dd></div>{axis==='luck'&&operationsLuck?<><div><dt>WHOLE-TICKET NET</dt><dd>E {money(operationsLuck.automated.meanAfterPrice)} after price</dd></div><div><dt>AUTOMATED NET</dt><dd>E {money(operationsLuck.automated.meanAfterPriceAndUpkeep)} after allocated upkeep</dd></div><div><dt>TAIL RANGE</dt><dd>{money(operationsLuck.automated.minimum)} to {money(operationsLuck.automated.maximum)}</dd></div></>:axis==='luck'&&<><div><dt>RAW OUTPUT</dt><dd>E {luck.raw.mean.toFixed(2)} · variance {luck.raw.variance.toFixed(2)}</dd></div><div><dt>FINITE INPUT CAP</dt><dd>E {luck.capped.mean.toFixed(2)} / {finiteCap} · variance {luck.capped.variance.toFixed(2)}</dd></div></>}</dl><p className="f-risk-note">{definition?.downside??'Finite inputs and operating pressure still apply.'}</p><button className="f-primary" disabled={s.cash<cost} onClick={()=>send({type:'buy',work:f,axis,rank:next})}>Install {axis} {next} <b>{money(cost)}</b></button>{s.cash-cost<nextMetrics.cost&&<small className="f-risk-note">This purchase leaves less than one projected monthly bill in cash.</small>}</>}</article></div>{s.ranks[f].automate>0&&<button className="f-secondary" onClick={()=>send({type:'automation',work:f})}>{s.enabled[f]?'Switch off':'Restart'} {NAMES[f]} agents · {s.enabled[f]?'stop compute upkeep and new rot':'resume autonomous production'}</button>}{s.ranks[f].luck>0&&<button className="f-secondary f-risk-toggle" onClick={()=>send({type:'risk',work:f})} aria-pressed={s.risky[f]}>Luck exposure {s.risky[f]?'on':'off'} · {s.risky[f]?'disable risk':'enable explained seeded swings'}</button>}<div className="f-hud-progression"><span>INSTRUMENTS UNLOCK WITH INSTALLED CAPABILITY</span>{['Manual','Assisted','Swarm','Executive','Full capacity'].map((label,i)=><b key={label} className={tier(s)>=i?'active':''}>{label}</b>)}</div></div>;
+ }
+ function Finance({s,send}:{s:Company;send:Send}){
+   const m=metrics(s),offers=capitalOffers(s),latest=s.reports.at(-1);
+@@ -170,11 +184,11 @@
+  const use=consumableUse(s,action);
+  return <div className="f-consumable"><b>{r.name} ×{count}</b><p>{REWARD_EFFECTS[r.effect].summary}{r.duration==='month'?' One active month.':''}</p>{choices.length>0&&<select aria-label={`${r.name} target`} value={selected} onChange={e=>setTarget(e.target.value)}>{choices.map(c=><option key={c.value} value={c.value}>{c.label}</option>)}</select>}<button className="f-secondary" disabled={!use.available} onClick={()=>send(action)}>{use.available?'Use one charge':use.reason}</button></div>;
+ }
+-function CompanyScope({s}:{s:Company}){
++function CompanyScope({s,intensity}:{s:Company;intensity:FeedbackIntensity}){
+   const ref=useRef<HTMLCanvasElement>(null);
+-  useEffect(()=>{const canvas=ref.current;if(!canvas)return;const ctx=canvas.getContext('2d');if(!ctx)return;const dpr=Math.min(2,window.devicePixelRatio||1);canvas.width=220*dpr;canvas.height=145*dpr;ctx.scale(dpr,dpr);ctx.clearRect(0,0,220,145);const level=tier(s),color=level>=4?'#b8e2e6':level>=2?'#86c9cb':'#baa889';const points=FUNCTIONS.map((_,i)=>({x:110+62*Math.cos(-Math.PI/2+i*Math.PI/3),y:72+52*Math.sin(-Math.PI/2+i*Math.PI/3)}));ctx.strokeStyle=color+'55';ctx.lineWidth=1;for(let i=0;i<6;i++){const p=points[i],next=points[(i+1)%6];ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(next.x,next.y);ctx.stroke();if(level>=1){ctx.beginPath();ctx.moveTo(110,72);ctx.lineTo(p.x,p.y);ctx.stroke();}ctx.fillStyle=s.focus===FUNCTIONS[i]?color:'#262829';ctx.beginPath();ctx.arc(p.x,p.y,s.ranks[FUNCTIONS[i]].automate?6:3,0,Math.PI*2);ctx.fill();ctx.strokeStyle=color;ctx.stroke();if(agentStatus(s,FUNCTIONS[i]).state==='running'&&!window.matchMedia('(prefers-reduced-motion: reduce)').matches){const progress=s.credits[FUNCTIONS[i]];ctx.fillStyle=color;ctx.beginPath();ctx.arc(110+(p.x-110)*progress,72+(p.y-72)*progress,2,0,Math.PI*2);ctx.fill();}}
++  useEffect(()=>{const canvas=ref.current;if(!canvas)return;const ctx=canvas.getContext('2d');if(!ctx)return;const dpr=Math.min(2,window.devicePixelRatio||1);canvas.width=220*dpr;canvas.height=145*dpr;ctx.scale(dpr,dpr);ctx.clearRect(0,0,220,145);const level=tier(s),color=level>=4?'#b8e2e6':level>=2?'#86c9cb':'#baa889';const points=FUNCTIONS.map((_,i)=>({x:110+62*Math.cos(-Math.PI/2+i*Math.PI/3),y:72+52*Math.sin(-Math.PI/2+i*Math.PI/3)}));ctx.strokeStyle=color+'55';ctx.lineWidth=1;for(let i=0;i<6;i++){const p=points[i],next=points[(i+1)%6];ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(next.x,next.y);ctx.stroke();if(level>=1){ctx.beginPath();ctx.moveTo(110,72);ctx.lineTo(p.x,p.y);ctx.stroke();}ctx.fillStyle=s.focus===FUNCTIONS[i]?color:'#262829';ctx.beginPath();ctx.arc(p.x,p.y,s.ranks[FUNCTIONS[i]].automate?6:3,0,Math.PI*2);ctx.fill();ctx.strokeStyle=color;ctx.stroke();if(intensity==='full'&&agentStatus(s,FUNCTIONS[i]).state==='running'&&!window.matchMedia('(prefers-reduced-motion: reduce)').matches){const progress=s.credits[FUNCTIONS[i]];ctx.fillStyle=color;ctx.beginPath();ctx.arc(110+(p.x-110)*progress,72+(p.y-72)*progress,2,0,Math.PI*2);ctx.fill();}}
+   ctx.fillStyle=color;ctx.font='22px monospace';ctx.textAlign='center';ctx.fillText('1',110,78);ctx.font='7px monospace';ctx.fillText('FOUNDER',110,91);
+-  },[s]);
++  },[s,intensity]);
+   return <canvas ref={ref} className="f-company-scope" style={{width:'100%',height:145}} aria-label="Six connected work functions around one founder. Moving signals indicate autonomous work." role="img"/>;
+ }
+ function ProgressiveHUD({s}:{s:Company}){
+--- a/app/pwa-registration.tsx
++++ b/app/pwa-registration.tsx
+@@ -1,10 +1,16 @@
+ 'use client';
+-
+-import { useEffect } from 'react';
+-
++import { useEffect, useState } from 'react';
+ export default function PwaRegistration(){
+-  useEffect(()=>{
+-    if(process.env.NODE_ENV === 'production' && 'serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(()=>undefined);}
+-  },[]);
+-  return null;
++ const [waiting,setWaiting]=useState(false);
++ useEffect(()=>{
++  if(process.env.NODE_ENV!=='production'||!('serviceWorker' in navigator))return;
++  let disposed=false;
++  const update=()=>{if(!disposed)setWaiting(true);};
++  void navigator.serviceWorker.register('/sw.js',{updateViaCache:'none'}).then(registration=>{
++   if(registration.waiting)update();
++   registration.addEventListener('updatefound',()=>{const worker=registration.installing;worker?.addEventListener('statechange',()=>{if(worker.state==='installed'&&navigator.serviceWorker.controller)update();});});
++  }).catch(()=>undefined);
++  return()=>{disposed=true;};
++ },[]);
++ return waiting?<aside className="pwa-update" role="status">Update ready. Pause, wait for “Saved on this device”, then close every game tab to install safely. Your partial work stays saved.</aside>:null;
+ }
+--- a/scripts/prepare-founder-offline.mjs
++++ b/scripts/prepare-founder-offline.mjs
+@@ -1,14 +1,19 @@
+ import {existsSync,readdirSync,readFileSync,writeFileSync} from 'node:fs';
+ import {join,relative} from 'node:path';
+ import {createHash} from 'node:crypto';
+-const legacyRoot='dist/client';
+-const isNextBuild=existsSync('.next');
+-const root=isNextBuild?'.next':legacyRoot;
++const isNextBuild=existsSync('.next/BUILD_ID');
++const root=isNextBuild?'.next':'dist/client';
+ const staticRoot=isNextBuild?join(root,'static'):join(root,'_next');
+ function walk(dir){return readdirSync(dir,{withFileTypes:true}).flatMap(entry=>entry.isDirectory()?walk(join(dir,entry.name)):[join(dir,entry.name)]);}
+-const assets=walk(staticRoot).filter(file=>/\.(js|css|woff2?)$/.test(file)).map(file=>`/_next/static/${relative(staticRoot,file).split('\\').join('/')}`).sort();
+-const source=readFileSync('public/sw.js','utf8');
+-const version=createHash('sha256').update(JSON.stringify(assets)+source).digest('hex').slice(0,12);
+-const worker=source.replace('const BUILD_ASSETS = [];',`const BUILD_ASSETS = ${JSON.stringify(assets)};`).replace("'opu-founder-company-2'",`'opu-founder-${version}'`);
++const files=walk(staticRoot).filter(file=>/\.(js|css|woff2?)$/.test(file));
++const staticAssets=files.map(file=>`/_next/static/${relative(staticRoot,file).split('\\').join('/')}`);
++const publicFiles=walk('public').filter(p=>p!=='public/sw.js');
++const assets=['/','/manifest.webmanifest',...staticAssets,...publicFiles.map(p=>'/'+relative('public',p))].sort();
++const source=readFileSync('scripts/founder-sw.template.txt','utf8');
++const hash=createHash('sha256').update(source).update(JSON.stringify(assets));
++for(const file of [...files,...publicFiles].sort())hash.update(readFileSync(file));
++if(isNextBuild)hash.update(readFileSync('.next/BUILD_ID'));
++const version=hash.digest('hex').slice(0,12);
++const worker=source.replace('__CACHE__',`opu-founder-${version}`).replace('__ASSETS__',JSON.stringify(assets));
+ writeFileSync(isNextBuild?'public/sw.js':join(root,'sw.js'),worker);
+-console.log(`Offline package: ${assets.length} immutable files, build ${version}.`);
++console.log(`Offline package: ${staticAssets.length} immutable files, ${publicFiles.length} public assets, build ${version}.`);
+--- a/public/sw.js
++++ b/public/sw.js
+@@ -1,44 +1,29 @@
+-const CACHE = 'opu-founder-1f7a697cd59c';
+-const BUILD_ASSETS = ["/_next/static/Si5R1OyEDUpMLUgCQLcmC/_buildManifest.js","/_next/static/Si5R1OyEDUpMLUgCQLcmC/_clientMiddlewareManifest.js","/_next/static/Si5R1OyEDUpMLUgCQLcmC/_ssgManifest.js","/_next/static/chunks/00z4lrslsk~mx.css","/_next/static/chunks/03~yq9q893hmn.js","/_next/static/chunks/06tvq0n1.61cc.js","/_next/static/chunks/09a~kdz.x6-.h.js","/_next/static/chunks/0fjvs1suwpu9n.css","/_next/static/chunks/0ji1766p81z6m.js","/_next/static/chunks/0jn2r15sm1x88.js","/_next/static/chunks/0m6bkp6vk9ujz.js","/_next/static/chunks/0p0h9kdlr3ee-.js","/_next/static/chunks/turbopack-0-vm.vveqt324.js","/_next/static/media/4fa387ec64143e14-s.0wkzw~je483f-.woff2","/_next/static/media/53b9e256198e5412-s.0-wfv7uh4i7h9.woff2","/_next/static/media/5ce348bf30bf5439-s.0zgw-jeven.3w.woff2","/_next/static/media/6306c77e7c8268e4-s.0rhz0arwfsn~5.woff2","/_next/static/media/7178b3e590c64307-s.0nx0ww8fni_q3.woff2","/_next/static/media/797e433ab948586e-s.p.08e28id.o-okb.woff2","/_next/static/media/7d817b4c03b0c5f1-s.0l76wvqk9d84w.woff2","/_next/static/media/8a480f0b521d4e75-s.0jzbimsg8vl84.woff2","/_next/static/media/bbc41e54d2fcbd21-s.0k4k9394f2q-k.woff2","/_next/static/media/caa3a2e1cccd8315-s.p.09~u27dqhyhd6.woff2","/_next/static/media/fef07dbb0973bf53-s.12tyk43_3sh9u.woff2"];
+-const CORE = ['/', '/manifest.webmanifest', '/structure-mark.png', '/icon-192.png', '/icon-512.png', '/founder-assets/ceramic-bank.png', '/founder-assets/feature-module.png'];
+-
+-// A new worker waits for the current session to finish instead of mixing builds.
++const CACHE = 'opu-founder-df3e6ca0c9a8';
++const CORE = ["/","/_next/static/AFmogaCtE05ZTq3DeuzN1/_buildManifest.js","/_next/static/AFmogaCtE05ZTq3DeuzN1/_clientMiddlewareManifest.js","/_next/static/AFmogaCtE05ZTq3DeuzN1/_ssgManifest.js","/_next/static/chunks/03cnjj9mnzy_p.js","/_next/static/chunks/03~yq9q893hmn.js","/_next/static/chunks/07lhk_q6pmm3r.js","/_next/static/chunks/0anwxxj_60gzd.css","/_next/static/chunks/0dbhjjzl8qfwv.js","/_next/static/chunks/0fjvs1suwpu9n.css","/_next/static/chunks/0fpq8qcrlys-5.js","/_next/static/chunks/0ht900cau6_ur.js","/_next/static/chunks/0sw7.pcdyi7_6.js","/_next/static/chunks/turbopack-0bxcrz71-nfi1.js","/_next/static/media/4fa387ec64143e14-s.0wkzw~je483f-.woff2","/_next/static/media/53b9e256198e5412-s.0-wfv7uh4i7h9.woff2","/_next/static/media/5ce348bf30bf5439-s.0zgw-jeven.3w.woff2","/_next/static/media/6306c77e7c8268e4-s.0rhz0arwfsn~5.woff2","/_next/static/media/7178b3e590c64307-s.0nx0ww8fni_q3.woff2","/_next/static/media/797e433ab948586e-s.p.08e28id.o-okb.woff2","/_next/static/media/7d817b4c03b0c5f1-s.0l76wvqk9d84w.woff2","/_next/static/media/8a480f0b521d4e75-s.0jzbimsg8vl84.woff2","/_next/static/media/bbc41e54d2fcbd21-s.0k4k9394f2q-k.woff2","/_next/static/media/caa3a2e1cccd8315-s.p.09~u27dqhyhd6.woff2","/_next/static/media/fef07dbb0973bf53-s.12tyk43_3sh9u.woff2","/founder-assets/ceramic-bank.png","/founder-assets/environments.png","/founder-assets/feature-module.png","/founder-assets/manifest.json","/founder-world.png","/icon-192.png","/icon-512.png","/manifest.webmanifest","/og.png","/structure-mark.png"];
++// Installation is atomic: a missing file rejects the whole candidate cache.
++// Never skipWaiting. Existing tabs keep their document, rules and asset version.
+ self.addEventListener('install', event => {
+-  event.waitUntil((async () => {
+-    const cache = await caches.open(CACHE);
+-    await cache.addAll([...CORE, ...BUILD_ASSETS]);
+-  })());
++ event.waitUntil((async()=>{
++  const cache=await caches.open(CACHE);
++  try{await cache.addAll(CORE);}catch(error){await caches.delete(CACHE);throw error;}
++ })());
+ });
+ self.addEventListener('activate', event => {
+-  event.waitUntil((async () => {
+-    const keys = await caches.keys();
+-    await Promise.all(keys.filter(key => key.startsWith('opu-') && key !== CACHE).map(key => caches.delete(key)));
+-    await self.clients.claim();
+-  })());
++ event.waitUntil((async()=>{
++  for(const key of await caches.keys())if(key.startsWith('opu-')&&key!==CACHE)await caches.delete(key);
++  await self.clients.claim();
++ })());
+ });
+ self.addEventListener('fetch', event => {
+-  const request = event.request;
+-  const url = new URL(request.url);
+-  if (request.method !== 'GET' || url.origin !== self.location.origin) return;
+-  const navigation = request.mode === 'navigate';
+-  const asset = ['script', 'style', 'image', 'font'].includes(request.destination);
+-  if (!navigation && !asset) return;
+-  event.respondWith((async () => {
+-    const cache = await caches.open(CACHE);
+-    // Hashed build assets stay paired with their document, including offline.
+-    const cached = await cache.match(request);
+-    if (!navigation && cached) return cached;
+-    try {
+-      const response = await fetch(request);
+-      if (response.ok && response.type === 'basic') {
+-        event.waitUntil(cache.put(request, response.clone()).catch(() => undefined));
+-      }
+-      return response;
+-    } catch {
+-      if (cached) return cached;
+-      if (navigation) return (await cache.match('/')) || Response.error();
+-      // Never serve HTML as a missing JavaScript, image, or stylesheet.
+-      return Response.error();
+-    }
+-  })());
++ const request=event.request,url=new URL(request.url);
++ if(request.method!=='GET'||url.origin!==self.location.origin)return;
++ const navigation=request.mode==='navigate';
++ if(!navigation&&!CORE.includes(url.pathname))return;
++ event.respondWith((async()=>{
++  const cache=await caches.open(CACHE);
++  // HTML is paired with this worker's hashed assets, even while online.
++  const cached=await cache.match(navigation?'/':url.pathname);
++  if(cached)return cached;
++  try{return await fetch(request);}catch{return Response.error();}
++ })());
+ });
+--- a/docs/exec-plans/active/2026-09-16-founder-revamp/CHECKPOINT.md
++++ b/docs/exec-plans/active/2026-09-16-founder-revamp/CHECKPOINT.md
+@@ -1,6 +1,6 @@
+ # Revamp checkpoint
+ 
+-Updated: 2026-09-19. S12 is implemented and headless-validated. Visual acceptance remains pending. S00-S11 preserved; browser/computer-use remains disabled. S13 has not started.
++Updated: 2026-09-20. S13-S15 candidate implementation and headless evidence are saved. All three remain implemented_unverified; final icon alpha, browser/device and human acceptance are open. No browser/computer use, subagents, push or deployment.
+ 
+ ## Repository identity
+ 
+@@ -13,19 +13,31 @@
+ 
+ ## Next task
+ 
+-**S13 — Earn the environment and spectator payoff**, Terra / medium. Stop here until explicitly authorized. Read tasks/S13.md, DECISIONS.md and queue.json. Preserve S12 finite rewards, inventory, paused timers and the single recorded win per company. No push or deployment.
+-
+-Completed S12: four candidate build families with eight relics and four consumables; registered effects applied to real acquisition, shipment fit, invoices, overhead, care, addon service, compute and rot. Seeded contextual draft offers exclude owned/full/irrelevant rewards and duplicate effects; exhausted pools support skip. Consumables have explicit targets or one-month timers, exact charge depletion and non-stacking rules. Forecasts respect expiry, and Operations allocation/preview respects compute discounts.
+-
+-Founder history is a pure, tested helper with legacy-format decoding, deduplication and storage retry. A winning run receives one timestamp and one starting-cash advantage; later continuation quarters cannot mint another. Quarter-boundary unicorn wins retain their draft for Continue. Failed runs mint no new permanent power. New companies reset run rewards while preserving earned history.
+-
+-Evidence: artifacts/qa/founder-revamp/S12/validation.json, catalogue.json, SCENARIOS.md and policy-summary.json; content contract: docs/content/FOUNDER_REWARDS.md. Final root validation passed **107/107 Founder tests** plus contract, balance-schema, smoke, determinism, typecheck and lint. Production build passed: 24 immutable offline files, build b1727e9b490b. git diff --check passed. Versions: founder-state.1 / founder-candidate.12 / founder-content.candidate.12 / save envelope 2. Candidate.11/content.5 migration preserves old choices, charges and financing, and establishes a new replay baseline.
+-
+-Policy sweep: six seeded bootstrap/debt runs, unchanged 27,000-tick / 45-active-minute horizon; 4 failures, 2 horizon-censored survivors, 0 wins. Draft pool/choices changed, so this is not a controlled balance comparison with S11. Numeric effect budgets are candidate, not locked. The legacy registry still has 41 required unresolved entries and runtimeReady=false. S15 owns full-run viability, successful pacing, degenerate builds and human comprehension.
+-
+-Browser/computer-use remains disabled. S12 rendered draft/inventory/target controls, desktop/mobile/compact layout, gestures and reduced-motion acceptance are pending. S13 owns further visual payoff; S14 retains the late-run performance follow-up from S11. No independent review or model switch was performed in this inherited primary task.
+-
+-Recovery: S12 baseline.json records the pre-slice mixed checkout; S12.patch isolates this slice, with source hashes in validation.json. The state-save/toys test snapshots were captured before their first S12 edits. Preserve all earlier slices, supplied folders, paid tickets, partial jobs and saves. No partial code remains. Failed/interrupted diagnostic logs are retained separately and superseded by final validation.
++**Acceptance follow-up, not another implementation packet.** S00-S15 have implementation records; none of the inherited missing visual/human gates is waived. Read [S15-ACCEPTANCE.md](S15-ACCEPTANCE.md) and `artifacts/qa/founder-revamp/S15/RESULTS.md`. Final icon transparency handoff: `asset_requests/pending/founder-function-icons.md`. Browser/computer use remains disabled. Do not start browser/device QA or claim the product finished without the missing evidence.
++
++### Implemented in S13-S15
++
++- S13: original six-room atlas, highest-earned valuation stages at $10K/$50K/$100K/$500K/$1M, candidate later labels, distress cues, independent sound/motion and reduced-motion behavior, local run receipt. The laptop screen remains responsive DOM. Two icon generations failed alpha requirements and were rejected. Later stages reuse sky-studio art.
++- S14: atomic IndexedDB checkpoint slots with stale-tab revision conflict detection and legacy preservation; interrupted-write recovery and explicit export/recovery controls. Boundary actions and quarter close save promptly and show progress. New-run replacement cannot race the autosave loop. Native dialog, six-function mobile rail and safe-area/focus styles. Offline worker generated afresh from a stable template with content hashes, complete assets, atomic install and no forced activation. `npm run start` now uses Next to match `npm run build`; Vinext development remains. Local HTTP smoke passed and its server was stopped.
++- Performance: immutable event-log sharing and indexed invoice lookups preserve all economic work and replay. An earned 44-minute company (3,450 actions, 251 cohorts, 6,976 closed jobs) measured one headless tick at 2.84 ms median / 3.24 ms p95, excluding React/rendering. Full replay logs are retained in IndexedDB; unlimited continuation/history is not certified.
++- S15: candidate final Craft batch 16 -> 32 after paired 16/32/40/64 pilots; all ordinary early ranks and valuation/finance formulas preserved. Final rank copy reflects 32. Candidate.12 saves rebase to candidate.15 with accepted financing/ranks/rewards intact. No balance key was locked.
++
++### Final evidence
++
++Root `npm run validate`: **117 Founder tests**, contract, schema, smoke, determinism, typecheck and lint passed. Additional earned-run lifecycle/replay and 30,000-ticket-tail tests passed. Final typecheck/lint passed after UI fixes. Production build: **df3e6ca0c9a8**, 24 immutable chunks/font files and 9 public assets. Offline Cache API harness and HTTP smoke pass; these are not browser/device playthroughs. `git diff --check` passed.
++
++Final matrix: **270 runs**, nine declared policies × 30 shared seeds (15000–15029), 45-active-minute horizon; **122 wins, 0 failures, 148 censored**. Earlier overinvesting bootstrap failures are retained in `matrix-v1`; corrected bootstrap reserves/purchases are policy v2. Unchanged debt/VC v1 evidence is reused. Hybrid bootstrap winning median 15.5 minutes; automated winning medians around 32–40 minutes. Sixteen scripted runs finish in 15–20 minutes. Pure-manual cases have no wins within the horizon. Policy solutions/timing are ideal and several dimensions are confounded; do not call this human balance validation. All results include profile signatures and survive interruption.
++
++Versions: founder-state.1 / **founder-candidate.15** / founder-content.candidate.12 / save envelope 2 / founder-art.13. Legacy balance still has 41 unresolved required entries and runtimeReady=false.
++
++Actual execution: inherited GPT-6-based primary task, no model switch or delegation. Assigned lower-model labels in packets are not claims of the model used. No commit, push, merge or deployment.
++
++### Resume / recovery
++
++- `npm run balance:founder-matrix` explicitly enables the long matrix and resumes matching profile/policy records; ordinary `npm test` skips it. `npm run test:founder-earned` reproduces the earned unicorn, replay, continuation and fresh-company history path.
++- `npm run build` then `npm run pwa:check` verifies offline output. `npm run start -- --port 3214` serves that build locally.
++- S13/S14/S15 baseline manifests preserve incremental snapshots. `artifacts/qa/founder-revamp/S15/S13-S15.patch` is the combined text-source recovery patch from the pre-S13 mixed checkout; the original binary atlas stays at its manifest path. `validation.json` records hashes. Do not reset the mixed checkout or remove supplied source packs, saves or earlier slices.
++- No partial edit or long process remains. Pending acceptance: final icon alpha; rendered desktop/mobile/tablet/landscape/installed-PWA, real offline reload and gestures; physical frame/input timing; human comprehension/fun/streamer readability; manual-only viability and further balance calibration; owner acceptance. No extra policy sweep is needed merely to resume.
+ 
+ ## Completed decisions
+ 
+@@ -185,3 +197,15 @@
+ - Safeguards: one quarter choice, exact-use charges, no silent target substitution in commands, non-stacking equivalent effects, active-time expiry, consistent bill forecast, safe legacy migration and replay. Win marker stays fixed through continuation; the winning quarter draft remains claimable once.
+ - Diagnostic fixes: updated obsolete inventory and always-firebreak assertions; corrected an old cost-variable reference during forecast refactor; synchronized discounted Operations upkeep/preview; corrected its optional measurement argument and isolated memoization in a scalar-argument hook. Final checks passed without suppressing lint, shortening the policy horizon or tuning the economy to force outcomes.
+ - Remaining: inherited visual/device review, S13 authored visual/spectator payoff, S14 late-run performance and S15 balance/playtesting. Candidate numbers are not locked. No new discovery or broad source-pack reread is needed on resumption.
++
++## S13/S14 active handoff
++
++Owner authorized S13, S14 and S15 together. S13 added original six-room atlas, persisted peak valuation milestone ladder, distress cues, independent sound/motion preferences and local copyable run receipt. Two focused tests pass; lint passes; production build is running. Icon alpha generation failed twice; candidates are excluded from shipping and exact handoff is asset_requests/pending/founder-function-icons.md. Browser/device QA remains disabled. S14 next fixes stale service-worker packaging, transactional save recovery and log-clone costs before S15 matrix. No model switch, delegation or publication.
++
++## S14 headless integration / S15 active
++
++112 Founder tests, typecheck, lint and build pass; build 2ec466bfe154 packages 24 immutable and 9 public files. Offline mock verifies cache atomicity, complete assets and no forced activation. Journal recovery tests preserve interrupted writes and incompatible bytes. Long immutable-event fixture records before/after performance in S14/performance.json; audits remain intact, no economic work removed. Physical device/offline/browser/frame timing remains pending. S15 matrix harness tests/simulation/founder-matrix.test.ts declares nine policies covering manual/hybrid/automation and bootstrap/debt/VC with balanced Luck, Ops and repeat-founder variants. Default 30 shared seeds each, 45-minute horizon, resumable per-run JSON. First manual-debt pilot seed15000 censored at $76.1M; no tuning applied. Next: pilot hybrid/automation, diagnose bottlenecks, run full matrix and acceptance report.
++
++## S13-S15 handoff history
++
++Final candidate evidence and recovery patch saved on 2026-09-20. The working checkpoints below/above are historical; the active summary is at the top. Supplied source packs and all earlier dirty edits remain preserved. All authorized headless work reached a coherent local candidate. Open final-art, device and human gates are enumerated in S15-ACCEPTANCE.md.
+--- a/docs/exec-plans/active/2026-09-16-founder-revamp/README.md
++++ b/docs/exec-plans/active/2026-09-16-founder-revamp/README.md
+@@ -1,6 +1,6 @@
+ # Founder roguelike revamp: execution and resume entry
+ 
+-Plan prepared: 2026-09-16. **Planning complete; gameplay implementation not started.**
++Plan prepared: 2026-09-16. **Implementation records through S15 saved; visual, final-art and human acceptance remain open.**
+ 
+ ## Outcome
+ 
+--- a/docs/exec-plans/active/2026-09-16-founder-revamp/queue.json
++++ b/docs/exec-plans/active/2026-09-16-founder-revamp/queue.json
+@@ -242,10 +242,16 @@
+       "depends_on": [
+         "S12"
+       ],
+-      "status": "pending",
++      "status": "implemented_unverified",
+       "packet": "tasks/S13.md",
+-      "evidence": [],
+-      "code_ready_dependency_exceptions": []
++      "evidence": [
++        "artifacts/qa/founder-revamp/S13/validation.json",
++        "docs/exec-plans/active/2026-09-16-founder-revamp/S15-ACCEPTANCE.md"
++      ],
++      "code_ready_dependency_exceptions": [
++        "Owner authorized S13-S15 together. Predecessor state/build tests pass; inherited browser/device and independent review acceptance remains unverified.",
++        "Final icon alpha, physical-device/input/frame timing and human comprehension/pacing are visibly open; do not interpret headless gates as product acceptance."
++      ]
+     },
+     {
+       "id": "S14",
+@@ -255,10 +261,16 @@
+       "depends_on": [
+         "S13"
+       ],
+-      "status": "pending",
++      "status": "implemented_unverified",
+       "packet": "tasks/S14.md",
+-      "evidence": [],
+-      "code_ready_dependency_exceptions": []
++      "evidence": [
++        "artifacts/qa/founder-revamp/S14/validation.json",
++        "docs/exec-plans/active/2026-09-16-founder-revamp/S15-ACCEPTANCE.md"
++      ],
++      "code_ready_dependency_exceptions": [
++        "Owner authorized S13-S15 together. Predecessor state/build tests pass; inherited browser/device and independent review acceptance remains unverified.",
++        "Final icon alpha, physical-device/input/frame timing and human comprehension/pacing are visibly open; do not interpret headless gates as product acceptance."
++      ]
+     },
+     {
+       "id": "S15",
+@@ -268,10 +280,16 @@
+       "depends_on": [
+         "S14"
+       ],
+-      "status": "pending",
++      "status": "implemented_unverified",
+       "packet": "tasks/S15.md",
+-      "evidence": [],
+-      "code_ready_dependency_exceptions": []
++      "evidence": [
++        "artifacts/qa/founder-revamp/S15/validation.json",
++        "docs/exec-plans/active/2026-09-16-founder-revamp/S15-ACCEPTANCE.md"
++      ],
++      "code_ready_dependency_exceptions": [
++        "Owner authorized S13-S15 together. Predecessor state/build tests pass; inherited browser/device and independent review acceptance remains unverified.",
++        "Final icon alpha, physical-device/input/frame timing and human comprehension/pacing are visibly open; do not interpret headless gates as product acceptance."
++      ]
+     }
+   ]
+ }
+--- a/package.json
++++ b/package.json
+@@ -8,7 +8,7 @@
+   "scripts": {
+     "dev": "vinext dev",
+     "build": "next build",
+-    "start": "vinext start",
++    "start": "next start",
+     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
+     "typecheck": "tsc --noEmit -p tsconfig.typecheck.json",
+     "contract:check": "node scripts/check-repo-contract.mjs",
+@@ -23,8 +23,11 @@
+     "test:integration": "vitest run tests/integration",
+     "validate:content": "vitest run tests/unit/content-validation.test.ts",
+     "test": "vitest run",
+-    "test:founder": "vitest run tests/integration/founder-content.test.ts tests/integration/founder-finance.test.ts tests/integration/founder-automation.test.ts tests/integration/founder-state-save.test.ts tests/integration/founder-company.test.ts tests/integration/founder-policy.test.ts tests/integration/founder-toys.test.ts",
+-    "postbuild": "node scripts/prepare-founder-offline.mjs"
++    "test:founder": "vitest run tests/integration/founder-content.test.ts tests/integration/founder-finance.test.ts tests/integration/founder-automation.test.ts tests/integration/founder-state-save.test.ts tests/integration/founder-company.test.ts tests/integration/founder-policy.test.ts tests/integration/founder-toys.test.ts tests/integration/founder-presentation.test.ts tests/integration/founder-resilience.test.ts tests/integration/founder-checkpoint-db.test.ts",
++    "postbuild": "node scripts/prepare-founder-offline.mjs",
++    "balance:founder-matrix": "RUN_FOUNDER_MATRIX=1 vitest run tests/simulation/founder-matrix.test.ts",
++    "pwa:check": "node scripts/check-founder-offline.mjs",
++    "test:founder-earned": "vitest run tests/simulation/founder-earned-run.test.ts"
+   },
+   "dependencies": {
+     "next": "16.2.6",
+--- /dev/null
++++ b/src/game/founder/presentation.ts
+@@ -0,0 +1,28 @@
++import type { Company } from './model';
++import { metrics } from './engine';
++import { rewardById } from './rewards';
++// Dollars converted to ledger cents. Later thresholds are presentation candidates only.
++export const MILESTONES = [
++  { dollars:0, name:'Ramen garage', equipment:'Battered laptop', tile:0 },
++  { dollars:10000, name:'First proof', equipment:'A light that works', tile:1 },
++  { dollars:50000, name:'Side project no more', equipment:'Proper workbench', tile:2 },
++  { dollars:100000, name:'Default ambitious', equipment:'Founder studio', tile:3 },
++  { dollars:500000, name:'One person, many processes', equipment:'Compute rack', tile:4 },
++  { dollars:1000000, name:'Million-dollar desk', equipment:'Sky studio', tile:5 },
++  { dollars:10000000, name:'Small team energy', equipment:'Autonomous studio', tile:5 },
++  { dollars:100000000, name:'Category contender', equipment:'Orbital desk', tile:5 },
++  { dollars:1000000000, name:'One person unicorn', equipment:'The sky is yours', tile:5 },
++] as const;
++export function environment(s:Company){
++  const m=metrics(s),peak=Math.max(s.peakValuation??0,m.valuation,...s.reports.map(r=>r.score.valuation));
++  let index=0;for(let i=1;i<MILESTONES.length;i++)if(peak>=MILESTONES[i].dollars*100)index=i;
++  return {index,...MILESTONES[index],next:MILESTONES[index+1]??null,peak,distress:s.phase==='failure'?'failed':s.cash<m.nextBill?'cash':m.stability<.5?'strain':'calm'};
++}
++export function runSummary(s:Company){
++  const m=metrics(s);return {seed:s.seed,activeSeconds:s.tick/10,firstUnicornSeconds:s.wonAt===null?null:s.wonAt/10,phase:s.phase,valuation:m.valuation,arr:m.arr,cash:s.cash,financing:s.vc?'VC':s.debt?'Debt outstanding':s.ownership<10000?'Equity raised':'Self-funded currently',ownership:s.ownership/100,build:s.inventory.relics.map(id=>rewardById(id)?.name??id),cause:s.failure||(s.wonAt!==null?'Reached $1B valuation':'Run in progress'),balance:s.version,content:s.contentVersion};
++}
++export type FeedbackIntensity='full'|'quiet'|'off';
++export const PRESENTATION_KEY='solounicorn-presentation-v1';
++export function decodePresentation(raw:string|null):{sound:boolean;intensity:FeedbackIntensity}{
++  try{const p=JSON.parse(raw??'{}');return {sound:p.sound===true,intensity:['full','quiet','off'].includes(p.intensity)?p.intensity:'full'};}catch{return {sound:false,intensity:'full'};}
++}
+--- /dev/null
++++ b/src/game/founder/storage.ts
+@@ -0,0 +1,27 @@
++import type { Company } from './model';
++import {SAVE_KEY,BACKUP_SAVE_KEY,encodeSave,decodeSave} from './save';
++export const PENDING_SAVE_KEY=SAVE_KEY+'-pending';
++export type StoragePort=Pick<Storage,'getItem'|'setItem'|'removeItem'>;
++// A verified journal precedes promotion. Any interrupted step leaves at least
++// one valid checkpoint. Invalid/incompatible bytes are never silently replaced.
++export function persistCheckpoint(storage:StoragePort,s:Company){
++ const raw=encodeSave(s),prior=storage.getItem(SAVE_KEY);
++ if(prior)decodeSave(prior);
++ storage.setItem(PENDING_SAVE_KEY,raw);
++ if(storage.getItem(PENDING_SAVE_KEY)!==raw)throw new Error('Checkpoint write did not verify.');
++ if(prior)storage.setItem(BACKUP_SAVE_KEY,prior);
++ storage.setItem(SAVE_KEY,raw);
++ if(storage.getItem(SAVE_KEY)!==raw)throw new Error('Checkpoint promotion did not verify.');
++ storage.removeItem(PENDING_SAVE_KEY);
++}
++export function recoverCheckpoint(storage:Pick<Storage,'getItem'>){
++ const errors:string[]=[];
++ // Pending is the most recent attempted write, including a new company at tick 0.
++ for(const key of [PENDING_SAVE_KEY,SAVE_KEY,BACKUP_SAVE_KEY]){
++  const raw=storage.getItem(key);if(!raw)continue;
++  try{return {company:decodeSave(raw),source:key,invalid:errors};}catch{errors.push(key);}
++ }
++ if(errors.length)throw new Error('No compatible checkpoint. Export the stored copies before replacing this company.');
++ return null;
++}
++export function exportCheckpoints(storage:Pick<Storage,'getItem'>){return JSON.stringify(Object.fromEntries([SAVE_KEY,BACKUP_SAVE_KEY,PENDING_SAVE_KEY].map(k=>[k,storage.getItem(k)])),null,2);}
+--- /dev/null
++++ b/src/game/founder/checkpoint-db.ts
+@@ -0,0 +1,39 @@
++import {SAVE_KEY,BACKUP_SAVE_KEY} from './save';
++import {PENDING_SAVE_KEY,type StoragePort} from './storage';
++const KEYS=[SAVE_KEY,BACKUP_SAVE_KEY,PENDING_SAVE_KEY];
++const REVISION='checkpoint-revision';
++export type CheckpointStore=StoragePort & {flush:()=>Promise<void>;close:()=>void;kind:'indexeddb'|'localStorage'};
++// Atomic slots and an optimistic revision prevent a stale tab overwriting a
++// newer checkpoint. Legacy localStorage bytes remain available for recovery.
++export async function openCheckpointStore():Promise<CheckpointStore>{
++ if(typeof indexedDB==='undefined')return {kind:'localStorage',getItem:k=>localStorage.getItem(k),setItem:(k,v)=>localStorage.setItem(k,v),removeItem:k=>localStorage.removeItem(k),flush:()=>Promise.resolve(),close:()=>{}};
++ const db=await new Promise<IDBDatabase>((resolve,reject)=>{
++  const request=indexedDB.open('solounicorn-checkpoints',1);let blocked=false;
++  request.onupgradeneeded=()=>request.result.createObjectStore('slots');
++  request.onsuccess=()=>{if(blocked)request.result.close();else resolve(request.result);};request.onerror=()=>reject(request.error);request.onblocked=()=>{blocked=true;reject(new Error('Checkpoint database is blocked. Close other game tabs and retry.'));};
++ });
++ db.onversionchange=()=>db.close();
++ const data=new Map<string,string>();let revision=0;
++ try{
++  await new Promise<void>((resolve,reject)=>{
++   const tx=db.transaction('slots','readonly');
++   for(const key of KEYS){const request=tx.objectStore('slots').get(key);request.onsuccess=()=>{if(typeof request.result==='string')data.set(key,request.result);};}
++   const request=tx.objectStore('slots').get(REVISION);request.onsuccess=()=>{revision=Number(request.result??0);};
++   tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
++  });
++  if(!data.size)for(const key of KEYS){const raw=localStorage.getItem(key);if(raw)data.set(key,raw);}
++ }catch(error){db.close();throw error;}
++ return {kind:'indexeddb',close:()=>db.close(),getItem:key=>data.get(key)??null,setItem:(key,value)=>{data.set(key,value);},removeItem:key=>{data.delete(key);},flush:()=>{
++  // Capture before awaiting the transaction so a subsequent reset cannot alter it.
++  const snapshot=new Map(data);
++  return new Promise<void>((resolve,reject)=>{
++   const tx=db.transaction('slots','readwrite'),slots=tx.objectStore('slots');let conflict=false;
++   const request=slots.get(REVISION);request.onsuccess=()=>{
++    if(Number(request.result??0)!==revision){conflict=true;tx.abort();return;}
++    for(const key of KEYS){const raw=snapshot.get(key);if(raw!==undefined)slots.put(raw,key);else slots.delete(key);}
++    slots.put(revision+1,REVISION);
++   };
++   tx.oncomplete=()=>{revision++;resolve();};tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(conflict?new Error('Another tab saved a newer company. Export this run, then reload.'):tx.error);
++  });
++ }};
++}
+--- /dev/null
++++ b/src/components/founder/RunPresentation.tsx
+@@ -0,0 +1,11 @@
++import { useState } from 'react';
++import type { Company } from '../../game/founder/model';
++import { environment, runSummary } from '../../game/founder/presentation';
++export function Milestone({s}:{s:Company}){
++ const e=environment(s);return <div className={`f-milestone ${e.distress}`} role="status"><b key={e.index}>{e.name}</b><span>{e.equipment}</span><small>{e.distress==='cash'?'Next bill needs a cash reserve':e.distress==='strain'?'Company under strain':e.distress==='failed'?'Company stopped':e.next?`Next room · $${e.next.dollars.toLocaleString()}`:'$1B reached'}</small></div>;
++}
++export function RunSummary({s}:{s:Company}){
++ const summary=runSummary(s),[copied,setCopied]=useState('');
++ const text=JSON.stringify(summary,null,2);
++ return <details className="f-run-summary"><summary>Run receipt · seed {s.seed}</summary><dl><div><dt>Build</dt><dd>{summary.build.join(' + ')||'No relics'}</dd></div><div><dt>Capital</dt><dd>{summary.financing} · {summary.ownership}% owned</dd></div><div><dt>Result</dt><dd>{summary.cause}</dd></div><div><dt>Active time</dt><dd>{Math.floor(summary.activeSeconds/60)}m {Math.floor(summary.activeSeconds%60)}s</dd></div></dl><button onClick={()=>{if(!navigator.clipboard){setCopied('Copy unavailable. Select the receipt below.');return;}void navigator.clipboard.writeText(text).then(()=>setCopied('Copied locally'),()=>setCopied('Copy unavailable. Select the receipt below.'));}}>Copy run receipt</button><span role="status">{copied}</span><pre tabIndex={0}>{text}</pre></details>;
++}
+--- /dev/null
++++ b/scripts/founder-sw.template.txt
+@@ -0,0 +1,29 @@
++const CACHE = '__CACHE__';
++const CORE = __ASSETS__;
++// Installation is atomic: a missing file rejects the whole candidate cache.
++// Never skipWaiting. Existing tabs keep their document, rules and asset version.
++self.addEventListener('install', event => {
++ event.waitUntil((async()=>{
++  const cache=await caches.open(CACHE);
++  try{await cache.addAll(CORE);}catch(error){await caches.delete(CACHE);throw error;}
++ })());
++});
++self.addEventListener('activate', event => {
++ event.waitUntil((async()=>{
++  for(const key of await caches.keys())if(key.startsWith('opu-')&&key!==CACHE)await caches.delete(key);
++  await self.clients.claim();
++ })());
++});
++self.addEventListener('fetch', event => {
++ const request=event.request,url=new URL(request.url);
++ if(request.method!=='GET'||url.origin!==self.location.origin)return;
++ const navigation=request.mode==='navigate';
++ if(!navigation&&!CORE.includes(url.pathname))return;
++ event.respondWith((async()=>{
++  const cache=await caches.open(CACHE);
++  // HTML is paired with this worker's hashed assets, even while online.
++  const cached=await cache.match(navigation?'/':url.pathname);
++  if(cached)return cached;
++  try{return await fetch(request);}catch{return Response.error();}
++ })());
++});
+--- /dev/null
++++ b/scripts/check-founder-offline.mjs
+@@ -0,0 +1,19 @@
++import {readFileSync,writeFileSync,existsSync} from 'node:fs';
++import vm from 'node:vm';
++import assert from 'node:assert/strict';
++const source=readFileSync('public/sw.js','utf8');
++assert(!source.includes('__ASSETS__'));
++const handlers={},entries=new Map(),cacheNames=new Map();let failInstall=false,networkCalls=0;
++const cache={addAll:async urls=>{if(failInstall)throw Error('missing asset');for(const url of urls)entries.set(url,new Response(url));},match:async key=>entries.get(typeof key==='string'?key:key.url)};
++const context={URL,Response,fetch:async()=>{networkCalls++;throw Error('offline');},caches:{open:async key=>{cacheNames.set(key,cache);return cache;},keys:async()=>[...cacheNames.keys()],delete:async key=>cacheNames.delete(key)},self:{location:{origin:'https://game.local'},clients:{claim:async()=>{}},addEventListener:(name,fn)=>handlers[name]=fn}};
++vm.runInNewContext(source,context);
++const fire=async name=>{let pending;handlers[name]({waitUntil:p=>pending=p});await pending;};
++await fire('install');assert(entries.has('/founder-assets/environments.png'));assert(entries.has('/founder-assets/manifest.json'));
++for(const url of entries.keys())if(url.startsWith('/_next/static/'))assert(existsSync('.next/static/'+url.slice('/_next/static/'.length)),url);
++for(const url of ['/','/founder-assets/environments.png']){
++ let response;handlers.fetch({request:{url:'https://game.local'+url,method:'GET',mode:url==='/'?'navigate':'cors'},respondWith:p=>response=p});assert.equal(await (await response).text(),url);
++}
++assert.equal(networkCalls,0);await fire('activate');failInstall=true;await assert.rejects(()=>fire('install'));assert.equal(cacheNames.size,0);
++assert(!source.includes('skipWaiting('));
++const result={passed:true,checks:['atomic failed install removes candidate cache','complete public art and build asset manifest','all generated chunks exist','offline document and art cache hit','worker never forces activation'],browserOfflineReload:'pending owner authorization',device:'Node mocked Cache API, not browser'};
++writeFileSync('artifacts/qa/founder-revamp/S14/offline.json',JSON.stringify(result,null,2));console.log(result);
+--- /dev/null
++++ b/scripts/summarize-founder-matrix.mjs
+@@ -0,0 +1,21 @@
++import {readFileSync,readdirSync,writeFileSync} from 'node:fs';
++import assert from 'node:assert/strict';
++const dir='artifacts/qa/founder-revamp/S15';
++const rows=readdirSync(`${dir}/matrix`).filter(p=>p.endsWith('.json')).map(p=>JSON.parse(readFileSync(`${dir}/matrix/${p}`,'utf8')));
++assert.equal(rows.length,270);assert.equal(new Set(rows.map(r=>r.profileSignature)).size,1);
++assert(rows.every(r=>r.version==='founder-candidate.15'&&r.policyVersion===(r.policy.capital==='bootstrap'?2:1)));
++const quantile=(values,p)=>{if(!values.length)return null;const sorted=values.toSorted((a,b)=>a-b),at=(sorted.length-1)*p,lo=Math.floor(at),hi=Math.ceil(at);return sorted[lo]+(sorted[hi]-sorted[lo])*(at-lo);};
++const stats=values=>({n:values.length,p10:quantile(values,.1),median:quantile(values,.5),p90:quantile(values,.9),minimum:values.length?Math.min(...values):null,maximum:values.length?Math.max(...values):null});
++const groups=[];
++for(const mode of ['manual','hybrid','automation'])for(const capital of ['bootstrap','debt','vc']){
++ const cohort=rows.filter(r=>r.policy.mode===mode&&r.policy.capital===capital);assert.equal(cohort.length,30);assert.equal(new Set(cohort.map(r=>r.seed)).size,30);
++ const wins=cohort.filter(r=>r.outcome==='unicorn'),phat=wins.length/30,z=1.96,den=1+z*z/30,center=(phat+z*z/60)/den,half=z*Math.sqrt(phat*(1-phat)/30+z*z/(4*30*30))/den;
++ groups.push({policy:cohort[0].policy,policyVersion:cohort[0].policyVersion,runs:30,wins:wins.length,failures:cohort.filter(r=>r.outcome==='failure').length,censored:cohort.filter(r=>r.outcome==='horizon-censored').length,winRateWilson95:[center-half,center+half],winMinutes:stats(wins.map(r=>r.firstUnicornSeconds/60)),firstCustomerSeconds:stats(cohort.map(r=>r.firstCustomerSeconds).filter(x=>x!==null)),attentionPerMinute:stats(cohort.map(r=>r.attentionPerMinute)),commandP95Ms:stats(cohort.map(r=>r.commandMs.p95)),terminalValuationDollars:stats(cohort.map(r=>r.valuation/100)),failureReasons:[...new Set(cohort.filter(r=>r.failure).map(r=>r.failure))]});
++}
++const wins=rows.filter(r=>r.outcome==='unicorn');
++const relics=new Map();for(const r of rows)for(const id of r.build){const bucket=relics.get(id)??{runs:0,wins:0};bucket.runs++;if(r.outcome==='unicorn')bucket.wins++;relics.set(id,bucket);}
++const result={version:rows[0].version,profile:JSON.parse(rows[0].profileSignature),runCount:270,seeds:'15000..15029 shared across each of nine cases',horizonActiveMinutes:45,wins:wins.length,failures:rows.filter(r=>r.outcome==='failure').length,censored:rows.filter(r=>r.outcome==='horizon-censored').length,groups,winningMinutes:stats(wins.map(r=>r.firstUnicornSeconds/60)),demonstratedEngine15to20:wins.filter(r=>r.firstUnicornSeconds>=900&&r.firstUnicornSeconds<=1200).map(r=>({seed:r.seed,policy:r.policy,minutes:r.firstUnicornSeconds/60})),relicAssociations:Object.fromEntries(relics),limitations:['No UI or human runs','Nine stratified cases, not full factorial; Luck/repeat/Operations/build confounded','Winning-time statistics exclude censored/failed runs; no overall median time-to-win claim','Recipe solutions and pricing centers known perfectly; actions per minute exclude agent actions','Seed confidence intervals describe these policies only, not players or all build choices','Relic associations are observational, not causal attribution','Default final-rank Craft 32 is candidate, not locked','Earlier bootstrap overinvestment failures preserved in matrix-v1']};
++writeFileSync(`${dir}/matrix-summary.json`,JSON.stringify(result,null,2));
++const table=groups.map(g=>`| ${g.policy.mode} / ${g.policy.capital} | ${g.wins} | ${g.failures} | ${g.censored} | ${g.winMinutes.median===null?'—':g.winMinutes.median.toFixed(1)} |`).join('\n');
++writeFileSync(`${dir}/RESULTS.md`,`# Seeded candidate results\n\n270 runs; ${result.wins} wins, ${result.failures} failures, ${result.censored} horizon-censored. Each row has 30 shared seeds and a 45-active-minute horizon.\n\n| Policy | Wins | Failures | Censored | Winning median, minutes |\n|---|---:|---:|---:|---:|\n${table}\n\n${result.demonstratedEngine15to20.length} engine runs reached the target in 15–20 minutes. These use ideal known solutions and timing and are not human speedruns. Winning medians exclude censored runs. See matrix-summary.json for tails, Wilson intervals, actions, first-customer times, commands and limitations.\n`);
++console.log({runs:270,wins:result.wins,failures:result.failures,censored:result.censored,engine15to20:result.demonstratedEngine15to20.length});
+--- /dev/null
++++ b/tests/integration/founder-presentation.test.ts
+@@ -0,0 +1,13 @@
++import {expect,it} from 'vitest';
++import {createCompany,command,advance,replayCompany} from '../../src/game/founder/engine';
++import {environment,MILESTONES,runSummary,decodePresentation} from '../../src/game/founder/presentation';
++import {encodeSave,decodeSave} from '../../src/game/founder/save';
++it('retains earned environment when current valuation falls and after reload',()=>{
++ for(const milestone of MILESTONES){const s=createCompany(1300);s.peakValuation=milestone.dollars*100;expect(environment(decodeSave(encodeSave(s))).name).toBe(milestone.name);}
++});
++it('presentation preferences never enter economic saves or replay',()=>{
++ const s=advance(command(createCompany(1301),{type:'start'}),50);
++ expect(decodePresentation('{broken')).toEqual({sound:false,intensity:'full'});
++ expect(decodePresentation('{"sound":true,"intensity":"off"}').intensity).toBe('off');
++ expect(replayCompany(s)).toEqual(s);expect(runSummary(s).activeSeconds).toBe(5);expect(runSummary(s).firstUnicornSeconds).toBeNull();
++});
+--- /dev/null
++++ b/tests/integration/founder-resilience.test.ts
+@@ -0,0 +1,38 @@
++import {expect,it} from 'vitest';
++import {createCompany,command,advance,dispatchCompany,replayCompany} from '../../src/game/founder/engine';
++import {SAVE_KEY,BACKUP_SAVE_KEY,encodeSave,decodeSave} from '../../src/game/founder/save';
++import {PENDING_SAVE_KEY,persistCheckpoint,recoverCheckpoint} from '../../src/game/founder/storage';
++import {writeFileSync,mkdirSync} from 'node:fs';
++function storage(failAt=Infinity){const data=new Map<string,string>();let writes=0;return {data,getItem:(k:string)=>data.get(k)??null,setItem:(k:string,v:string)=>{if(++writes===failAt)throw new Error('quota');data.set(k,v);},removeItem:(k:string)=>{if(++writes===failAt)throw new Error('quota');data.delete(k);}};}
++it('recovers every interrupted checkpoint promotion without losing partial work',()=>{
++ const before=command(createCompany(1400),{type:'start'}),after=advance(before,30);
++ for(let failAt=1;failAt<=5;failAt++){
++  const store=storage(failAt);store.data.set(SAVE_KEY,encodeSave(before));
++  try{persistCheckpoint(store,after);}catch{/* Injected interruption. */}
++  const restored=recoverCheckpoint(store)!.company;expect([before.tick,after.tick]).toContain(restored.tick);expect(restored.seed).toBe(before.seed);
++  expect(decodeSave(encodeSave(restored))).toEqual(restored);
++ }
++});
++it('preserves incompatible bytes, uses verified backup, and prioritizes pending new company',()=>{
++ const store=storage();store.data.set(SAVE_KEY,'future-engine');store.data.set(BACKUP_SAVE_KEY,encodeSave(createCompany(1401)));
++ expect(recoverCheckpoint(store)!.invalid).toEqual([SAVE_KEY]);
++ expect(()=>persistCheckpoint(store,createCompany(1402))).toThrow();expect(store.getItem(SAVE_KEY)).toBe('future-engine');
++ store.data.set(PENDING_SAVE_KEY,encodeSave(createCompany(1403)));expect(recoverCheckpoint(store)!.company.seed).toBe(1403);
++});
++it('preserves replay, prior state and duplicate rejection with a long immutable event log',()=>{
++ let s=command(createCompany(1404),{type:'start'});
++ for(let i=0;i<2500;i++)s=command(s,{type:'focus',work:i%2?'product':'demand'});
++ const encoded=encodeSave(s),times:number[]=[],cloneTimes:number[]=[];
++ for(let i=0;i<30;i++){let start=performance.now();structuredClone(s);cloneTimes.push(performance.now()-start);start=performance.now();advance(s,1);times.push(performance.now()-start);}
++ expect(encodeSave(s)).toBe(encoded);const next=advance(s,3);expect(replayCompany(next)).toEqual(next);
++ expect(dispatchCompany(next,next.actions[2]).result.reason).toBe('duplicate-action');
++ const percentile=(a:number[],p:number)=>a.toSorted((a,b)=>a-b)[Math.floor((a.length-1)*p)];
++ mkdirSync('artifacts/qa/founder-revamp/S14',{recursive:true});writeFileSync('artifacts/qa/founder-revamp/S14/performance.json',JSON.stringify({environment:process.version,platform:process.platform,arch:process.arch,scenario:'2501 immutable action records, headless Node, 30 samples; no browser frame-time claim',advanceMs:{p50:percentile(times,.5),p95:percentile(times,.95),p99:percentile(times,.99)},previousDeepCloneOnlyMs:{p50:percentile(cloneTimes,.5),p95:percentile(cloneTimes,.95)},saveBytes:encoded.length,frameTime:'pending physical browser/device',economicWorkDropped:false},null,2));
++});
++it('migrates candidate.12 balances without changing existing customers, commitments or rewards',()=>{
++ const s=command(createCompany(1512),{type:'start'});s.ranks.product.craft=4;s.ranks.demand.craft=4;
++ const prior={...s,version:'founder-candidate.12'};const data=JSON.stringify(prior);
++ let h=2166136261;for(let i=0;i<data.length;i++)h=Math.imul(h^data.charCodeAt(i),16777619);
++ const raw=JSON.stringify({version:2,contractVersion:s.contractVersion,contentVersion:s.contentVersion,balanceVersion:prior.version,data,checksum:(h>>>0).toString(16)});
++ const loaded=decodeSave(raw);expect(loaded.version).toBe('founder-candidate.15');expect(loaded.cash).toBe(s.cash);expect(loaded.inventory).toEqual(s.inventory);expect(loaded.ranks).toEqual(s.ranks);expect(replayCompany(loaded)).toEqual(loaded);
++});
+--- /dev/null
++++ b/tests/integration/founder-checkpoint-db.test.ts
+@@ -0,0 +1,43 @@
++import {afterEach,expect,it,vi} from 'vitest';
++import {openCheckpointStore} from '../../src/game/founder/checkpoint-db';
++import {SAVE_KEY,BACKUP_SAVE_KEY,encodeSave} from '../../src/game/founder/save';
++import {createCompany} from '../../src/game/founder/engine';
++import {persistCheckpoint,recoverCheckpoint} from '../../src/game/founder/storage';
++// Headless transaction test double. Real browser/device IndexedDB is a separate gate.
++function fakeDatabase(){
++ const values=new Map<string,unknown>();let abortNext=false;
++ const db={close:()=>{},onversionchange:null,createObjectStore:()=>{},transaction:(_name:string,mode:string)=>{
++  const staged=new Map(values);let aborted=false;
++  const tx={oncomplete:()=>{},onerror:()=>{},onabort:()=>{},error:new Error('injected abort'),abort:()=>{aborted=true;},objectStore:()=>({
++   get:(key:string)=>{const request={result:staged.get(key),onsuccess:()=>{}};queueMicrotask(()=>request.onsuccess());return request;},
++   put:(value:unknown,key:string)=>{staged.set(key,value);},delete:(key:string)=>{staged.delete(key);}
++  })};
++  setTimeout(()=>{if(aborted||mode==='readwrite'&&abortNext){abortNext=false;tx.onabort();}else{if(mode==='readwrite'){values.clear();for(const entry of staged)values.set(...entry);}tx.oncomplete();}},0);
++  return tx;
++ }};
++ const factory={open:()=>{const request={result:db,onsuccess:()=>{},onerror:()=>{},onblocked:()=>{},onupgradeneeded:()=>{}};queueMicrotask(()=>request.onsuccess());return request;}};
++ vi.stubGlobal('indexedDB',factory);const legacy=new Map<string,string>();vi.stubGlobal('localStorage',{getItem:(k:string)=>legacy.get(k)??null});
++ return {values,legacy,abort:()=>{abortNext=true;}};
++}
++afterEach(()=>vi.unstubAllGlobals());
++it('imports legacy checkpoints and commits atomically without deleting originals',async()=>{
++ const db=fakeDatabase(),raw=encodeSave(createCompany(1410));db.legacy.set(SAVE_KEY,raw);
++ const store=await openCheckpointStore();expect(recoverCheckpoint(store)!.company.seed).toBe(1410);
++ persistCheckpoint(store,createCompany(1411));await store.flush();expect(db.legacy.get(SAVE_KEY)).toBe(raw);
++ const reloaded=await openCheckpointStore();expect(recoverCheckpoint(reloaded)!.company.seed).toBe(1411);expect(db.values.get(BACKUP_SAVE_KEY)).toBe(raw);
++});
++it('an aborted write retains the previous durable checkpoint and retries safely',async()=>{
++ const db=fakeDatabase(),store=await openCheckpointStore();persistCheckpoint(store,createCompany(1412));await store.flush();
++ persistCheckpoint(store,createCompany(1413));db.abort();await expect(store.flush()).rejects.toThrow();
++ expect(recoverCheckpoint(await openCheckpointStore())!.company.seed).toBe(1412);
++ await store.flush();expect(recoverCheckpoint(await openCheckpointStore())!.company.seed).toBe(1413);
++});
++it('rejects a stale second tab instead of overwriting the new company',async()=>{
++ fakeDatabase();const first=await openCheckpointStore(),stale=await openCheckpointStore();
++ persistCheckpoint(first,createCompany(1414));await first.flush();persistCheckpoint(stale,createCompany(1415));
++ await expect(stale.flush()).rejects.toThrow('Another tab');expect(recoverCheckpoint(await openCheckpointStore())!.company.seed).toBe(1414);
++});
++it('does not silently fall back to an older save when database open fails',async()=>{
++ fakeDatabase();vi.stubGlobal('indexedDB',{open:()=>{const r={error:new Error('unavailable'),onerror:()=>{}};queueMicrotask(()=>r.onerror());return r;}});
++ await expect(openCheckpointStore()).rejects.toThrow('unavailable');
++});
+--- /dev/null
++++ b/tests/simulation/founder-matrix.test.ts
+@@ -0,0 +1,17 @@
++import {it} from 'vitest';
++import {existsSync,readFileSync,writeFileSync,mkdirSync} from 'node:fs';
++import {P} from '../../src/game/founder/profile';
++import {play,policies} from './founder-policy-matrix';
++it.runIf(process.env.RUN_FOUNDER_MATRIX==='1')('runs a resumable declared founder policy matrix without synthetic money or ranks',async()=>{
++ const seeds=Number(process.env.MATRIX_SEEDS??30),offset=Number(process.env.MATRIX_OFFSET??0),only=process.env.MATRIX_POLICY;
++ const path='artifacts/qa/founder-revamp/S15/matrix';mkdirSync(path,{recursive:true});
++ for(const [i,policy] of policies.entries()){
++  if(only!==undefined&&i!==Number(only))continue;
++  for(let n=offset;n<offset+seeds;n++){
++   const seed=15000+n,file=`${path}/${i}-${seed}.json`;
++   if(existsSync(file)){const prior=JSON.parse(readFileSync(file,'utf8'));if(prior.policyVersion===(policy.capital==='bootstrap'?2:1)&&prior.profileSignature===JSON.stringify(P)&&JSON.stringify(prior.policy)===JSON.stringify(policy))continue;}
++   const start=performance.now(),result=await play(seed,policy);writeFileSync(file,JSON.stringify({...result,version:P.version,policyVersion:policy.capital==='bootstrap'?2:1,profileSignature:JSON.stringify(P),elapsedMs:performance.now()-start},null,2));
++   console.log(i,seed,result.outcome,result.activeSeconds,result.valuation/100,Math.round(performance.now()-start));
++  }
++ }
++},7200000);
+--- /dev/null
++++ b/tests/simulation/founder-policy-matrix.ts
+@@ -0,0 +1,77 @@
++import {expect} from 'vitest';
++import {advance,command,createCompany,metrics,skillCost,ready,signal,priceTarget,validateCompany,capitalOffers,pressure,count,queueCap,expansionAccount} from '../../src/game/founder/engine';
++import {productBrief,draftOption,initialBoard,packageComplete,mergeOrder,packageNeeds,packageMass,operationsTicketSupply} from '../../src/game/founder/toys';
++import {FUNCTIONS,AXES,P} from '../../src/game/founder/profile';
++import {rewardById} from '../../src/game/founder/rewards';
++import {encodeSave,decodeSave} from '../../src/game/founder/save';
++import {recordFounderWin} from '../../src/game/founder/history';
++import type {Company,Command} from '../../src/game/founder/model';
++export type Policy={mode:'manual'|'hybrid'|'automation';capital:'bootstrap'|'debt'|'vc';luck:0|4;ops:'selective'|'automatic';repeat:boolean;family:'bootstrap'|'growth'|'durable'|'automation';skilled:boolean};
++export const policies:Policy[]=(['manual','hybrid','automation'] as const).flatMap((mode,i)=>(['bootstrap','debt','vc'] as const).map((capital,j)=>({mode,capital,luck:(i+j)%2?4:0,ops:mode==='automation'?'automatic':'selective',repeat:j===2,family:(['bootstrap','growth','durable','automation'] as const)[(i+j)%4],skilled:mode==='hybrid'})));
++export async function play(seed:number,policy:Policy,horizon=27000,capture?:(s:Company)=>void){
++ let s=command(createCompany(seed,policy.repeat?1:0),{type:'start'}),firstCustomer:number|null=null,manualActions=0,swaps=0,funding=false;
++ let lastBuy=-1000;const samples:unknown[]=[],latencies:number[]=[];
++ const send=(c:Command)=>{const at=performance.now();s=command(s,c);latencies.push(performance.now()-at);if(c.type==='focus')swaps++;else manualActions++;};
++ const focus=(work:Company['focus'])=>{if(s.focus!==work)send({type:'focus',work});};
++ send({type:'channel',channel:2});
++ for(let n=0;s.tick<horizon&&!['failure','unicorn'].includes(s.phase);n++){
++  if(s.phase==='quarter-draft'){
++   const report=s.reports.find(r=>r.quarter===s.pendingDraftQuarter)!;
++   const available=report.choices.filter(id=>draftOption(s,id,report.quarter)?.available);
++   const id=available.find(id=>rewardById(id)?.family===policy.family)??available.find(id=>rewardById(id)?.kind==='relic')??available[0];
++   send(id?{type:'draft',quarter:report.quarter,id}:{type:'draft-skip',quarter:report.quarter});
++  }
++  if(s.phase==='paused')send({type:'continue'});
++  if(s.phase!=='active')throw Error('Unexpected phase '+s.phase);
++  const m=metrics(s);
++  const offers=capitalOffers(s);
++  if(!funding&&policy.capital!=='bootstrap'&&offers[policy.capital].available&&s.tick>50){send({type:policy.capital==='debt'?'borrow':'raise'});funding=true;}
++  if(s.debt&&s.cash> s.debt.principal+m.cost*4)send({type:'repay-debt',loanId:s.debt.id});
++  // Reserve covers current accrued bill plus two projected months. No free cash/ranks.
++  if((policy.capital!=='bootstrap'||s.lifetimeCollected>0)&&s.tick-lastBuy>=50){
++   const options=FUNCTIONS.flatMap(f=>AXES.filter(a=>s.ranks[f][a]<(a==='luck'?policy.luck:a==='automate'?(policy.mode==='manual'?0:4):a==='scale'?(f==='operations'?4:policy.mode==='manual'?0:f==='retention'||f==='expansion'?2:3):4)).map(a=>({f,a,cost:skillCost(s,f,a)})));
++   const candidates=options.filter(({f,a})=>{
++    if((f==='retention'||f==='expansion')&&!s.accounts.length)return false;
++    if(a==='luck'&&s.ranks[f].craft<3)return false;
++    if(a==='scale'&&f!=='operations'&&(s.ranks[f].craft<3||s.ranks[f].automate<2))return false;
++    if(a==='automate'&&f==='operations'&&policy.ops==='selective')return false;
++    if(a==='automate'&&f==='retention'&&s.accounts.length<10)return false;
++    if(a==='automate'&&f==='expansion'&&s.tick<1200)return false;
++    const projected={...s,ranks:{...s.ranks,[f]:{...s.ranks[f],[a]:s.ranks[f][a]+1}}};
++    return f==='operations'||pressure(projected).load<=pressure(projected).capacity*.9;
++   }).sort((a,b)=>a.cost-b.cost||(['craft','automate','scale','luck'].indexOf(a.a)-['craft','automate','scale','luck'].indexOf(b.a)));
++   const c=candidates.find(c=>s.cash>c.cost+s.expenseAccrued+Math.max(20000,m.cost*2));
++   if(c){send({type:'buy',work:c.f,axis:c.a,rank:s.ranks[c.f][c.a]+1});lastBuy=s.tick;if(c.a==='luck'&&!s.risky[c.f])send({type:'risk',work:c.f});}
++  }
++  const threat=s.accounts.filter(a=>a.active&&a.problem).sort((a,b)=>a.threat-b.threat)[0];
++  if(threat&&ready(s,'retention')&&(policy.mode!=='automation'||!s.ranks.retention.automate)){
++   focus('retention');const problem=threat.problem!;send({type:'squash-problem',account:threat.id,problem:problem.id,expected:problem.workCompleted});
++  }else if(s.trials.length&&ready(s,'monetisation')&&(policy.mode!=='automation'||!s.ranks.monetisation.automate)){
++   focus('monetisation');send({type:'price',job:s.trials[0].id,plan:'premium',timing:priceTarget(s).center});
++  }else if(s.leads.length&&ready(s,'product')&&count(s.trials)<queueCap(s,'monetisation')&&(policy.mode!=='automation'||!s.ranks.product.automate)){
++   focus('product');const lead=s.leads[0];
++   // One gesture per policy step, including verification and shipping.
++   const brief=productBrief(s,lead).parts;const slot=brief.findIndex((p,i)=>s.recipe.id!==lead.id||s.recipe.slots[i]!==p);
++   if(slot>=0)send({type:'part',job:lead.id,slot,part:brief[slot]});
++   else if(!s.recipe.tested)send({type:'test-build',job:lead.id});else send({type:'ship',job:lead.id,early:false});
++  }else if((policy.capital!=='bootstrap'||s.cash>m.nextBill+P.acquisitionCents[s.channel]+Math.max(20000,m.cost))&&ready(s,'demand')&&count(s.leads)<Math.min(queueCap(s,'product'),P.craft_batch_by_rank[s.ranks.demand.craft]*3)&&(policy.mode!=='automation'||!s.ranks.demand.automate)){
++   focus('demand');send({type:'demand',pursue:signal(s).quality==='qualified',signal:s.signal});
++  }else if(policy.ops==='selective'&&ready(s,'operations')&&(s.ops.active||s.ops.used<operationsTicketSupply(s.ranks.operations.scale)||s.ops.quarter!==s.quarter)){
++   focus('operations');if(!s.ops.active)send({type:'ops-deal'});else {const patch=s.ops.patches.find(p=>!s.ops.inspected.includes(p.id));if(patch)send({type:'ops-inspect',card:s.ops.id,cell:patch.id});else{const positive=s.ops.patches.find(p=>p.sentiment==='positive'&&!s.ops.claimed.includes(p.id));send(positive?{type:'ops-claim',card:s.ops.id,cell:positive.id}:{type:'ops-discard',card:s.ops.id});}}
++  }else if(policy.mode==='manual'&&expansionAccount(s)){
++   focus('expansion');const a=expansionAccount(s)!;const board=s.package.id===a.id&&s.package.board?s.package.board:initialBoard();
++   if(s.package.id===a.id&&packageComplete(s,a,board))send({type:'expand',account:a.id});
++   else{let pair:[number,number]|undefined;for(let i=0;i<board.length&&!pair;i++)for(let j=i+1;j<board.length;j++)if(board[i]&&board[j]&&board[i]!.family===board[j]!.family&&board[i]!.tier===board[j]!.tier&&board[i]!.tier<mergeOrder(a.addons)[board[i]!.family].tier){pair=[i,j];break;}
++    if(pair)send({type:'merge',account:a.id,from:pair[0],to:pair[1],expectedTier:board[pair[0]]!.tier});else{const need=packageNeeds(a.addons).find(n=>packageMass(board,n.family)<n.mass);if(need)send({type:'supply',account:a.id,family:need.family});}
++   }
++  }else focus('finance');
++  const step=policy.skilled?10:20;s=advance(s,Math.min(step,horizon-s.tick));
++  if(firstCustomer===null&&s.accounts.length)firstCustomer=s.accounts[0].born;
++  if(s.tick%1800===0){validateCompany(s);samples.push({tick:s.tick,cash:s.cash,...metrics(s)});}
++  if(n%100===0)await new Promise<void>(r=>setImmediate(r));
++ }
++ validateCompany(s);const m=metrics(s);latencies.sort((a,b)=>a-b);
++ if(s.wonAt!==null){const loaded=decodeSave(encodeSave(s));expect(recordFounderWin(recordFounderWin({version:2,wins:[],records:[]},loaded),loaded).wins).toHaveLength(1);expect(command(loaded,{type:'continue'}).wonAt).toBe(s.wonAt);}
++ capture?.(s);
++ return {seed,policy,firstCustomerSeconds:firstCustomer===null?null:firstCustomer/10,manualActions,focusChanges:swaps,activeSeconds:s.tick/10,outcome:s.wonAt!==null?'unicorn':s.phase==='failure'?'failure':'horizon-censored',valuation:m.valuation,cash:s.cash,failure:s.failure,firstUnicornSeconds:s.wonAt===null?null:s.wonAt/10,build:s.inventory.relics,ranks:s.ranks,operations:s.operationsReturns,attentionPerMinute:manualActions/Math.max(1,s.tick/600),commandMs:{p50:latencies[Math.floor(latencies.length*.5)],p95:latencies[Math.floor(latencies.length*.95)],p99:latencies[Math.floor(latencies.length*.99)]},samples};
++}
+--- /dev/null
++++ b/tests/simulation/founder-earned-run.test.ts
+@@ -0,0 +1,22 @@
++import {expect,it} from 'vitest';
++import {play,policies} from './founder-policy-matrix';
++import {advance,command,createCompany,metrics,replayCompany,validateCompany} from '../../src/game/founder/engine';
++import {decodeSave,encodeSave} from '../../src/game/founder/save';
++import {recordFounderWin} from '../../src/game/founder/history';
++import type {Company} from '../../src/game/founder/model';
++import {writeFileSync} from 'node:fs';
++it('earns a unicorn then reloads, continues and starts a clean company with one history award',async()=>{
++ let earned:Company|undefined;const result=await play(15000,policies[4],27000,s=>{earned=s;});
++ expect(result.outcome).toBe('unicorn');const winner=earned!;const raw=encodeSave(winner);writeFileSync('artifacts/qa/founder-revamp/S15/earned-unicorn.json',raw);
++ const loaded=decodeSave(raw);expect(metrics(loaded).valuation).toBeGreaterThanOrEqual(100_000_000_000);
++ let continued=command(loaded,{type:'continue'});
++ if(continued.phase==='quarter-draft')continued=command(continued,{type:'draft-skip',quarter:continued.pendingDraftQuarter!});
++ if(continued.phase==='paused')continued=command(continued,{type:'continue'});
++ const before=encodeSave(continued),times:number[]=[];
++ for(let i=0;i<40;i++){const start=performance.now();advance(continued,1);times.push(performance.now()-start);}
++ expect(encodeSave(continued)).toBe(before);continued=advance(continued,20);validateCompany(continued);expect(continued.wonAt).toBe(winner.wonAt);
++ const history=recordFounderWin(recordFounderWin({version:2,wins:[],records:[]},winner),continued);expect(history.wins).toHaveLength(1);
++ const fresh=createCompany(15001,history.wins.length);expect(fresh.accounts).toHaveLength(0);expect(fresh.inventory.relics).toHaveLength(0);expect(fresh.wonAt).toBeNull();expect(fresh.cash).toBe(createCompany(15001).cash+15000);
++ const replay=replayCompany(winner);expect(replay.cash).toBe(winner.cash);expect(replay.wonAt).toBe(winner.wonAt);expect(replay.accounts).toEqual(winner.accounts);
++ times.sort((a,b)=>a-b);writeFileSync('artifacts/qa/founder-revamp/S14/earned-late-run-performance.json',JSON.stringify({runtime:process.version,platform:process.platform,arch:process.arch,seed:winner.seed,tick:winner.tick,actions:winner.actions.length,accounts:winner.accounts.length,activeAccounts:winner.accounts.filter(a=>a.active).length,invoiceCount:winner.invoices.length,closedJobs:Object.keys(winner.jobs.closed).length,saveBytes:raw.length,samples:40,advanceOneTickMs:{p50:times[20],p95:times[37],p99:times[39]},browserFrameTime:'not measured',renderingIncluded:false},null,2));
++},180000);
+--- /dev/null
++++ b/tests/simulation/founder-ticket-tails.test.ts
+@@ -0,0 +1,19 @@
++import {expect,it} from 'vitest';
++import {operationsTicketPatches,operationsTicketPrice,operationsAutomationUpkeepPerTicket} from '../../src/game/founder/toys';
++import {mkdirSync,writeFileSync} from 'node:fs';
++it('records ticket tails independently from cash and finite repair utility',()=>{
++ const rows=[];
++ for(const scale of [0,4])for(const luck of [0,1,2,3,4]){
++  const raw:number[]=[],selective:number[]=[],cash:number[]=[];let min=Infinity,max=-Infinity;
++  for(let seed=15000;seed<15030;seed++)for(let ticket=1;ticket<=100;ticket++){
++   const patches=operationsTicketPatches(seed,ticket,scale,luck,4),price=operationsTicketPrice(scale);
++   const value=patches.reduce((n,p)=>n+p.valueCents,0)-price;raw.push(value);min=Math.min(min,value);max=Math.max(max,value);
++   selective.push(patches.reduce((n,p)=>n+Math.max(0,p.valueCents),0)-price);cash.push(patches.reduce((n,p)=>n+(p.effect.kind==='cash'?p.effect.cents:0),0)-price);
++  }
++  const mean=(a:number[])=>a.reduce((a,b)=>a+b,0)/a.length,p=(a:number[],fraction:number)=>a.toSorted((a,b)=>a-b)[Math.floor((a.length-1)*fraction)];
++  rows.push({scale,luck,samples:raw.length,price:operationsTicketPrice(scale),wholeTicket:{mean:mean(raw),p01:p(raw,.01),p05:p(raw,.05),p50:p(raw,.5),p95:p(raw,.95),p99:p(raw,.99),minimum:min,maximum:max,lossRate:raw.filter(v=>v<0).length/raw.length,variance:mean(raw.map(v=>(v-mean(raw))**2))},manualSelectiveModeledMean:mean(selective),cashOnlyMean:mean(cash),automationRank1AllocatedCompute:operationsAutomationUpkeepPerTicket(1),automationRank4AllocatedCompute:operationsAutomationUpkeepPerTicket(4)});
++ }
++ mkdirSync('artifacts/qa/founder-revamp/S15',{recursive:true});writeFileSync('artifacts/qa/founder-revamp/S15/ticket-tails.json',JSON.stringify({seeds:'15000..15029',ticketsPerSeed:100,warning:'Modeled operational utility is not liquid cash. Finite repair saturation and whole-company bills must be assessed separately; samples do not issue extra in-game tickets.',rows},null,2));
++ expect(rows.every(r=>r.wholeTicket.mean>0)).toBe(true);
++ for(const scale of [0,4])expect(rows.find(r=>r.scale===scale&&r.luck===4)!.wholeTicket.variance).toBeGreaterThan(rows.find(r=>r.scale===scale&&r.luck===0)!.wholeTicket.variance);
++});
+--- /dev/null
++++ b/public/founder-assets/manifest.json
+@@ -0,0 +1,9 @@
++{
++  "version": "founder-art.13",
++  "environments": {"path":"/founder-assets/environments.png","columns":3,"rows":2,"width":1536,"height":1024,"stages":[0,10000,50000,100000,500000,1000000]},
++  "provenance": "Original native image generation, 2026-09-19, exec-13528146-d5b1-4106-974e-11505f7b345d.png. No third-party logos or copied composition.",
++  "direction": "Consistent room/desk placement, upper-left light, graphite and natural materials. Sky bridge begins at million-dollar desk. Laptop interaction frame remains live DOM.",
++  "laterStages": "Candidate $10M/$100M/$1B use sky room with distinct earned labels. No economic effect.",
++  "icons": "pending: asset_requests/pending/founder-function-icons.md",
++  "acceptance": "Atlas inspected directly; in-product desktop/mobile/stream-size acceptance pending."
++}
+--- /dev/null
++++ b/docs/exec-plans/active/2026-09-16-founder-revamp/S15-ACCEPTANCE.md
+@@ -0,0 +1,53 @@
++# S13–S15 local candidate acceptance
++
++Updated 2026-09-20. This report separates implemented code, engine evidence, art, browser/device checks and human acceptance. No deployment is authorized or performed.
++
++## Candidate delivered
++
++- S13: original six-room environment atlas; $10K/$50K/$100K/$500K/$1M progression, candidate $10M/$100M/$1B labels; persisted peak prevents regression. Distress remains visible. Independent sound/motion preferences, OS reduced motion, metric feedback and copyable local run receipt.
++- S14: production start aligned with the existing Next build (Vinext dev preserved); fresh content-hashed offline worker generated from a stable template; complete public assets and hashed chunks; atomic cache installation and no forced worker activation. IndexedDB atomic checkpoint slots with a stale-tab revision guard, preserved legacy data, explicit export/recovery, localStorage fallback only when IndexedDB is absent. Interrupted transactions preserve the prior durable save. Native confirmation dialog and focus/safe-area styling. Simulation cloning shares immutable event records while isolating mutable work and accounting state; invoice lookups avoid repeated linear scans.
++- S15: resumable seeded policy matrix; candidate final Craft batch increases from 16 to 32, consuming the same finite real inputs. Early ranks, score formulas and financing rules are unchanged. Candidate.12 saves rebase into candidate.15 with owned ranks, rewards and accepted financing intact. No locked balance values were changed.
++
++## Experimental design
++
++Nine policy cases: manual/hybrid/automation crossed with bootstrap/debt/VC. Each uses the same 30 seeds, 15000–15029, up to 27,000 ticks (45 active minutes). Luck 0/4, selective/automatic Operations, first/repeat founders and four reward-family preferences are distributed across cases. This is a stratified policy suite, **not** a full factorial experiment; secondary variables are confounded. Family preference does not guarantee a specific draft. Seeds cover world/collection/ticket variation; identical financial failures are reported rather than treated as 30 independent human observations.
++
++Policies use semantic commands and actual finite jobs, one manual gesture per 1 second (hybrid) or 2 seconds (manual/automation fallback). They know recipe solutions and hit pricing centers perfectly. Automation policies still need a manual startup before they can buy agents. Commands for navigation, purchases and quarter choices are additional, disclosed in action counts. Pure manual means no agents, not no skills. No synthetic cash, ARR, ranks or time jumps are inserted. Pauses/drafts add no active time. These policies cannot establish human enjoyment, comprehension or 30–45 minute human pacing.
++
++A first matrix exposed an overinvesting bootstrap policy: it bought upgrades before first collections and failed its first bill. Policy version 2 delays bootstrap purchases until collection and keeps a reserve before acquisition. Unchanged debt/VC version-1 evidence is reused; bootstrap cases alone are rerun. Both original and corrected evidence remain available. This is an adaptive policy correction, not extra starting cash or a relaxed death rule.
++
++## Calibration provenance
++
++The prior hybrid-debt seed15000 reached $278M at 45 minutes (Craft16). Paired Craft64 reached $1B in 11.8 minutes, Craft32 in 44.0 minutes and Craft40 in 42.75 minutes. Retain the smallest successful tested increase, Craft32, for the 30-seed suite. These are exploratory single-seed comparisons with nonlinear progression, not a statistically independent proof of the chosen value. Full tail and matrix evidence governs the candidate assessment. The starting point, alternative pilots and final profile signatures are saved under S15.
++
++Touchpoint: `P.craft_batch_by_rank`, overriding the supplied candidate profile only; final-rank descriptions updated for Demand/Product/Monetisation/Retention/Expansion. Operations Craft retains its separately defined repair multiplier. Legacy `balance/v2/registry.json` is untouched; its 41 unresolved required entries and `runtimeReady=false` remain.
++
++## Acceptance gates
++
++| Area | Status | Evidence / limit |
++|---|---|---|
++| S00–S12 functional contracts | Headless regression required | Existing per-slice evidence and final validation log |
++| S13 environments/milestones/receipt | Implemented; visual acceptance pending | presentation tests, original atlas and asset manifest |
++| S13 final icon family | **Open** | Two opaque icon generations rejected; exact alpha handoff in asset_requests/pending/founder-function-icons.md |
++| S13 later milestone art | Candidate reuse | Later milestones reuse sky studio; distinct final art not claimed |
++| S14 transactional saves/recovery | Headless verified | interruption, migration, stale-tab and aborted-transaction tests |
++| S14 offline packaging | Headless verified | mocked Cache API plus actual build-file existence; no browser offline reload claim |
++| S14 responsive/gestures/focus | Implemented; unverified | Desktop/phone/tablet/landscape/installed PWA and physical input checks owner-disabled |
++| S14 performance | Headless measured | long-log fixture and per-policy command percentiles; physical frame/input timing pending |
++| S14 unlimited continuation | Open stress limit | Audit history retained; IndexedDB reduces quota pressure. No claim of bounded total history or infinite-run performance |
++| S15 accounting/effects/ticket tails | Headless verified | regression and ticket-tail distributions; modeled utility is not cash |
++| S15 full-run reachability/builds | Measured candidate | matrix-summary.json includes wins, failures, censored runs, trajectories and all nine policies |
++| S15 ordinary pacing | **Pending human observation** | Policy times alone cannot establish ordinary-player pace |
++| S15 skilled pacing | Engine evidence only | Winning runs within and outside target retained; no UI speedrun claim |
++| Human comprehension/fun/stream readability | **Pending** | No human or browser playthrough performed |
++| Owner acceptance/release | **Pending** | No finished-product, deployment or production-balance claim |
++
++## Reproduction / recovery
++
++The matrix is opt-in and skipped by ordinary `npm test`; `npm run balance:founder-matrix` defaults to 30 seeds for each declared policy and resumes matching policy/profile evidence. `MATRIX_POLICY=0` selects one case, `MATRIX_OFFSET=0 MATRIX_SEEDS=30` selects its seed range. Delete/move a result only when intentionally repeating it; do not mix profile signatures. `npx vitest run tests/simulation/founder-ticket-tails.test.ts` regenerates Operations distributions. `npm run validate`, `npm run build`, then `npm run pwa:check` are final gates. Browser scripts remain disabled.
++
++Next acceptance work is targeted desktop/mobile/offline/gesture review once authorized, finishing icon alpha, physical frame/input measurement and genuine human runs. Preserve every supplied source pack and all current save formats. No source-pack re-audit is necessary.
++
++## Measured final matrix
++
++See [results](../../../../artifacts/qa/founder-revamp/S15/RESULTS.md) and machine-readable matrix-summary.json. Final total: 122 wins, zero failures, 148 censored at 45 minutes. Pure-manual cases have no wins in this horizon, so manual-only viability remains open. Hybrid bootstrap successful median is 15.5 minutes; automated successful medians lie around 32–40 minutes. Sixteen policy runs finish in 15–20 minutes. Earlier policy-v1 failures are retained and the ordinary regression continues to exercise mandatory-payment deaths. Survival-only censored runs are never classified as successes.
+--- /dev/null
++++ b/asset_requests/pending/founder-function-icons.md
+@@ -0,0 +1,9 @@
++# Six function icons: alpha correction required
++
++S13 generated two atlas candidates with native image generation. Both retained opaque colored backdrops and are rejected for final text-adjacent UI use. Do not ship them as accepted icons.
++
++Destination: public/founder-assets/function-icons.png. PNG RGBA, 1536×1024, 3×2 grid of 512px cells. Actual transparent alpha outside each object; no text, tiles, glow or backdrop. Each object fills at most 80% of its cell. Six objects: profile cards+lens; pan+software blocks; precision alignment instrument; stamp+customer trouble; merging modules; scratched ticket+coin. Same three-quarter camera, upper-left key light, realistic paper/metal/rubber materials, contour separation. Follow docs/design/DESIGN.md and REFERENCES.md. No monogram is needed.
++
++Generation brief: preserve this six-object arrangement and semantic geometry, remove all opaque backdrop and halo, export actual transparency. Check silhouettes at 40px against #090B0E and inspect all six object edges. Reject opaque RGB images, checkerboard baked into pixels, tiny unreadable object details, clipped objects and mismatched lighting. Browser final-size acceptance remains owner-disabled.
++
++Source attempts are in /Users/deepsheth/.codex/generated_images/01a0a66e-7b4a-73c0-a180-89e1df8b4a54/exec-79a62406-8a04-4f52-8468-186cf5c3f3e1.png and exec-e87b1f51-eb3e-4499-8f4a-a69cc1398b79.png. Kept out of shipping assets.

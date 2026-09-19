@@ -1,0 +1,16 @@
+
+> sites-project@0.1.0 pwa:check
+> node scripts/check-founder-offline.mjs
+
+{
+  passed: true,
+  checks: [
+    'atomic failed install removes candidate cache',
+    'complete public art and build asset manifest',
+    'all generated chunks exist',
+    'offline document and art cache hit',
+    'worker never forces activation'
+  ],
+  browserOfflineReload: 'pending owner authorization',
+  device: 'Node mocked Cache API, not browser'
+}

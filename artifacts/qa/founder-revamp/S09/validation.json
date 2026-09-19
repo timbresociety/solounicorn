@@ -1,0 +1,92 @@
+{
+  "task": "S09",
+  "status": "implemented_unverified",
+  "base": "70d8b0e550126849a524573098d051f288fcc706",
+  "diff_identity": "uncommitted cumulative S00-S09 working tree",
+  "profile": "founder-candidate.9",
+  "contract": "founder-state.1",
+  "content": "founder-content.candidate.5",
+  "browser_computer_use": "disabled_by_user",
+  "visual_acceptance": "pending",
+  "increments": [
+    {
+      "name": "ticket resolver, persistence, ranks, UI boundary",
+      "commands": [
+        "npm run typecheck",
+        "npx vitest run tests/integration/founder-toys.test.ts tests/integration/founder-state-save.test.ts",
+        "OPERATIONS_SAMPLES=100000 npx vitest run tests/simulation/operations-ticket-measurement.test.ts --reporter=verbose",
+        "git diff --check"
+      ],
+      "results": {
+        "typecheck": "passed",
+        "focused_tests": "39 passed across ticket, save and measurement boundaries",
+        "distribution_test": "1 passed over seeds 1..100000",
+        "diff_check": "passed"
+      }
+    },
+    {
+      "name": "integrated runtime regression and production build",
+      "commands": [
+        "npm run validate",
+        "npm run build",
+        "git diff --check"
+      ],
+      "results": {
+        "repository_contract": "passed",
+        "balance_registry": "reported 41 required unresolved entries and runtimeReady=false, unchanged",
+        "simulation_smoke": "passed",
+        "simulation_determinism": "passed",
+        "founder_tests": "58 passed",
+        "typecheck": "passed",
+        "lint": "passed",
+        "production_build": "passed; 24 immutable offline files; build 3da7dc206c78",
+        "diff_check": "passed"
+      }
+    }
+  ],
+  "measurements": {
+    "unit": "modeled operational-value cents",
+    "rank_zero": {
+      "patches": 4,
+      "tickets_per_quarter": 2,
+      "price": 300,
+      "manual_mean_after_price": 1597.198,
+      "automated_mean_after_price": 895.476,
+      "automated_mean_after_price_and_upkeep": 181.476,
+      "automated_loss_rate": 0.43033,
+      "automated_minimum": -3014,
+      "automated_maximum": 3386,
+      "variance": 1760756.733424
+    },
+    "scale_4_luck_4_automate_4": {
+      "patches": 8,
+      "tickets_per_quarter": 6,
+      "price": 500,
+      "manual_mean_after_price": 4236.60254,
+      "automated_mean_after_price": 1872.36856,
+      "automated_mean_after_price_and_upkeep": 570.36856,
+      "automated_loss_rate": 0.47311,
+      "automated_minimum": -13270,
+      "automated_maximum": 14806,
+      "variance": 23158209.73552353
+    }
+  },
+  "coverage": [
+    "ticket price is charged once and persisted outcomes are not rerolled across reload or replay",
+    "inspection changes knowledge only; selective manual settlement and abandonment preserve the paid price",
+    "automation settles every unclaimed patch after founder-agent handoff without duplicating manual claims",
+    "finite quarterly supply, new-quarter reset, duplicate and stale input rejection",
+    "generic job cancellation follows the same non-refundable valid abandonment transition",
+    "typed cash, strain, rot and incident effects, including live incident load and monthly cost",
+    "explicit unaffordable negative settlement without unsigned or clamped loss",
+    "all sixteen Operations ranks and rank-zero versus Luck-4 distributions",
+    "candidate.8 repair-sheet migration preserves company finances while retiring obsolete scratch state"
+  ],
+  "limits": [
+    "Candidate tuning only; no value was promoted to locked balance.",
+    "Modeled operational value lets cash, strain, rot and incidents share one EV report; only cash effects directly mutate cash.",
+    "O02 remains unresolved. Negative mandatory ticket settlement uses the existing due-obligation behavior; zero cash alone is not a new failure.",
+    "Browser/computer-use stayed disabled. Rendered desktop/mobile scratching, touch targets, reduced motion, overflow and visual acceptance remain pending.",
+    "S10 was not started."
+  ]
+}

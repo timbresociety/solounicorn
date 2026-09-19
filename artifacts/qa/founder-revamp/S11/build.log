@@ -1,0 +1,31 @@
+
+> sites-project@0.1.0 build
+> next build
+
+▲ Next.js 16.2.6 (Turbopack)
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 1853ms
+  Running TypeScript ...
+  Finished TypeScript in 3.6s ...
+  Collecting page data using 5 workers ...
+  Generating static pages using 5 workers (0/4) ...
+  Generating static pages using 5 workers (1/4) 
+  Generating static pages using 5 workers (2/4) 
+  Generating static pages using 5 workers (3/4) 
+✓ Generating static pages using 5 workers (4/4) in 247ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+└ ○ /manifest.webmanifest
+
+
+○  (Static)  prerendered as static content
+
+
+> sites-project@0.1.0 postbuild
+> node scripts/prepare-founder-offline.mjs
+
+Offline package: 24 immutable files, build 69e7bdc154ed.

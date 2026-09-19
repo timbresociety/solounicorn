@@ -1,0 +1,52 @@
+
+ RUN  v3.2.4 /Users/deepsheth/Documents/GitHub/solounicorn
+
+ ❯ tests/integration/founder-toys.test.ts (29 tests | 1 failed) 491ms
+   ✓ tactile founder state and accounting > restores an out-of-order recipe and ships only after the remaining slots are filled and tested 47ms
+   ✓ tactile founder state and accounting > charges a sampled ticket once, persists inspection without settlement, claims selectively, and abandons the price 17ms
+   ✓ tactile founder state and accounting > routes generic job cancellation through the same paid-ticket abandonment boundary 6ms
+   ✓ tactile founder state and accounting > hands a partially claimed ticket to automation, resolves every remainder, and never repays the founder patch 24ms
+   ✓ tactile founder state and accounting > uses finite quarterly supply and resets only in a new quarter 12ms
+   ✓ tactile founder state and accounting > applies incident costs and keeps an unaffordable negative cash settlement explicit under O02 13ms
+   ✓ tactile founder state and accounting > applies typed strain and rot patches and can close a persisted live incident 13ms
+   × tactile founder state and accounting > measures random rank-zero and wider Luck tickets after price and automation upkeep, with all sixteen ranks defined 17ms
+     → computeFactor is not defined
+   ✓ tactile founder state and accounting > migrates retired maintenance sheets without resetting financial history 5ms
+   ✓ tactile founder state and accounting > requires correct recipe tests, invalidates tests on changes, and never ships a stale job 4ms
+   ✓ tactile founder state and accounting > persists explicit recipe states and ships one reserved order into a trial without ARR 7ms
+   ✓ tactile founder state and accounting > gives a fresh Product brief a two-minute assembly window 1ms
+   ✓ tactile founder state and accounting > merges real matching tiers, keeps rank-zero board constraints, persists the package and fulfills only a complete order 9ms
+   ✓ tactile founder state and accounting > cannot strand the second order by generating excess of one feature family 14ms
+   ✓ tactile founder state and accounting > recovers an overmerged board once without minting supply, cash, slots or ARR 10ms
+   ✓ tactile founder state and accounting > serves a valid package exactly once, books addon ARR, raises service load and delays cash collection 12ms
+   ✓ tactile founder state and accounting > rejects stale customers and hands a persisted board safely between founder and agent 29ms
+   ✓ tactile founder state and accounting > gives all sixteen Expansion ranks stable effects and keeps rank-zero package output deterministic 7ms
+   ✓ tactile founder state and accounting > squashes a finite real problem without rebooking ARR, rejects stale progress, and survives reload 9ms
+   ✓ tactile founder state and accounting > uses the same finite Retention resolver for manual and agent work, and every Retention rank has an effect record 34ms
+   ✓ tactile founder state and accounting > cancels a founder-held problem without a phantom rescue and batches distinct account problems through one agent 48ms
+   ✓ tactile founder state and accounting > commits the visible timing contract deterministically at Luck 0 and rejects malformed timing 4ms
+   ✓ tactile founder state and accounting > uses a replayable named Luck pricing stream and never changes cash at contract commitment 5ms
+   ✓ tactile founder state and accounting > keeps manual room actions responsive while preserving semantic queue guards 3ms
+   ✓ tactile founder state and accounting > gives different cohorts stable seeded Monetisation windows 3ms
+   ✓ tactile founder state and accounting > keeps the pricing meter bounded and bouncing with no end-to-start jump 7ms
+   ✓ tactile founder state and accounting > offers relevant typed rewards without charging a second upgrade economy 3ms
+   ✓ tactile founder state and accounting > allows passing a quarter without cash cost, and rejects subsequently selecting it 115ms
+   ✓ tactile founder state and accounting > migrates previous saves without resetting company finances and replays from the migration checkpoint 6ms
+ ✓ tests/integration/founder-content.test.ts (18 tests) 697ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/integration/founder-toys.test.ts > tactile founder state and accounting > measures random rank-zero and wider Luck tickets after price and automation upkeep, with all sixteen ranks defined
+ReferenceError: computeFactor is not defined
+ ❯ measureOperationsTickets src/game/founder/toys.ts:80:103
+
+ ❯ tests/integration/founder-toys.test.ts:73:14
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  1 failed | 46 passed (47)
+   Start at  15:41:52
+   Duration  1.91s (transform 664ms, setup 0ms, collect 1.04s, tests 1.19s, environment 1ms, prepare 315ms)
+

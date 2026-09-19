@@ -1,0 +1,124 @@
+{
+  "task": "S12",
+  "status": "implemented_unverified",
+  "date": "2026-09-19",
+  "head": "70d8b0e550126849a524573098d051f288fcc706",
+  "branch": "main",
+  "actual_execution": "Inherited GPT-6-based primary task; no model switch, subagent or independent review.",
+  "versions": {
+    "contract": "founder-state.1",
+    "balance": "founder-candidate.12",
+    "content": "founder-content.candidate.12",
+    "saveEnvelope": 2
+  },
+  "catalogue": {
+    "families": 4,
+    "relics": 8,
+    "consumables": 4,
+    "registeredEffects": 10,
+    "artifact": "artifacts/qa/founder-revamp/S12/catalogue.json",
+    "contract": "docs/content/FOUNDER_REWARDS.md",
+    "locked": false
+  },
+  "commands": [
+    {
+      "command": "npx vitest run tests/integration/founder-content.test.ts tests/integration/founder-toys.test.ts",
+      "exitCode": 0,
+      "testsPassed": 47,
+      "log": "artifacts/qa/founder-revamp/S12/final-focused.log"
+    },
+    {
+      "command": "FOUNDER_POLICY_PROGRESS=1 npm run validate",
+      "exitCode": 0,
+      "testsPassed": 107,
+      "newS12Tests": 18,
+      "gates": [
+        "contract",
+        "balance-schema",
+        "simulation smoke",
+        "simulation determinism",
+        "founder tests",
+        "typecheck",
+        "lint"
+      ],
+      "log": "artifacts/qa/founder-revamp/S12/validate.log"
+    },
+    {
+      "command": "npm run build",
+      "exitCode": 0,
+      "immutableOfflineFiles": 24,
+      "build": "b1727e9b490b",
+      "log": "artifacts/qa/founder-revamp/S12/build.log"
+    },
+    {
+      "command": "git diff --check",
+      "exitCode": 0
+    }
+  ],
+  "quantitativeEvidence": {
+    "effectFixtures": "Paired synthetic seed 1212 states for each family; no VC mandate in paired effect fixtures; immutable finance regressions retain bootstrap/debt/VC coverage.",
+    "draftSeeds": "1..120",
+    "policyRuns": 6,
+    "policySeeds": [
+      19,
+      77,
+      84022
+    ],
+    "policyCapital": [
+      "bootstrap",
+      "debt"
+    ],
+    "policyHorizonTicks": 27000,
+    "policyOutcomes": {
+      "failure": 4,
+      "horizon-censored": 2,
+      "unicorn": 0
+    },
+    "beforeAfter": "Each effect compared with the same state without the relic: overhead/new collection delay/stake/ship fit/care deadline/addon cost/compute/routine rot. Funding and protected revenue invariants remain unchanged. Policy selection changed and is not a controlled S11 comparison.",
+    "exploitChecks": [
+      "No double quarter selection or cash fee",
+      "No same-effect stacking or timer refresh",
+      "No stale-target, empty-charge or out-of-phase consumption",
+      "No second win award through reload or continuation",
+      "Failed runs grant no starting advantage"
+    ],
+    "pacingValidated": false
+  },
+  "patch": "artifacts/qa/founder-revamp/S12/S12.patch",
+  "patchSha256": "f3b9289c1c69469d657ccfbbb5b6f57e335804b0afccff60236e719906eab069",
+  "implementationSha256": {
+    "src/game/founder/engine.ts": "45febb80c94d1f6353b56b8281d610e6be0ce2878ef1627b74dd7f2512dd8e4a",
+    "src/game/founder/model.ts": "ca7834c236374fba16ec3e4a3ac9f128017fdb13d856cb5756568f0d4f192a10",
+    "src/game/founder/profile.ts": "45d34497fe1bc976f4119bce3a0ac7e232a58ed12c9b8fc11331642b3ad0842f",
+    "src/game/founder/contracts.ts": "3ddc91c1eea8fdce676679c09698a066eb930b3d63ff0d5fa8e7bda18dd74346",
+    "src/game/founder/save.ts": "9755e4a68d058b64824fef122d88ac69d8fe4c60c06c55122342accea530d9cf",
+    "src/game/founder/toys.ts": "93e211c3eddc811b095de40566c30b9f99cdbb40a0c58d95bd4a4cd6a8c3810d",
+    "src/components/founder/FounderGame.tsx": "eaa35ef1524685ace51135e666a9a61482e00bc712244b606ba1067922a4e767",
+    "src/components/founder/ToyRooms.tsx": "693c259f5c20a47b08a02404e3027790dead6ba1f60149b89589876c46568bdf",
+    "src/components/founder/founder.css": "2deb72783707a43c33aaa41a54346bf69343daddc1426bf96271f3cab943aaaf",
+    "src/components/founder/toys.css": "655f7c97dbb57857277b0dca4b2a2aa71401d502cf039f4d15061703741aaf60",
+    "package.json": "1f308e5e59dd784e70d2622629fb320d4850589b110d079ca7a98b8fbc3e74e2",
+    "tests/integration/founder-company.test.ts": "70a695c88e9e9ec1cf1fe0a24667ee73028c32fccba5c1c092ac85da0e9dc7e7",
+    "docs/exec-plans/active/2026-09-16-founder-revamp/CHECKPOINT.md": "cf101356eb552942f6ec96035e599c60493330cf4a68f9d9d9dfad2ccc459c4c",
+    "docs/exec-plans/active/2026-09-16-founder-revamp/queue.json": "3087aedea043e24b1135047fd923bba9d95176ccd181fead5cc0f57ce6b41f46",
+    "tests/integration/founder-state-save.test.ts": "f9139dba30d7a70b2172d795c2aeb9dbfcff234e8de0e3e77b9e7cc969b1edac",
+    "tests/integration/founder-toys.test.ts": "3b0c159d01ecc19b9463be12c90a2de96c12ed36e21ed4b6448752d84d1e1adb",
+    "src/game/founder/rewards.ts": "c44f81b40073a56dfbd6a6935814e98e3068f2e25d6bd74a70c6a6a108383736",
+    "src/game/founder/history.ts": "264dca3405205d064e1573364799e376b8927646d5b905af2e301cf50e5d70ee",
+    "tests/integration/founder-content.test.ts": "2b4c4d9dd53a7eaa082689185cbc92043df038fbe1f1a3b911c2d409325b5e58",
+    "docs/content/FOUNDER_REWARDS.md": "516a4c195522718cedfb02b98eeaadd1dcb03662c589ab5f9a30b5570b6d130b"
+  },
+  "scenarios": "artifacts/qa/founder-revamp/S12/SCENARIOS.md",
+  "policy_summary": "artifacts/qa/founder-revamp/S12/policy-summary.json",
+  "diagnostics": "Earlier focused failures and interrupted sweeps are retained separately; see SCENARIOS.md. Final validate/build supersede them.",
+  "pending": [
+    "Owner-disabled browser/device/gesture/visual acceptance",
+    "Inherited independent review",
+    "S13 further authored visual/spectator payoff",
+    "S14 late-run update performance",
+    "S15 candidate effect balance, degenerate builds, successful pacing and human playtesting",
+    "41 required unresolved legacy balance entries; runtimeReady=false"
+  ],
+  "next": "S13 on explicit authorization; not started",
+  "published": false
+}

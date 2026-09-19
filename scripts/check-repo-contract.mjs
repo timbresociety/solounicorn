@@ -39,6 +39,11 @@ const retiredTopLevelContext = [
   "CODEX_RUNBOOK.md",
 ];
 
+// User-supplied reference packs are deliberately preserved beside the app. They
+// have their own instructions and toolchain, so they are neither shipped nor
+// scanned as part of this repository's contract.
+const referenceRoots = new Set(["solounicorn_exec"]);
+
 let failed = false;
 function fail(message) {
   failed = true;
@@ -56,19 +61,21 @@ for (const relative of retiredTopLevelContext) {
 }
 
 
-function walk(dir) {
+function walk(dir, { skipReferenceRoots = false } = {}) {
   if (!fs.existsSync(dir)) return [];
   const out = [];
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     if (["node_modules", ".next", "dist", ".git"].includes(entry.name)) continue;
     const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) out.push(...walk(full));
+    const topLevel = path.relative(root, full).split(path.sep)[0];
+    if (skipReferenceRoots && referenceRoots.has(topLevel)) continue;
+    if (entry.isDirectory()) out.push(...walk(full, { skipReferenceRoots }));
     else out.push(full);
   }
   return out;
 }
 
-const allFiles = walk(root);
+const allFiles = walk(root, { skipReferenceRoots: true });
 
 for (const file of allFiles) {
   const relative = path.relative(root, file).split(path.sep).join("/");

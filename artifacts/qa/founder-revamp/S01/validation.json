@@ -1,0 +1,62 @@
+{
+  "task": "S01",
+  "status": "implemented_unverified",
+  "base_commit": "70d8b0e550126849a524573098d051f288fcc706",
+  "branch": "main",
+  "versions": {
+    "state_contract": "founder-state.1",
+    "content": "founder-content.candidate.5",
+    "balance_profile": "founder-candidate.5",
+    "save_envelope": 2
+  },
+  "scenarios": {
+    "seeds": [71, 72, 73, 74, 75, 76],
+    "covered": [
+      "phase permissions and zero-time draft/pause",
+      "duplicate action idempotence",
+      "stale, expired, cancelled, unaffordable, and out-of-phase rejection",
+      "partial founder job ownership across focus and save/restore",
+      "seed plus versions plus action log replay parity",
+      "candidate.5 legacy migration checkpoint",
+      "corrupt-primary last-known-good recovery",
+      "unresolved O02 cash-death policy isolation"
+    ]
+  },
+  "commands": [
+    {
+      "command": "npx vitest run tests/integration/founder-state-save.test.ts tests/replay/save-restore.test.ts",
+      "outcome": "passed",
+      "details": "6 focused state/save tests passed."
+    },
+    {
+      "command": "npx vitest run tests/integration/founder-state-save.test.ts tests/integration/founder-company.test.ts",
+      "outcome": "passed",
+      "details": "Final S01 and company regression rerun passed 18 tests."
+    },
+    {
+      "command": "npm run validate",
+      "outcome": "passed",
+      "details": "Repository contract, legacy balance validation, simulation smoke/determinism, 35 Founder tests, typecheck, and lint passed. Legacy balance remains runtimeReady=false with 41 required unresolved entries. Two non-functional lint warnings were then removed and lint reran cleanly."
+    },
+    {
+      "command": "npm run build",
+      "outcome": "passed",
+      "details": "Final Next production build completed and postbuild produced 24 immutable offline files (build 93f797466878)."
+    },
+    {
+      "command": "npm run lint",
+      "outcome": "passed",
+      "details": "Clean rerun after warning cleanup."
+    },
+    {
+      "command": "git diff --check",
+      "outcome": "passed"
+    }
+  ],
+  "cash_death_policy": {
+    "decision": "O02",
+    "status": "unresolved",
+    "implemented_boundary": "No standalone zero-cash failure was introduced. Existing unaffordable due-obligation failure remains isolated from the unresolved policy."
+  },
+  "visual_device_human_verification": "not run: browser/computer-use remains disabled by owner instruction; window blur/pagehide and rendered phase-flow acceptance remain pending"
+}

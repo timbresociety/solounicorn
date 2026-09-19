@@ -1,6 +1,6 @@
 # ONE PERSON UNICORN — Architecture
 
-Status: BINDING REPOSITORY ARCHITECTURE FOR V2
+Status: HISTORICAL V2 ARCHITECTURE. Current work follows the [2026-09-16 revamp](docs/exec-plans/active/2026-09-16-founder-revamp/README.md). S00 reconciles obsolete paths and enforcement. Reusable state-separation principles remain applicable when consistent with latest owner decisions.
 
 This document defines enforceable software boundaries. `docs/BUILD.md` defines implementation/product-form requirements. Neither document invents game balance.
 

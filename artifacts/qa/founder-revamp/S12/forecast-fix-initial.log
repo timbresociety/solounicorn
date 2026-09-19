@@ -1,0 +1,660 @@
+
+ RUN  v3.2.4 /Users/deepsheth/Documents/GitHub/solounicorn
+
+ ❯ tests/integration/founder-state-save.test.ts (9 tests | 1 failed) 128ms
+   × founder authoritative state and save boundary > uses one explicit phase table and freezes draft and pause time without RNG work 73ms
+     → cost is not defined
+   ✓ founder authoritative state and save boundary > defines duplicate, stale, cancelled, expired, unaffordable and out-of-phase outcomes without double charge 15ms
+   ✓ founder authoritative state and save boundary > persists partial ownership, versions, inventory, pending draft and exact replay identity 8ms
+   ✓ founder authoritative state and save boundary > migrates candidate.5 explicitly and recovers from a corrupt primary with a last-known-good save 7ms
+   ✓ founder authoritative state and save boundary > rebases a checksummed candidate.5 v2 save before replaying later rank and Retention rules 2ms
+   ✓ founder authoritative state and save boundary > deliberately migrates candidate.6 Retention damage into finite customer-problem work 5ms
+   ✓ founder authoritative state and save boundary > rebases candidate.8 repair-sheet saves onto paid ticket state without changing company money 9ms
+   ✓ founder authoritative state and save boundary > keeps owner-approved cash death tied to mandatory obligations 0ms
+   ✓ founder authoritative state and save boundary > commits the visible Demand profile deterministically and persists its cash-to-Product consequence 5ms
+ ❯ tests/integration/founder-finance.test.ts (17 tests | 13 failed) 150ms
+   × S11 finance accounting > collects a due invoice before bills but rejects a rescue that arrives after a failed obligation 73ms
+     → cost is not defined
+   ✓ S11 finance accounting > carries fractional cents instead of independently rounding each interest bill 2ms
+   ✓ S11 finance accounting > preserves integer-cent precision across the supported money range 3ms
+   × S11 approved survival and financing > survives exact zero until an obligation is unpaid, including a zero-cash quarter close 2ms
+     → cost is not defined
+   × S11 approved survival and financing > funds only once, creates no ARR, charges interest monthly and principal only at maturity 10ms
+     → cost is not defined
+   × S11 approved survival and financing > repays early with prorated interest, charges principal outside expenses and rejects duplicates 1ms
+     → cost is not defined
+   × S11 approved survival and financing > does not kill a run for an unaffordable optional payoff and keeps exact carry across save/reload 4ms
+     → cost is not defined
+   × S11 approved survival and financing > fails a missed interest bill or maturity payment, but an exact funded payment survives 3ms
+     → cost is not defined
+   × S11 approved survival and financing > warns before interest failure and never rescues a failed run with later funding 6ms
+     → cost is not defined
+   × S11 approved survival and financing > captures VC baseline after the partial quarter and freezes all schedules during the draft 6ms
+     → cost is not defined
+   × S11 approved survival and financing > assesses a full VC quarter for monthly price delta 0, without imposing bootstrap growth 6ms
+     → cost is not defined
+   × S11 approved survival and financing > assesses a full VC quarter for monthly price delta -1, without imposing bootstrap growth 1ms
+     → cost is not defined
+   × S11 approved survival and financing > assesses a full VC quarter for monthly price delta 1, without imposing bootstrap growth 2ms
+     → cost is not defined
+   ✓ S11 approved survival and financing > treats funding exactly at a quarter opening as a full assessed quarter and rejects changed offers 3ms
+   × S11 approved survival and financing > uses eligible ARR and resolves a due VC failure before a possible unicorn award 8ms
+     → cost is not defined
+   × S11 approved survival and financing > normalizes old financed saves before rebuilding missing quarter score metadata 10ms
+     → cost is not defined
+   ✓ S11 approved survival and financing > migrates accepted legacy financing without repricing obligations or rerunning old actions 7ms
+ ❯ tests/integration/founder-content.test.ts (18 tests | 10 failed) 204ms
+   ✓ S12 build catalogue and draft > has four complete families and validated effect, localization and tradeoff contracts 6ms
+   × S12 build catalogue and draft > offers only relevant effects, never owned/full rewards or same-effect alternatives; seeds persist 151ms
+     → cost is not defined
+   × S12 build catalogue and draft > handles exhausted pools without fabricated rewards or a stuck quarter 3ms
+     → cost is not defined
+   ✓ S12 build catalogue and draft > does not double-stack saved legacy upgrades and matching relics 1ms
+   × S12 every relic changes its actual function > bootstrap reduces only overhead and changes only future invoice dates 1ms
+     → cost is not defined
+   ✓ S12 every relic changes its actual function > growth lowers paid acquisition stakes and improves real shipped fit without booking ARR 12ms
+   ✓ S12 every relic changes its actual function > durable care extends only resolved protection and discounts only addon service 5ms
+   × S12 every relic changes its actual function > automation reduces real compute invoices and routine rot while preserving effort and pressure 1ms
+     → cost is not defined
+   × S12 consumable lifecycle > consumable:weekend-budget expires in active time, pauses, reloads and never stacks or overspends charges 2ms
+     → cost is not defined
+   × S12 consumable lifecycle > consumable:launch-checklist expires in active time, pauses, reloads and never stacks or overspends charges 1ms
+     → cost is not defined
+   ✓ S12 consumable lifecycle > temporary discounts and shipment fit use the same economic resolvers as relics 4ms
+   × S12 consumable lifecycle > cash forecast stops applying a temporary discount at its actual expiry 1ms
+     → cost is not defined
+   ✓ S12 consumable lifecycle > firebreak targets a specific live problem and cannot spend on stale or churned accounts 2ms
+   ✓ S12 consumable lifecycle > context reset clears only the selected function and a second use does not waste a charge 2ms
+   ✓ S12 consumable lifecycle > rejects malformed inventory and preserves old offers, charges and financing during migration 3ms
+   × S12 earned founder history > records an engine-earned win once across reload, continue, later quarters and storage retries 2ms
+     → cost is not defined
+   × S12 earned founder history > keeps the winning quarter draft available on Continue and never overwrites the first win 2ms
+     → cost is not defined
+   × S12 earned founder history > failed runs mint nothing; legacy wins deduplicate without capping earned advantage 4ms
+     → cost is not defined
+ ❯ tests/integration/founder-company.test.ts (19 tests | 15 failed) 251ms
+   ✓ founder company candidate > keeps agent count tied to Automate ranks, not Scale capacity or total skill ranks 59ms
+   × founder company candidate > makes real subscriptions from semantic work, bills in arrears, reconciles collections and saves 27ms
+     → cost is not defined
+   × founder company candidate > replays exactly and time rebatching does not reroll work 7ms
+     → cost is not defined
+   × founder company candidate > agents consume real queues, unlock after deployment, cost cash, and accumulate rot 1ms
+     → cost is not defined
+   × founder company candidate > cannot create output with invalid/stale/duplicate toy commits 10ms
+     → cost is not defined
+   × founder company candidate > settles into a frozen quarter draft and never duplicates a selected upgrade 3ms
+     → cost is not defined
+   × founder company candidate > settles simultaneous receipts before bills, then freezes a report with actual score factors 1ms
+     → cost is not defined
+   × founder company candidate > fails a due boundary before victory or a reward can exist 1ms
+     → cost is not defined
+   × founder company candidate > persists draft offers and a consumable selection once across reloads without advancing time 7ms
+     → cost is not defined
+   × founder company candidate > uses a drafted firebreak once to protect a live threat without creating money or ARR 4ms
+     → cost is not defined
+   × founder company candidate > fails on unpaid bills, and an accepted VC miss is terminal without creating ARR 2ms
+     → cost is not defined
+   × founder company candidate > expired customer problems destroy attributable ARR while completed finite interventions preserve it 6ms
+     → cost is not defined
+   ✓ founder company candidate > Luck has explained correlated variance and a slightly positive advanced raw EV 33ms
+   × founder company candidate > win checks run after obligations; earned founder advantages are explicit 4ms
+     → cost is not defined
+   × exports reproducible browser fixtures, with diagnostic fixtures explicitly separated 10ms
+     → cost is not defined
+   ✓ guards duplicate rank clicks, optional luck exposure, and finite repair output 2ms
+   × keeps founder assembly reserved while agents work on other eligible requests 8ms
+     → cost is not defined
+   ✓ implements all 64 named core ranks once, with save and replay-safe purchases 58ms
+   × keeps first-three-function manual and agent work on equivalent finite inputs 3ms
+     → cost is not defined
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 39 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/integration/founder-company.test.ts > founder company candidate > makes real subscriptions from semantic work, bills in arrears, reconciles collections and saves
+ReferenceError: cost is not defined
+ ❯ forecast src/game/founder/engine.ts:95:125
+     93|   let cash=s.cash,minimum=cash,obligations=0;
+     94|   const events=[...items.values()].sort((a,b)=>a.at-b.at||b.cents-a.ce…
+     95|   return {events,minimum,obligations,shortfall:clamp(-minimum/Math.max…
+       |                                                                                                                             ^
+     96| }
+     97| export function metrics(s:Company) {
+ ❯ metrics src/game/founder/engine.ts:104:38
+ ❯ advance src/game/founder/engine.ts:704:39
+ ❯ customer tests/integration/founder-company.test.ts:16:7
+ ❯ tests/integration/founder-company.test.ts:31:11
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/39]⎯
+
+ FAIL  tests/integration/founder-company.test.ts > founder company candidate > replays exactly and time rebatching does not reroll work
+ReferenceError: cost is not defined
+ ❯ forecast src/game/founder/engine.ts:95:125
+     93|   let cash=s.cash,minimum=cash,obligations=0;
+     94|   const events=[...items.values()].sort((a,b)=>a.at-b.at||b.cents-a.ce…
+     95|   return {events,minimum,obligations,shortfall:clamp(-minimum/Math.max…
+       |                                                                                                                             ^
+     96| }
+     97| export function metrics(s:Company) {
+ ❯ metrics src/game/founder/engine.ts:104:38
+ ❯ advance src/game/founder/engine.ts:704:39
+ ❯ customer tests/integration/founder-company.test.ts:16:7
+ ❯ tests/integration/founder-company.test.ts:36:15
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/39]⎯
+
+ FAIL  tests/integration/founder-company.test.ts > founder company candidate > agents consume real queues, unlock after deployment, cost cash, and accumulate rot
+ReferenceError: cost is not defined
+ ❯ forecast src/game/founder/engine.ts:95:125
+     93|   let cash=s.cash,minimum=cash,obligations=0;
+     94|   const events=[...items.values()].sort((a,b)=>a.at-b.at||b.cents-a.ce…
+     95|   return {events,minimum,obligations,shortfall:clamp(-minimum/Math.max…
+       |                                                                                                                             ^
+     96| }
+     97| export function metrics(s:Company) {
+ ❯ metrics src/game/founder/engine.ts:104:38
+ ❯ advance src/game/founder/engine.ts:704:39
+ ❯ tests/integration/founder-company.test.ts:42:70
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/39]⎯
+
+ FAIL  tests/integration/founder-company.test.ts > founder company candidate > cannot create output with invalid/stale/duplicate toy commits
+ReferenceError: cost is not defined
+ ❯ forecast src/game/founder/engine.ts:95:125
+     93|   let cash=s.cash,minimum=cash,obligations=0;
+     94|   const events=[...items.values()].sort((a,b)=>a.at-b.at||b.cents-a.ce…
+     95|   return {events,minimum,obligations,shortfall:clamp(-minimum/Math.max…
+       |                                                                                                                             ^
+     96| }
+     97| export function metrics(s:Company) {
+ ❯ metrics src/game/founder/engine.ts:104:38
+ ❯ advance src/game/founder/engine.ts:704:39
+ ❯ customer tests/integration/founder-company.test.ts:16:7
+ ❯ tests/integration/founder-company.test.ts:47:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/39]⎯
+
+ FAIL  tests/integration/founder-company.test.ts > founder company candidate > settles into a frozen quarter draft and never duplicates a selected upgrade
+ReferenceError: cost is not defined
+ ❯ forecast src/game/founder/engine.ts:95:125
+     93|   let cash=s.cash,minimum=cash,obligations=0;
+     94|   const events=[...items.values()].sort((a,b)=>a.at-b.at||b.cents-a.ce…
+     95|   return {events,minimum,obligations,shortfall:clamp(-minimum/Math.max…
+       |                                                                                                                             ^
+     96| }
+     97| export function metrics(s:Company) {
+ ❯ metrics src/game/founder/engine.ts:104:38
+ ❯ advance src/game/founder/engine.ts:704:39
+ ❯ tests/integration/founder-company.test.ts:50:11
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/39]⎯
+
+ FAIL  tests/integration/founder-company.test.ts > founder company candidate > settles simultaneous receipts before bills, then freezes a report with actual score factors
+ReferenceError: cost is not defined
+ ❯ forecast src/game/founder/engine.ts:95:125
+     93|   let cash=s.cash,minimum=cash,obligations=0;
+     94|   const events=[...items.values()].sort((a,b)=>a.at-b.at||b.cents-a.ce…
+     95|   return {events,minimum,obligations,shortfall:clamp(-minimum/Math.max…
+       |                                                                                                                             ^
+     96| }
+     97| export function metrics(s:Company) {
+ ❯ metrics src/game/founder/engine.ts:104:38
+ ❯ advance src/game/founder/engine.ts:696:19
+ ❯ tests/integration/founder-company.test.ts:54:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/39]⎯
+
+ FAIL  tests/integration/founder-company.test.ts > founder company candidate > fails a due boundary before victory or a reward can exist
+ReferenceError: cost is not defined
+ ❯ forecast src/game/founder/engine.ts:95:125
+     93|   let cash=s.cash,minimum=cash,obligations=0;
+     94|   const events=[...items.values()].sort((a,b)=>a.at-b.at||b.cents-a.ce…
+     95|   return {events,minimum,obligations,shortfall:clamp(-minimum/Math.max…
+       |                                                                                                                             ^
+     96| }
+     97| export function metrics(s:Company) {
+ ❯ metrics src/game/founder/engine.ts:104:38
+ ❯ tests/integration/founder-company.test.ts:58:38
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/39]⎯
+
+ FAIL  tests/integration/founder-company.test.ts > founder company candidate > persists draft offers and a consumable selection once across reloads without advancing time
+ReferenceError: cost is not defined
+ ❯ forecast src/game/founder/engine.ts:95:125
+     93|   let cash=s.cash,minimum=cash,obligations=0;
+     94|   const events=[...items.values()].sort((a,b)=>a.at-b.at||b.cents-a.ce…
+     95|   return {events,minimum,obligations,shortfall:clamp(-minimum/Math.max…
+       |                                                                                                                             ^
+     96| }
+     97| export function metrics(s:Company) {
+ ❯ metrics src/game/founder/engine.ts:104:38
+ ❯ advance src/game/founder/engine.ts:704:39
+ ❯ tests/integration/founder-company.test.ts:61:11
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/39]⎯
+
+ FAIL  tests/integration/founder-company.test.ts > founder company candidate > uses a drafted firebreak once to protect a live threat without creating money or ARR
+ReferenceError: cost is not defined
+ ❯ forecast src/game/founder/engine.ts:95:125
+     93|   let cash=s.cash,minimum=cash,obligations=0;
+     94|   const events=[...items.values()].sort((a,b)=>a.at-b.at||b.cents-a.ce…
+     95|   return {events,minimum,obligations,shortfall:clamp(-minimum/Math.max…
+       |                                                                                                                             ^
+     96| }
+     97| export function metrics(s:Company) {
+ ❯ metrics src/game/founder/engine.ts:104:38
+ ❯ advance src/game/founder/engine.ts:704:39
+ ❯ tests/integration/founder-company.test.ts:65:11
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/39]⎯
+
+ FAIL  tests/integration/founder-company.test.ts > founder company candidate > fails on unpaid bills, and an accepted VC miss is terminal without creating ARR
+ReferenceError: cost is not defined
+ ❯ forecast src/game/founder/engine.ts:95:125
+     93|   let cash=s.cash,minimum=cash,obligations=0;
+     94|   const events=[...items.values()].sort((a,b)=>a.at-b.at||b.cents-a.ce…
+     95|   return {events,minimum,obligations,shortfall:clamp(-minimum/Math.max…
+       |                                                                                                                             ^
+     96| }
+     97| export function metrics(s:Company) {
+ ❯ metrics src/game/founder/engine.ts:104:38
+ ❯ advance src/game/founder/engine.ts:704:39
+ ❯ tests/integration/founder-company.test.ts:69:45
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/39]⎯
+
+ FAIL  tests/integration/founder-company.test.ts > founder company candidate > expired customer problems destroy attributable ARR while completed finite interventions preserve it
+ReferenceError: cost is not defined
+ ❯ forecast src/game/founder/engine.ts:95:125
+     93|   let cash=s.cash,minimum=cash,obligations=0;
+     94|   const events=[...items.values()].sort((a,b)=>a.at-b.at||b.cents-a.ce…
+     95|   return {events,minimum,obligations,shortfall:clamp(-minimum/Math.max…
+       |                                                                                                                             ^
+     96| }
+     97| export function metrics(s:Company) {
+ ❯ metrics src/game/founder/engine.ts:104:38
+ ❯ advance src/game/founder/engine.ts:704:39
+ ❯ customer tests/integration/founder-company.test.ts:16:7
+ ❯ tests/integration/founder-company.test.ts:74:11
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/39]⎯
+
+ FAIL  tests/integration/founder-company.test.ts > founder company candidate > win checks run after obligations; earned founder advantages are explicit
+ReferenceError: cost is not defined
+ ❯ forecast src/game/founder/engine.ts:95:125
+     93|   let cash=s.cash,minimum=cash,obligations=0;
+     94|   const events=[...items.values()].sort((a,b)=>a.at-b.at||b.cents-a.ce…
+     95|   return {events,minimum,obligations,shortfall:clamp(-minimum/Math.max…
+       |                                                                                                                             ^
+     96| }
+     97| export function metrics(s:Company) {
+ ❯ metrics src/game/founder/engine.ts:104:38
+ ❯ advance src/game/founder/engine.ts:704:39
+ ❯ customer tests/integration/founder-company.test.ts:16:7
+ ❯ tests/integration/founder-company.test.ts:82:13
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/39]⎯
+
+ FAIL  tests/integration/founder-company.test.ts > exports reproducible browser fixtures, with diagnostic fixtures explicitly separated
+ReferenceError: cost is not defined
+ ❯ forecast src/game/founder/engine.ts:95:125
+     93|   let cash=s.cash,minimum=cash,obligations=0;
+     94|   const events=[...items.values()].sort((a,b)=>a.at-b.at||b.cents-a.ce…
+     95|   return {events,minimum,obligations,shortfall:clamp(-minimum/Math.max…
+       |                                                                                                                             ^
+     96| }
+     97| export function metrics(s:Company) {
+ ❯ metrics src/game/founder/engine.ts:104:38
+ ❯ advance src/game/founder/engine.ts:704:39
+ ❯ customer tests/integration/founder-company.test.ts:16:7
+ ❯ tests/integration/founder-company.test.ts:88:46
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/39]⎯
+
+ FAIL  tests/integration/founder-company.test.ts > keeps founder assembly reserved while agents work on other eligible requests
+ReferenceError: cost is not defined
+ ❯ forecast src/game/founder/engine.ts:95:125
+     93|   let cash=s.cash,minimum=cash,obligations=0;
+     94|   const events=[...items.values()].sort((a,b)=>a.at-b.at||b.cents-a.ce…
+     95|   return {events,minimum,obligations,shortfall:clamp(-minimum/Math.max…
+       |                                                                                                                             ^
+     96| }
+     97| export function metrics(s:Company) {
+ ❯ metrics src/game/founder/engine.ts:104:38
+ ❯ advance src/game/founder/engine.ts:704:39
+ ❯ tests/integration/founder-company.test.ts:104:84
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/39]⎯
+
+ FAIL  tests/integration/founder-company.test.ts > keeps first-three-function manual and agent work on equivalent finite inputs
+ReferenceError: cost is not defined
+ ❯ forecast src/game/founder/engine.ts:95:125
+     93|   let cash=s.cash,minimum=cash,obligations=0;
+     94|   const events=[...items.values()].sort((a,b)=>a.at-b.at||b.cents-a.ce…
+     95|   return {events,minimum,obligations,shortfall:clamp(-minimum/Math.max…
+       |                                                                                                                             ^
+     96| }
+     97| export function metrics(s:Company) {
+ ❯ metrics src/game/founder/engine.ts:104:38
+ ❯ advance src/game/founder/engine.ts:704:39
+ ❯ tests/integration/founder-company.test.ts:124:74
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/39]⎯
+
+ FAIL  tests/integration/founder-content.test.ts > S12 build catalogue and draft > offers only relevant effects, never owned/full rewards or same-effect alternatives; seeds persist
+ReferenceError: cost is not defined
+ ❯ forecast src/game/founder/engine.ts:95:125
+     93|   let cash=s.cash,minimum=cash,obligations=0;
+     94|   const events=[...items.values()].sort((a,b)=>a.at-b.at||b.cents-a.ce…
+     95|   return {events,minimum,obligations,shortfall:clamp(-minimum/Math.max…
+       |                                                                                                                             ^
+     96| }
+     97| export function metrics(s:Company) {
+ ❯ metrics src/game/founder/engine.ts:104:38
+ ❯ advance src/game/founder/engine.ts:704:39
+ ❯ tests/integration/founder-content.test.ts:32:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/39]⎯
+
+ FAIL  tests/integration/founder-content.test.ts > S12 build catalogue and draft > handles exhausted pools without fabricated rewards or a stuck quarter
+ReferenceError: cost is not defined
+ ❯ forecast src/game/founder/engine.ts:95:125
+     93|   let cash=s.cash,minimum=cash,obligations=0;
+     94|   const events=[...items.values()].sort((a,b)=>a.at-b.at||b.cents-a.ce…
+     95|   return {events,minimum,obligations,shortfall:clamp(-minimum/Math.max…
+       |                                                                                                                             ^
+     96| }
+     97| export function metrics(s:Company) {
+ ❯ metrics src/game/founder/engine.ts:104:38
+ ❯ advance src/game/founder/engine.ts:696:19
+ ❯ tests/integration/founder-content.test.ts:38:43
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/39]⎯
+
+ FAIL  tests/integration/founder-content.test.ts > S12 every relic changes its actual function > bootstrap reduces only overhead and changes only future invoice dates
+ReferenceError: cost is not defined
+ ❯ forecast src/game/founder/engine.ts:95:125
+     93|   let cash=s.cash,minimum=cash,obligations=0;
+     94|   const events=[...items.values()].sort((a,b)=>a.at-b.at||b.cents-a.ce…
+     95|   return {events,minimum,obligations,shortfall:clamp(-minimum/Math.max…
+       |                                                                                                                             ^
+     96| }
+     97| export function metrics(s:Company) {
+ ❯ tests/integration/founder-content.test.ts:53:48
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[18/39]⎯
+
+ FAIL  tests/integration/founder-content.test.ts > S12 every relic changes its actual function > automation reduces real compute invoices and routine rot while preserving effort and pressure
+ReferenceError: cost is not defined
+ ❯ forecast src/game/founder/engine.ts:95:125
+     93|   let cash=s.cash,minimum=cash,obligations=0;
+     94|   const events=[...items.values()].sort((a,b)=>a.at-b.at||b.cents-a.ce…
+     95|   return {events,minimum,obligations,shortfall:clamp(-minimum/Math.max…
+       |                                                                                                                             ^
+     96| }
+     97| export function metrics(s:Company) {
+ ❯ metrics src/game/founder/engine.ts:104:38
+ ❯ tests/integration/founder-content.test.ts:69:162
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[19/39]⎯
+
+ FAIL  tests/integration/founder-content.test.ts > S12 consumable lifecycle > consumable:weekend-budget expires in active time, pauses, reloads and never stacks or overspends charges
+ FAIL  tests/integration/founder-content.test.ts > S12 consumable lifecycle > consumable:launch-checklist expires in active time, pauses, reloads and never stacks or overspends charges
+ReferenceError: cost is not defined
+ ❯ forecast src/game/founder/engine.ts:95:125
+     93|   let cash=s.cash,minimum=cash,obligations=0;
+     94|   const events=[...items.values()].sort((a,b)=>a.at-b.at||b.cents-a.ce…
+     95|   return {events,minimum,obligations,shortfall:clamp(-minimum/Math.max…
+       |                                                                                                                             ^
+     96| }
+     97| export function metrics(s:Company) {
+ ❯ metrics src/game/founder/engine.ts:104:38
+ ❯ advance src/game/founder/engine.ts:704:39
+ ❯ tests/integration/founder-content.test.ts:78:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[20/39]⎯
+
+ FAIL  tests/integration/founder-content.test.ts > S12 consumable lifecycle > cash forecast stops applying a temporary discount at its actual expiry
+ReferenceError: cost is not defined
+ ❯ forecast src/game/founder/engine.ts:95:125
+     93|   let cash=s.cash,minimum=cash,obligations=0;
+     94|   const events=[...items.values()].sort((a,b)=>a.at-b.at||b.cents-a.ce…
+     95|   return {events,minimum,obligations,shortfall:clamp(-minimum/Math.max…
+       |                                                                                                                             ^
+     96| }
+     97| export function metrics(s:Company) {
+ ❯ tests/integration/founder-content.test.ts:89:95
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[21/39]⎯
+
+ FAIL  tests/integration/founder-content.test.ts > S12 earned founder history > records an engine-earned win once across reload, continue, later quarters and storage retries
+ReferenceError: cost is not defined
+ ❯ forecast src/game/founder/engine.ts:95:125
+     93|   let cash=s.cash,minimum=cash,obligations=0;
+     94|   const events=[...items.values()].sort((a,b)=>a.at-b.at||b.cents-a.ce…
+     95|   return {events,minimum,obligations,shortfall:clamp(-minimum/Math.max…
+       |                                                                                                                             ^
+     96| }
+     97| export function metrics(s:Company) {
+ ❯ metrics src/game/founder/engine.ts:104:38
+ ❯ advance src/game/founder/engine.ts:704:39
+ ❯ winner tests/integration/founder-content.test.ts:112:119
+ ❯ tests/integration/founder-content.test.ts:114:9
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[22/39]⎯
+
+ FAIL  tests/integration/founder-content.test.ts > S12 earned founder history > keeps the winning quarter draft available on Continue and never overwrites the first win
+ReferenceError: cost is not defined
+ ❯ forecast src/game/founder/engine.ts:95:125
+     93|   let cash=s.cash,minimum=cash,obligations=0;
+     94|   const events=[...items.values()].sort((a,b)=>a.at-b.at||b.cents-a.ce…
+     95|   return {events,minimum,obligations,shortfall:clamp(-minimum/Math.max…
+       |                                                                                                                             ^
+     96| }
+     97| export function metrics(s:Company) {
+ ❯ metrics src/game/founder/engine.ts:104:38
+ ❯ advance src/game/founder/engine.ts:696:19
+ ❯ winner tests/integration/founder-content.test.ts:112:119
+ ❯ tests/integration/founder-content.test.ts:120:9
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[23/39]⎯
+
+ FAIL  tests/integration/founder-content.test.ts > S12 earned founder history > failed runs mint nothing; legacy wins deduplicate without capping earned advantage
+ReferenceError: cost is not defined
+ ❯ forecast src/game/founder/engine.ts:95:125
+     93|   let cash=s.cash,minimum=cash,obligations=0;
+     94|   const events=[...items.values()].sort((a,b)=>a.at-b.at||b.cents-a.ce…
+     95|   return {events,minimum,obligations,shortfall:clamp(-minimum/Math.max…
+       |                                                                                                                             ^
+     96| }
+     97| export function metrics(s:Company) {
+ ❯ metrics src/game/founder/engine.ts:104:38
+ ❯ advance src/game/founder/engine.ts:704:39
+ ❯ tests/integration/founder-content.test.ts:123:49
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[24/39]⎯
+
+ FAIL  tests/integration/founder-finance.test.ts > S11 finance accounting > collects a due invoice before bills but rejects a rescue that arrives after a failed obligation
+ReferenceError: cost is not defined
+ ❯ forecast src/game/founder/engine.ts:95:125
+     93|   let cash=s.cash,minimum=cash,obligations=0;
+     94|   const events=[...items.values()].sort((a,b)=>a.at-b.at||b.cents-a.ce…
+     95|   return {events,minimum,obligations,shortfall:clamp(-minimum/Math.max…
+       |                                                                                                                             ^
+     96| }
+     97| export function metrics(s:Company) {
+ ❯ metrics src/game/founder/engine.ts:104:38
+ ❯ advance src/game/founder/engine.ts:704:39
+ ❯ tests/integration/founder-finance.test.ts:14:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[25/39]⎯
+
+ FAIL  tests/integration/founder-finance.test.ts > S11 approved survival and financing > survives exact zero until an obligation is unpaid, including a zero-cash quarter close
+ReferenceError: cost is not defined
+ ❯ forecast src/game/founder/engine.ts:95:125
+     93|   let cash=s.cash,minimum=cash,obligations=0;
+     94|   const events=[...items.values()].sort((a,b)=>a.at-b.at||b.cents-a.ce…
+     95|   return {events,minimum,obligations,shortfall:clamp(-minimum/Math.max…
+       |                                                                                                                             ^
+     96| }
+     97| export function metrics(s:Company) {
+ ❯ metrics src/game/founder/engine.ts:104:38
+ ❯ advance src/game/founder/engine.ts:704:39
+ ❯ tests/integration/founder-finance.test.ts:60:84
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[26/39]⎯
+
+ FAIL  tests/integration/founder-finance.test.ts > S11 approved survival and financing > funds only once, creates no ARR, charges interest monthly and principal only at maturity
+ReferenceError: cost is not defined
+ ❯ forecast src/game/founder/engine.ts:95:125
+     93|   let cash=s.cash,minimum=cash,obligations=0;
+     94|   const events=[...items.values()].sort((a,b)=>a.at-b.at||b.cents-a.ce…
+     95|   return {events,minimum,obligations,shortfall:clamp(-minimum/Math.max…
+       |                                                                                                                             ^
+     96| }
+     97| export function metrics(s:Company) {
+ ❯ tests/integration/founder-finance.test.ts:73:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[27/39]⎯
+
+ FAIL  tests/integration/founder-finance.test.ts > S11 approved survival and financing > repays early with prorated interest, charges principal outside expenses and rejects duplicates
+ReferenceError: cost is not defined
+ ❯ forecast src/game/founder/engine.ts:95:125
+     93|   let cash=s.cash,minimum=cash,obligations=0;
+     94|   const events=[...items.values()].sort((a,b)=>a.at-b.at||b.cents-a.ce…
+     95|   return {events,minimum,obligations,shortfall:clamp(-minimum/Math.max…
+       |                                                                                                                             ^
+     96| }
+     97| export function metrics(s:Company) {
+ ❯ metrics src/game/founder/engine.ts:104:38
+ ❯ advance src/game/founder/engine.ts:704:39
+ ❯ tests/integration/founder-finance.test.ts:80:76
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[28/39]⎯
+
+ FAIL  tests/integration/founder-finance.test.ts > S11 approved survival and financing > does not kill a run for an unaffordable optional payoff and keeps exact carry across save/reload
+ReferenceError: cost is not defined
+ ❯ forecast src/game/founder/engine.ts:95:125
+     93|   let cash=s.cash,minimum=cash,obligations=0;
+     94|   const events=[...items.values()].sort((a,b)=>a.at-b.at||b.cents-a.ce…
+     95|   return {events,minimum,obligations,shortfall:clamp(-minimum/Math.max…
+       |                                                                                                                             ^
+     96| }
+     97| export function metrics(s:Company) {
+ ❯ metrics src/game/founder/engine.ts:104:38
+ ❯ advance src/game/founder/engine.ts:704:39
+ ❯ tests/integration/founder-finance.test.ts:92:10
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[29/39]⎯
+
+ FAIL  tests/integration/founder-finance.test.ts > S11 approved survival and financing > fails a missed interest bill or maturity payment, but an exact funded payment survives
+ReferenceError: cost is not defined
+ ❯ forecast src/game/founder/engine.ts:95:125
+     93|   let cash=s.cash,minimum=cash,obligations=0;
+     94|   const events=[...items.values()].sort((a,b)=>a.at-b.at||b.cents-a.ce…
+     95|   return {events,minimum,obligations,shortfall:clamp(-minimum/Math.max…
+       |                                                                                                                             ^
+     96| }
+     97| export function metrics(s:Company) {
+ ❯ metrics src/game/founder/engine.ts:104:38
+ ❯ advance src/game/founder/engine.ts:696:19
+ ❯ tests/integration/founder-finance.test.ts:103:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[30/39]⎯
+
+ FAIL  tests/integration/founder-finance.test.ts > S11 approved survival and financing > warns before interest failure and never rescues a failed run with later funding
+ReferenceError: cost is not defined
+ ❯ forecast src/game/founder/engine.ts:95:125
+     93|   let cash=s.cash,minimum=cash,obligations=0;
+     94|   const events=[...items.values()].sort((a,b)=>a.at-b.at||b.cents-a.ce…
+     95|   return {events,minimum,obligations,shortfall:clamp(-minimum/Math.max…
+       |                                                                                                                             ^
+     96| }
+     97| export function metrics(s:Company) {
+ ❯ metrics src/game/founder/engine.ts:104:38
+ ❯ advance src/game/founder/engine.ts:704:39
+ ❯ tests/integration/founder-finance.test.ts:109:39
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[31/39]⎯
+
+ FAIL  tests/integration/founder-finance.test.ts > S11 approved survival and financing > captures VC baseline after the partial quarter and freezes all schedules during the draft
+ReferenceError: cost is not defined
+ ❯ forecast src/game/founder/engine.ts:95:125
+     93|   let cash=s.cash,minimum=cash,obligations=0;
+     94|   const events=[...items.values()].sort((a,b)=>a.at-b.at||b.cents-a.ce…
+     95|   return {events,minimum,obligations,shortfall:clamp(-minimum/Math.max…
+       |                                                                                                                             ^
+     96| }
+     97| export function metrics(s:Company) {
+ ❯ metrics src/game/founder/engine.ts:104:38
+ ❯ advance src/game/founder/engine.ts:704:39
+ ❯ tests/integration/founder-finance.test.ts:118:51
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[32/39]⎯
+
+ FAIL  tests/integration/founder-finance.test.ts > S11 approved survival and financing > assesses a full VC quarter for monthly price delta 0, without imposing bootstrap growth
+ FAIL  tests/integration/founder-finance.test.ts > S11 approved survival and financing > assesses a full VC quarter for monthly price delta -1, without imposing bootstrap growth
+ FAIL  tests/integration/founder-finance.test.ts > S11 approved survival and financing > assesses a full VC quarter for monthly price delta 1, without imposing bootstrap growth
+ReferenceError: cost is not defined
+ ❯ forecast src/game/founder/engine.ts:95:125
+     93|   let cash=s.cash,minimum=cash,obligations=0;
+     94|   const events=[...items.values()].sort((a,b)=>a.at-b.at||b.cents-a.ce…
+     95|   return {events,minimum,obligations,shortfall:clamp(-minimum/Math.max…
+       |                                                                                                                             ^
+     96| }
+     97| export function metrics(s:Company) {
+ ❯ metrics src/game/founder/engine.ts:104:38
+ ❯ advance src/game/founder/engine.ts:696:19
+ ❯ tests/integration/founder-finance.test.ts:126:59
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[33/39]⎯
+
+ FAIL  tests/integration/founder-finance.test.ts > S11 approved survival and financing > uses eligible ARR and resolves a due VC failure before a possible unicorn award
+ReferenceError: cost is not defined
+ ❯ forecast src/game/founder/engine.ts:95:125
+     93|   let cash=s.cash,minimum=cash,obligations=0;
+     94|   const events=[...items.values()].sort((a,b)=>a.at-b.at||b.cents-a.ce…
+     95|   return {events,minimum,obligations,shortfall:clamp(-minimum/Math.max…
+       |                                                                                                                             ^
+     96| }
+     97| export function metrics(s:Company) {
+ ❯ metrics src/game/founder/engine.ts:104:38
+ ❯ tests/integration/founder-finance.test.ts:147:36
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[34/39]⎯
+
+ FAIL  tests/integration/founder-finance.test.ts > S11 approved survival and financing > normalizes old financed saves before rebuilding missing quarter score metadata
+ReferenceError: cost is not defined
+ ❯ forecast src/game/founder/engine.ts:95:125
+     93|   let cash=s.cash,minimum=cash,obligations=0;
+     94|   const events=[...items.values()].sort((a,b)=>a.at-b.at||b.cents-a.ce…
+     95|   return {events,minimum,obligations,shortfall:clamp(-minimum/Math.max…
+       |                                                                                                                             ^
+     96| }
+     97| export function metrics(s:Company) {
+ ❯ metrics src/game/founder/engine.ts:104:38
+ ❯ decodeSave src/game/founder/save.ts:114:37
+ ❯ tests/integration/founder-finance.test.ts:153:51
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[35/39]⎯
+
+ FAIL  tests/integration/founder-state-save.test.ts > founder authoritative state and save boundary > uses one explicit phase table and freezes draft and pause time without RNG work
+ReferenceError: cost is not defined
+ ❯ forecast src/game/founder/engine.ts:95:125
+     93|   let cash=s.cash,minimum=cash,obligations=0;
+     94|   const events=[...items.values()].sort((a,b)=>a.at-b.at||b.cents-a.ce…
+     95|   return {events,minimum,obligations,shortfall:clamp(-minimum/Math.max…
+       |                                                                                                                             ^
+     96| }
+     97| export function metrics(s:Company) {
+ ❯ metrics src/game/founder/engine.ts:104:38
+ ❯ advance src/game/founder/engine.ts:704:39
+ ❯ tests/integration/founder-state-save.test.ts:11:11
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[36/39]⎯
+
+
+ Test Files  4 failed (4)
+      Tests  39 failed | 24 passed (63)
+   Start at  15:36:49
+   Duration  1.24s (transform 834ms, setup 0ms, collect 1.91s, tests 733ms, environment 1ms, prepare 646ms)
+

@@ -1,0 +1,956 @@
+--- a/src/game/founder/engine.ts
++++ b/src/game/founder/engine.ts
+@@ -1,6 +1,7 @@
++import { consumableUse, effectActive, hasRewardEffect, rewardById } from './rewards';
+ import { financeOffers, loanPayment, loanPayoff, loanSchedule, QUARTER_TICKS } from './finance';
+ import { AXES, FUNCTIONS, NAMES, P, skillRank, type Axis, type Work } from './profile';
+-import { draftOption, quarterChoices, expansionBoardSlots, initialBoard, mergeOrder, operationsAutomationUpkeepPerTicket, operationsTicketPatches, operationsTicketPrice, operationsTicketSupply, packageComplete, packageMass, packageNeeds, productBrief, retentionProblemContent, type RewardEffect } from './toys';
++import { draftOption, quarterChoices, expansionBoardSlots, initialBoard, mergeOrder, operationsAutomationUpkeepPerTicket, operationsTicketPatches, operationsTicketPrice, operationsTicketSupply, packageComplete, packageMass, packageNeeds, productBrief, retentionProblemContent } from './toys';
+ import { CASH_DEATH_POLICY, FOUNDER_CONTENT_VERSION, FOUNDER_CONTRACT_VERSION, phaseAdvancesTime, phaseAllows, type ActionReason } from './contracts';
+ import type { Account, ActionRecord, ActionResult, Command, Company, Lead, OperationsPatch, OperationsReturnBucket, OperationsTicketState, PricingResolution, QuantitySnapshot, RetentionProblem, RetentionResolution } from './model';
+ 
+@@ -17,11 +18,10 @@
+ export function createCompany(seed:number, inheritedWins=0):Company {
+   return {version:P.version,contractVersion:FOUNDER_CONTRACT_VERSION,contentVersion:FOUNDER_CONTENT_VERSION,seed:seed>>>0,tick:0,serial:0,actionCursor:0,actions:[],actionResults:[],phase:'setup',resumePhase:'active',focus:'demand',cash:P.starting_cash_cents+inheritedWins*P.winCashBonus,quarter:1,openingArr:0,openingCash:P.starting_cash_cents+inheritedWins*P.winCashBonus,collected:0,expenses:0,newArr:0,expansion:0,churn:0,
+     ranks:empty(()=>({craft:0,scale:0,automate:0,luck:0})),rot:empty(()=>0),credits:empty(()=>0),attempts:empty(()=>0),lastManual:empty(()=>-1000),deployed:empty(()=>0),enabled:empty(()=>true),risky:empty(()=>false),completed:empty(()=>0),
+-    leads:[],trials:[],accounts:[],invoices:[],market:[...P.marketPerMonth],signal:0,channel:0,recipe:{id:0,slots:[]},package:{id:0,merged:[]},evidence:[],ops:offeredOperationsTicket(),operationsNet:0,operationsReturns:{manual:emptyOperationsReturn(),automated:emptyOperationsReturn()},incidents:[],bankDamage:{},strain:0,expenseRemainder:0,expenseAccrued:0,lifetimeEarned:0,lifetimeCollected:0,lifetimeCosts:0,badDebt:0,debt:null,vc:null,ownership:10000,reports:[],pendingDraftQuarter:null,upgrades:[],inventory:{relics:[],consumables:{}},history:[{tick:0,arr:0}],jobs:{reservations:[],closed:{}},log:[],failure:'',wonAt:null,inheritedWins};
++    leads:[],trials:[],accounts:[],invoices:[],market:[...P.marketPerMonth],signal:0,channel:0,recipe:{id:0,slots:[]},package:{id:0,merged:[]},evidence:[],ops:offeredOperationsTicket(),operationsNet:0,operationsReturns:{manual:emptyOperationsReturn(),automated:emptyOperationsReturn()},incidents:[],bankDamage:{},strain:0,expenseRemainder:0,expenseAccrued:0,lifetimeEarned:0,lifetimeCollected:0,lifetimeCosts:0,badDebt:0,debt:null,vc:null,ownership:10000,reports:[],pendingDraftQuarter:null,upgrades:[],inventory:{relics:[],consumables:{},active:[]},history:[{tick:0,arr:0}],jobs:{reservations:[],closed:{}},log:[],failure:'',wonAt:null,inheritedWins};
+ }
+ const note=(s:Company,text:string,kind:'good'|'bad'|'info'='info')=>{s.log.push({id:++s.serial,tick:s.tick,text,kind});if(s.log.length>30)s.log.shift();};
+ const has=(s:Company,id:string)=>s.upgrades.includes(id);
+-const hasRewardEffect=(s:Company,effect:RewardEffect)=>s.inventory.relics.some(id=>draftOption(s,id,s.quarter)?.effect===effect);
+ export const units=(s:Company,f:Work)=>P.units_by_scale_rank[s.ranks[f].scale];
+ // Scale increases work lanes; Automate ranks are the installed agents.
+ export const agentCount=(s:Company,f:Work)=>s.ranks[f].automate;
+@@ -63,11 +63,20 @@
+   return {load,capacity,overload,speed:1/(1+P.strain_speed_coefficient*overload*overload),rot:Math.max(...Object.values(s.rot))};
+ }
+ export function monthlyCost(s:Company) {
+-  let cost=P.base_company_overhead_cents_per_month*(has(s,'lean')?.75:1);
+-  for(const f of FUNCTIONS){cost+=(units(s,f)-1)*P.unit_upkeep_cents_per_month*(has(s,'lean')?.75:1);if(s.enabled[f])cost+=units(s,f)*P.auto_upkeep_cents_per_unit_month[s.ranks[f].automate];}
+-  for(const a of s.accounts)if(a.active)cost+=a.count*P.monthlyService[a.segment]*(1+a.addons*P.addon_service_cost_fraction);
++  let cost=P.base_company_overhead_cents_per_month*(effectActive(s,'overhead-reduction')?P.rewardOverheadFactor:1);
++  for(const f of FUNCTIONS){cost+=(units(s,f)-1)*P.unit_upkeep_cents_per_month*(effectActive(s,'overhead-reduction')?P.rewardOverheadFactor:1);cost+=computeCost(s,f);}
++  for(const a of s.accounts)if(a.active)cost+=a.count*P.monthlyService[a.segment]*(1+a.addons*P.addon_service_cost_fraction*(effectActive(s,'addon-service')?P.rewardAddonServiceFactor:1));
+   cost+=s.incidents.filter(i=>i.active).reduce((n,i)=>n+i.monthlyCostCents,0);
+   return Math.round(cost);
++}
++// Estimate future accrual across temporary-effect expiry boundaries. No buff
++// may discount a later bill after its active-time window has ended.
++function projectedOperatingCost(s:Company,from:number,to:number){
++  if(!s.inventory.active.length)return monthlyCost(s)*(to-from)/P.ticks_per_month;
++  let start=from+1,total=0;
++  const boundaries=[...new Set([...s.inventory.active.map(b=>b.until).filter(t=>t>start&&t<=to),to+1])].sort((a,b)=>a-b);
++  for(const end of boundaries){total+=monthlyCost({...s,tick:start})*(end-start)/P.ticks_per_month;start=end;}
++  return total;
+ }
+ export const capitalOffers=(s:Company)=>financeOffers(s,eligibleArr(s));
+ export function forecast(s:Company){
+@@ -75,15 +84,15 @@
+   const items=new Map<string,{at:number;label:string;cents:number;estimated:boolean}>();
+   const add=(at:number,label:string,cents:number,estimated=true)=>{if(at>s.tick&&at<=end){const key=`${at}:${label}`;const old=items.get(key);items.set(key,{at,label,cents:(old?.cents??0)+cents,estimated});}};
+   for(const i of s.invoices){const a=s.accounts.find(a=>a.id===i.account);add(i.due,'Expected collections',Math.floor(i.cents*P.forecast_collection_haircut*(a?P.collectionChance[a.segment]:0)));}
+-  const nextMonth=s.tick-s.tick%600+600,cost=monthlyCost(s);
++  const nextMonth=s.tick-s.tick%600+600;
+   for(let at=nextMonth;at<=end;at+=600){
+-    add(at,'Operating bill',-Math.round(at===nextMonth?s.expenseAccrued+cost*(at-s.tick)/600:cost));
+-    for(const a of s.accounts)if(a.active){const earned=at===nextMonth?a.earned+a.price*a.count*(at-s.tick)/600:a.price*a.count;add(at+Math.round(P.collectionDelay[a.segment]*((has(s,'terms')||hasRewardEffect(s,'faster-collections'))?.5:1)),'Expected collections',Math.floor(earned*P.forecast_collection_haircut*P.collectionChance[a.segment]));}
++    add(at,'Operating bill',-Math.round((at===nextMonth?s.expenseAccrued:0)+projectedOperatingCost(s,at===nextMonth?s.tick:at-600,at)));
++    for(const a of s.accounts)if(a.active){const earned=at===nextMonth?a.earned+a.price*a.count*(at-s.tick)/600:a.price*a.count;add(at+Math.round(P.collectionDelay[a.segment]*(effectActive(s,'faster-collections')?P.rewardCollectionFactor:1)),'Expected collections',Math.floor(earned*P.forecast_collection_haircut*P.collectionChance[a.segment]));}
+   }
+   if(s.debt)for(const payment of loanSchedule(s.debt,end)){add(payment.at,payment.principal?'Loan principal + interest':'Loan interest',-payment.total,false);}
+   let cash=s.cash,minimum=cash,obligations=0;
+   const events=[...items.values()].sort((a,b)=>a.at-b.at||b.cents-a.cents).map(e=>{cash+=e.cents;minimum=Math.min(minimum,cash);if(e.cents<0)obligations-=e.cents;return {...e,cash};});
+-  return {events,minimum,obligations,shortfall:clamp(-minimum/Math.max(1,obligations)),nextBill:Math.round(s.expenseAccrued+cost*(nextMonth-s.tick)/600)};
++  return {events,minimum,obligations,shortfall:clamp(-minimum/Math.max(1,obligations)),nextBill:Math.round(s.expenseAccrued+projectedOperatingCost(s,s.tick,nextMonth))};
+ }
+ export function metrics(s:Company) {
+   const a=eligibleArr(s),opening=s.history.find(h=>h.tick>=s.tick-P.score_history_ticks)??s.history[0];
+@@ -139,7 +148,8 @@
+ export function ready(s:Company,f:Work){return s.tick-s.lastManual[f]>=P.functions[f].manual_seconds*10;}
+ export function unlocked(s:Company,f:Work){return f==='demand'||f==='operations'||f==='product'&&(s.leads.length>0||s.completed.product>0)||f==='monetisation'&&(s.trials.length>0||s.completed.monetisation>0)||['retention','expansion'].includes(f)&&s.accounts.length>0;}
+ function spend(s:Company,cents:number){if(s.cash<cents){note(s,'Not enough liquid cash. Preserve runway or inspect Finance.','bad');return false;}s.cash-=cents;return true;}
+-function workCost(s:Company,f:Work){const cents=f==='demand'?Math.round(P.acquisitionCents[s.channel]*((has(s,'community')||hasRewardEffect(s,'demand-stake-reduction'))?.65:1)):P.functions[f].attempt_cost_cents;if(!spend(s,cents))return false;s.expenses+=cents;s.lifetimeCosts+=cents;return true;}
++export const demandStake=(s:Company)=>Math.round(P.acquisitionCents[s.channel]*(effectActive(s,'demand-stake-reduction')?P.rewardDemandFactor:1));
++function workCost(s:Company,f:Work){const cents=f==='demand'?demandStake(s):P.functions[f].attempt_cost_cents;if(!spend(s,cents))return false;s.expenses+=cents;s.lifetimeCosts+=cents;return true;}
+ const refreshOperationsReturn=(bucket:OperationsReturnBucket)=>{bucket.net=bucket.patchValue-bucket.prices-bucket.upkeep;};
+ const remainingOperationsPatches=(s:Company)=>s.ops.patches.filter(p=>!s.ops.claimed.includes(p.id));
+ function purchaseOperationsTicket(s:Company,actor:'manual'|'automated',actionId:string){
+@@ -178,7 +188,7 @@
+   else if(settle(s,-cashOutcome,'Operations ticket settlement')){s.expenses-=cashOutcome;s.lifetimeCosts-=cashOutcome;}
+   s.completed.operations+=fresh.length;
+   const valueDelta=fresh.reduce((n,p)=>n+p.valueCents,0),bucket=s.operationsReturns[actor];bucket.patchValue+=valueDelta;s.ops.net+=valueDelta;s.operationsNet+=valueDelta;
+-  let closed=false;if(s.ops.claimed.length===s.ops.patches.length){closed=true;s.ops.active=false;s.ops.status='closed';s.ops.closedReason='resolved';s.ops.resolvedAt=s.tick;release(s,operationsJobId(s.ops.id),'completed');if(actor==='automated')bucket.upkeep+=operationsAutomationUpkeepPerTicket(s.ranks.operations.automate);}
++  let closed=false;if(s.ops.claimed.length===s.ops.patches.length){closed=true;s.ops.active=false;s.ops.status='closed';s.ops.closedReason='resolved';s.ops.resolvedAt=s.tick;release(s,operationsJobId(s.ops.id),'completed');if(actor==='automated')bucket.upkeep+=operationsUpkeep(s);}
+   refreshOperationsReturn(bucket);
+   const rotDeltas=Object.fromEntries(FUNCTIONS.map(f=>[f,s.rot[f]-beforeRot[f]]).filter(([,delta])=>delta!==0)) as Partial<Record<Work,number>>;
+   const failure=s.failure||undefined;
+@@ -218,7 +228,7 @@
+   if(random(s.seed,f,attempt,'error')<error){s.strain+=.1;return 0;}return quantity;
+ }
+ function take(s:Company,jobs:Lead[],amount:number,index=0):Lead|undefined {const job=jobs[index];if(!job)return;const n=Math.min(job.count,amount);if(n<=0)return;const out={...job,count:n};job.count-=n;if(!job.count)jobs.splice(index,1);else job.id=++s.serial;return out;}
+-function billAccount(s:Company,a:Account){if(a.earned>0){s.invoices.push({id:++s.serial,account:a.id,cents:a.earned,due:s.tick+Math.round(P.collectionDelay[a.segment]*((has(s,'terms')||hasRewardEffect(s,'faster-collections'))?.5:1)),attempts:0});a.earned=0;}}
++function billAccount(s:Company,a:Account){if(a.earned>0){s.invoices.push({id:++s.serial,account:a.id,cents:a.earned,due:s.tick+Math.round(P.collectionDelay[a.segment]*(effectActive(s,'faster-collections')?P.rewardCollectionFactor:1)),attempts:0});a.earned=0;}}
+ const retentionProblem=(a:Account)=>a.problem&&a.active&&a.threat===a.problem.deadline?a.problem:undefined;
+ const activeRetentionAccounts=(s:Company, includeFounderReserved=false)=>s.accounts.filter(a=>{
+   const problem=retentionProblem(a);
+@@ -256,7 +266,7 @@
+   if(concessionBps){a.price=Math.max(1,Math.round(a.price*(10000-concessionBps)/10000));}
+   const concessionArrDelta=Math.max(0,oldArr-a.price*a.count*12);
+   if(concessionArrDelta)s.churn+=concessionArrDelta;
+-  a.health=clamp(a.health+healthDelta,0,100);a.threat=0;delete a.problem;a.caredUntil=s.tick+P.ticks_per_month*(has(s,'care')?2:1);s.completed.retention+=a.count;
++  a.health=clamp(a.health+healthDelta,0,100);a.threat=0;delete a.problem;a.caredUntil=s.tick+P.ticks_per_month*(effectActive(s,'care-window')?P.rewardCareMonths:1);s.completed.retention+=a.count;
+   const outcome:RetentionResolution={actionId,accountId:a.id,problemId:problem.id,outcome:concessionArrDelta?'concession':'health-restored',workAdded,workCompleted:problem.workCompleted,workRequired:problem.workRequired,protectedArr:oldArr-concessionArrDelta,healthDelta,concessionArrDelta,luckRank,luckDelta};
+   s.retentionResolution=outcome;
+   note(s,concessionArrDelta?`${problem.label} contained with an explicit ${Math.round(concessionBps/100)}% concession. $${Math.floor(outcome.protectedArr/100).toLocaleString()} existing ARR remains; no ARR was booked.`:`${problem.label} contained. $${Math.floor(oldArr/100).toLocaleString()} existing ARR protected; health +${healthDelta}. No ARR was booked.`,concessionArrDelta?'info':'good');
+@@ -277,7 +287,7 @@
+   if(sold){
+     const id=++s.serial;const a:Account={id,origin:id,segment:committed.segment,count:sold,price:contractPrice,basePrice:contractPrice,fit:committed.fit,health:70,defects:Math.max(0,.7-committed.fit),born:s.tick,caredUntil:0,addons:0,threat:0,earned:0,remainder:0,active:true};
+     s.accounts.push(a);s.newArr+=arrDelta;s.completed.monetisation+=sold;
+-    collectionDue=s.tick+(600-s.tick%600)+Math.round((P.collectionDelay[committed.segment]??0)*((has(s,'terms')||hasRewardEffect(s,'faster-collections'))?.5:1));
++    collectionDue=s.tick+(600-s.tick%600)+Math.round((P.collectionDelay[committed.segment]??0)*(effectActive(s,'faster-collections')?P.rewardCollectionFactor:1));
+     note(s,`Signed ${sold} customer${sold===1?'':'s'} · +$${Math.floor(arrDelta/100).toLocaleString()} ARR${luckDelta?` · Luck ${luckDelta>0?'+':'−'}${Math.abs(luckDelta)*4}%`:''}. Cash collects after billing.`,'good');
+   }else note(s,'No contract: the marker missed this customer’s visible range. No ARR and no collection were booked.','bad');
+   const resolution:PricingResolution={actionId,trialId:committed.id,timing,window:{start:target.start,end:target.end},plan,basePrice:quote.price,contractPrice,baseArr:quote.baseArr??0,arrDelta,customers:sold,luckRank,luckDelta,collectionDue,outcome:sold?'signed':'missed'};
+@@ -313,10 +323,10 @@
+       if(!auto)note(s,`${n} qualified opportunity${n===1?'':'ies'} → Product. Acquisition cash paid.`,'good');
+     } else if(!auto)note(s,`${candidate.quality==='uncertain'?'Exploratory':'Poor-fit'} profile declined. The acquisition stake was spent, but no Product job was created.`,'bad');
+     const actionId=String(option.actionId??`${s.seed}:${s.actionCursor+1}`);
+-    s.demandResolution={actionId,signal:signalId,channel:s.channel,profile:candidate,outcome:candidate.quality==='qualified'?'qualified':'declined',acquisitionCost:Math.round(P.acquisitionCents[s.channel]*((has(s,'community')||hasRewardEffect(s,'demand-stake-reduction'))?.65:1)),productJobs:candidate.quality==='qualified'?n:0,productQueueAfter:count(s.leads)};
++    s.demandResolution={actionId,signal:signalId,channel:s.channel,profile:candidate,outcome:candidate.quality==='qualified'?'qualified':'declined',acquisitionCost:demandStake(s),productJobs:candidate.quality==='qualified'?n:0,productQueueAfter:count(s.leads)};
+   }else if(f==='product'){
+     const lead=take(s,s.leads,Math.min(amount,queueCap(s,'monetisation')-count(s.trials)),productIndex);if(!lead)return false;
+-    const fit=clamp(lead.fit*.8+.02*s.ranks.product.craft+(has(s,'quality')?.12:0)-(option.early?.18:0),.15,1);
++    const fit=clamp(lead.fit*.8+.02*s.ranks.product.craft+(effectActive(s,'product-fit')?P.rewardProductFit:0)-(option.early?.18:0),.15,1);
+     s.trials.push({...lead,id:++s.serial,fit,expires:s.tick+P.starterTTL});s.completed[f]+=lead.count;
+     if(!s.leads.length||s.recipe.id!==s.leads[0].id)s.recipe={id:0,slots:[]};
+     s.productResolution={actionId:String(option.actionId??`${s.seed}:${s.actionCursor+1}`),leadId:lead.id,trialId:s.trials.at(-1)!.id,trialsCreated:lead.count,arrDelta:0,outcome:'shipped'};
+@@ -342,7 +352,7 @@
+     const baseArr=baseAdded*target.count*12,arrDelta=added*target.count*12;
+     const serviceCostDelta=Math.round(target.count*P.monthlyService[target.segment]*P.addon_service_cost_fraction);
+     target.price+=added;target.addons++;s.expansion+=arrDelta;s.completed[f]+=target.count;s.strain+=.05*target.count;
+-    const collectionDue=s.tick+(600-s.tick%600)+Math.round((P.collectionDelay[target.segment]??0)*((has(s,'terms')||hasRewardEffect(s,'faster-collections'))?.5:1));
++    const collectionDue=s.tick+(600-s.tick%600)+Math.round((P.collectionDelay[target.segment]??0)*(effectActive(s,'faster-collections')?P.rewardCollectionFactor:1));
+     s.expansionResolution={actionId:String(option.actionId??`work:${f}:${s.tick}`),accountId:target.id,addonSlot:target.addons,packageTargets:mergeOrder(target.addons-1),baseArr,arrDelta,serviceCostDelta,luckRank,luckDelta,collectionDue,outcome:'served'};
+     s.package={id:0,merged:[]};
+     note(s,`Account ${target.id} served: +$${Math.floor(arrDelta/100).toLocaleString()} addon ARR · +$${(serviceCostDelta/100).toLocaleString()}/mo service. Billing and collection stay delayed${luckDelta?` · Luck ${luckDelta>0?'+':'−'}${Math.abs(luckDelta)*4}%`:''}.`,'good');
+@@ -355,8 +365,8 @@
+ }
+ function resolve(current:Company,c:Command,actionId:string):Company {
+   const s=structuredClone(current);
+-  if(c.type==='start'){s.phase='active';note(s,'One founder. $1,500. Find a real customer need.');return s;}
+-  if(c.type==='continue'){if(current.phase==='unicorn'){s.phase='continuation';s.resumePhase='continuation';}else s.phase=s.resumePhase;return s;}
++  if(c.type==='start'){s.phase='active';note(s,`One founder. $${(s.cash/100).toLocaleString('en-US')} starting cash. Find a real customer need.`);return s;}
++  if(c.type==='continue'){if(current.phase==='unicorn'){s.phase=s.pendingDraftQuarter===null?'continuation':'quarter-draft';s.resumePhase='continuation';}else s.phase=s.resumePhase;return s;}
+   if(c.type==='pause'){s.resumePhase=current.phase==='continuation'?'continuation':'active';s.phase='paused';return s;}
+   if(c.type==='focus'){
+     for(const held of [...s.jobs.reservations]){
+@@ -417,7 +427,16 @@
+       if(option.kind==='relic')s.inventory.relics.push(option.id);else s.inventory.consumables[option.id]=(s.inventory.consumables[option.id]??0)+1;
+       report.chosen=c.id;s.pendingDraftQuarter=null;s.phase='paused';note(s,`${option.name} added to this run. Continue when ready.`,'good');break;
+     }
+-    case 'consume':{if(c.id!=='consumable:customer-firebreak'||!(s.inventory.consumables[c.id]??0))break;const account=s.accounts.find(a=>a.id===c.account&&a.active&&a.threat);if(!account)break;account.threat=0;delete account.problem;release(s,accountJobId('retention',account.id),'completed');account.caredUntil=s.tick+P.ticks_per_month;s.inventory.consumables[c.id]--;note(s,'Customer firebreak deployed. Existing ARR was protected; no ARR or cash was created.','good');break;}
++    case 'consume':{
++      if(!consumableUse(s,c).available)break;
++      const item=rewardById(c.id)!;
++      if(item.duration==='month')s.inventory.active.push({id:item.id,until:s.tick+P.ticks_per_month});
++      else if(item.effect==='protect-threat'){
++        const account=s.accounts.find(a=>a.id===c.account)!;
++        account.threat=0;delete account.problem;release(s,accountJobId('retention',account.id),'completed');account.caredUntil=s.tick+P.ticks_per_month;
++      }else if(item.effect==='reset-context'&&c.work)s.rot[c.work]=0;
++      s.inventory.consumables[c.id]--;note(s,`${item.name} used. ${item.cue}${item.duration==='month'?' Expires after one active month.':''}`,'good');break;
++    }
+     case 'borrow':{
+       const terms=capitalOffers(s).debt;if(!terms.available)break;
+       s.cash+=terms.principal;
+@@ -491,10 +510,10 @@
+   if(c.type==='draft-skip'&&(s.pendingDraftQuarter!==c.quarter||!s.reports.some(r=>r.quarter===c.quarter&&!r.chosen)))return 'stale-job';
+   if(c.type==='draft'){
+     const report=s.reports.find(r=>r.quarter===c.quarter);
+-    if(!report||report.chosen||s.pendingDraftQuarter!==c.quarter)return 'stale-job';
+-  }
+-  if(c.type==='consume'&&(!(s.inventory.consumables[c.id]??0)||!s.accounts.some(a=>a.id===c.account&&a.active&&a.threat)))return 'stale-job';
+-  if(c.type==='demand'&&c.pursue&&s.cash<Math.round(P.acquisitionCents[s.channel]*((has(s,'community')||hasRewardEffect(s,'demand-stake-reduction'))?.65:1)))return 'unaffordable';
++    if(!report||report.chosen||s.pendingDraftQuarter!==c.quarter||!report.choices.includes(c.id)||!draftOption(s,c.id,c.quarter)?.available)return 'stale-job';
++  }
++  if(c.type==='consume'&&!consumableUse(s,c).available)return 'stale-job';
++  if(c.type==='demand'&&c.pursue&&s.cash<demandStake(s))return 'unaffordable';
+   if(['ship','squash-problem','expand'].includes(c.type)){
+     const workName=c.type==='ship'?'product':c.type==='squash-problem'?'retention':'expansion';
+     if(s.cash<P.functions[workName as Work].attempt_cost_cents)return 'unaffordable';
+@@ -550,7 +569,9 @@
+   if(!s.recipe.tested){verifyRecipe(s,lead);return true;}
+   return work(s,'product',true,{actionId});
+ }
+-export const computeCost=(s:Company,f:Work)=>s.enabled[f]?units(s,f)*P.auto_upkeep_cents_per_unit_month[s.ranks[f].automate]:0;
++export const computeFactor=(s:Company)=>effectActive(s,'compute-reduction')?P.rewardComputeFactor:1;
++export const operationsUpkeep=(s:Company)=>operationsAutomationUpkeepPerTicket(s.ranks.operations.automate,computeFactor(s));
++export const computeCost=(s:Company,f:Work)=>s.enabled[f]?Math.round(units(s,f)*P.auto_upkeep_cents_per_unit_month[s.ranks[f].automate]*computeFactor(s)):0;
+ export function agentStatus(s:Company,f:Work){
+   const p=pressure(s),speed=p.speed/(1+P.automationRotSlowdown*s.rot[f]);
+   let state='running',label='Working';
+@@ -565,7 +586,7 @@
+   else if(f==='product'&&(!s.leads.length||s.jobs.closed[leadJobId(s.leads[0].id)])||f==='monetisation'&&!s.trials.length||f==='retention'&&!activeRetentionAccounts(s,true).length||f==='expansion'&&(!expansionAccounts(s,true).length||s.package.id!==0&&!expansionAccounts(s,true).some(a=>a.id===s.package.id))){state='waiting';label='Waiting for work';}
+   else if(f==='operations'&&!s.ops.active&&(s.ops.quarter===s.quarter?s.ops.used:0)>=operationsTicketSupply(s.ranks.operations.scale)){state='supply';label='Ticket book spent';}
+   else {
+-    const cost=f==='monetisation'?0:f==='operations'?(s.ops.active?0:operationsTicketPrice(s.ranks.operations.scale)):f==='demand'?Math.round(P.acquisitionCents[s.channel]*((has(s,'community')||hasRewardEffect(s,'demand-stake-reduction'))?.65:1)):P.functions[f].attempt_cost_cents;
++    const cost=f==='monetisation'?0:f==='operations'?(s.ops.active?0:operationsTicketPrice(s.ranks.operations.scale)):f==='demand'?demandStake(s):P.functions[f].attempt_cost_cents;
+     if(s.cash<cost){state='cash';label='Needs cash';}
+     else if(f==='product'&&s.leads[0])label=s.recipe.id!==s.leads[0].id?'Preparing recipe':s.recipe.tested?'Shipping':productBrief(s,s.leads[0]).parts.every((v,i)=>s.recipe.slots[i]===v)?'Testing':'Assembling';
+     else if(f==='expansion')label='Building package';
+@@ -597,6 +618,8 @@
+   const s=structuredClone(current);
+   for(let t=0;t<ticks&&phaseAdvancesTime(s.phase);t++){
+     s.tick++;
++    for(const buff of s.inventory.active)if(buff.until<=s.tick)note(s,`${rewardById(buff.id)?.name??'Consumable'} expired. Its temporary effect has ended.`);
++    s.inventory.active=s.inventory.active.filter(buff=>buff.until>s.tick);
+     // Due customer receipts precede operating bills at the same timestamp.
+     for(const i of [...s.invoices])if(i.due<=s.tick){
+       const a=s.accounts.find(a=>a.id===i.account);i.attempts++;
+@@ -646,7 +669,7 @@
+           :f==='monetisation'?resolvePricing(s,'fair',priceTarget(s).center,id,true)
+           :f==='expansion'?automateExpansion(s,i):f==='operations'?automateOperations(s,i):work(s,f,true,{actionId:id});
+         if(!completed){s.credits[f]=0;break;}
+-        s.rot[f]=clamp(s.rot[f]+(P.rot_per_auto_attempt_base+P.rot_per_auto_attempt_rank*s.ranks[f].automate)*(1+.5*pressure(s).overload)/steps);
++        s.rot[f]=clamp(s.rot[f]+(P.rot_per_auto_attempt_base+P.rot_per_auto_attempt_rank*s.ranks[f].automate)*(1+.5*pressure(s).overload)/steps*(hasRewardEffect(s,'context-decay')?P.rewardRotFactor:1));
+         if(!phaseAdvancesTime(s.phase))break;
+       }
+       if(!phaseAdvancesTime(s.phase))break;
+@@ -675,8 +698,9 @@
+       const score=metrics(s),closedQuarter=s.quarter,closing=arr(s);
+       s.reports.push({quarter:closedQuarter,opening:s.openingArr,closing,openingCash:s.openingCash,collected:s.collected,expenses:s.expenses,newArr:s.newArr,expansion:s.expansion,churn:s.churn,cash:s.cash,score:{eligibleArr:score.arr,multiple:score.multiple,stability:score.stability,valuation:score.valuation},choices:quarterChoices(s)});
+       s.openingArr=closing;s.openingCash=s.cash;s.quarter++;s.collected=0;s.expenses=0;s.newArr=0;s.expansion=0;s.churn=0;
+-      if(score.valuation>=P.win_valuation_cents){s.wonAt=s.tick;s.phase='unicorn';note(s,'One person. One billion. Your founder history remembers.','good');break;}
+-      s.pendingDraftQuarter=closedQuarter;s.phase='quarter-draft';note(s,'Quarter closed. Time is frozen while you choose what changes.','good');
++      s.pendingDraftQuarter=closedQuarter;
++      if(s.wonAt===null&&score.valuation>=P.win_valuation_cents){s.wonAt=s.tick;s.phase='unicorn';note(s,'One person. One billion. Your founder history remembers.','good');break;}
++      s.phase='quarter-draft';note(s,'Quarter closed. Time is frozen while you choose what changes.','good');
+     }
+     if(s.tick%10===0){s.history.push({tick:s.tick,arr:eligibleArr(s)});s.history=s.history.filter(h=>h.tick>=s.tick-1810);}
+     if(s.tick%10===0&&s.wonAt===null&&metrics(s).valuation>=P.win_valuation_cents){s.wonAt=s.tick;s.phase='unicorn';note(s,'One person. One billion. Your founder history remembers.','good');}
+@@ -688,6 +712,7 @@
+   if(!Array.isArray(s.actions)||!Array.isArray(s.actionResults)||!Number.isSafeInteger(s.actionCursor)||s.actionCursor<s.actions.length||!s.risky||!s.accounts.every(a=>Number.isSafeInteger(a.origin)))throw new Error('Checkpoint is missing required provenance.');
+   if(!s.jobs||!Array.isArray(s.jobs.reservations)||new Set(s.jobs.reservations.map(r=>r.jobId)).size!==s.jobs.reservations.length)throw new Error('Invalid job ownership ledger.');
+   if(!s.inventory||!Array.isArray(s.inventory.relics)||!s.inventory.consumables||!Number.isSafeInteger(s.openingCash)||!['setup','active','settlement','quarter-draft','paused','failure','unicorn','continuation'].includes(s.phase))throw new Error('Missing phase or inventory state.');
++  if(new Set(s.inventory.relics).size!==s.inventory.relics.length||s.inventory.relics.some(id=>rewardById(id)?.kind!=='relic')||Object.entries(s.inventory.consumables).some(([id,n])=>rewardById(id)?.kind!=='consumable'||!Number.isSafeInteger(n)||n<0)||!Array.isArray(s.inventory.active)||new Set(s.inventory.active.map(b=>b.id)).size!==s.inventory.active.length||s.inventory.active.some(b=>rewardById(b.id)?.duration!=='month'||!Number.isSafeInteger(b.until)||b.until<=s.tick))throw new Error('Invalid reward inventory or expiry.');
+   if(s.phase==='quarter-draft'&&s.pendingDraftQuarter===null)throw new Error('Quarter draft phase has no pending draft.');
+   if(s.reports.some(r=>!Number.isSafeInteger(r.openingCash)||!r.score||!Number.isFinite(r.score.multiple)||!Number.isFinite(r.score.stability)||!Number.isSafeInteger(r.score.valuation)||r.choices.length!==new Set(r.choices).size))throw new Error('Invalid quarter report or offer ledger.');
+   if(s.actions.some((a,i)=>!a.id||a.tick<0||(i>0&&a.tick<s.actions[i-1].tick))||new Set(s.actions.map(a=>a.id)).size!==s.actions.length)throw new Error('Invalid action identity or ordering.');
+@@ -702,6 +727,7 @@
+   if(s.package.board&&(s.package.board.length!==16||s.package.board.some(t=>t&&(![0,1].includes(t.family)||!Number.isInteger(t.tier)||t.tier<1||t.tier>4))))throw new Error('Invalid merge board.');
+   if(s.version!==P.version)throw new Error('This checkpoint belongs to another engine version.');
+   if(!Number.isSafeInteger(s.cash)||s.cash<0||!Number.isInteger(s.tick)||s.tick<0)throw new Error('Invalid cash or clock.');
++  if(!Number.isSafeInteger(s.inheritedWins)||s.inheritedWins<0||s.wonAt!==null&&(!Number.isSafeInteger(s.wonAt)||s.wonAt<=0||s.wonAt>s.tick)||s.phase==='unicorn'&&s.wonAt===null)throw new Error('Invalid founder history marker.');
+   if(s.debt){
+     const d=s.debt;
+     if(![d.id,d.principal,d.months,d.due,d.remainder,d.aprBps,d.acceptedAt,d.lastPaymentAt,d.maturity].every(Number.isSafeInteger)||d.principal<=0||d.months<1||d.months>P.default_loan_term_months||d.remainder<0||d.remainder>=120000||d.aprBps<0||d.acceptedAt<0||d.lastPaymentAt<d.acceptedAt||d.lastPaymentAt>s.tick||d.due!==d.lastPaymentAt+P.ticks_per_month||d.maturity!==d.due+(d.months-1)*P.ticks_per_month||!['interest-only','amortising'].includes(d.mode))throw new Error('Invalid accepted loan terms or schedule.');
+--- a/src/game/founder/model.ts
++++ b/src/game/founder/model.ts
+@@ -50,7 +50,7 @@
+   strain:number; expenseRemainder:number; expenseAccrued:number; lifetimeEarned:number; lifetimeCollected:number; lifetimeCosts:number; badDebt:number;
+   debt:Loan|null;
+   vc:VentureMandate|null; ownership:number;
+-  reports:Report[]; pendingDraftQuarter:number|null; upgrades:string[]; inventory:{relics:string[];consumables:Record<string,number>}; history:{tick:number;arr:number}[];
++  reports:Report[]; pendingDraftQuarter:number|null; upgrades:string[]; inventory:{relics:string[];consumables:Record<string,number>;active:{id:string;until:number}[]}; history:{tick:number;arr:number}[];
+   jobs:{reservations:JobReservation[];closed:Record<string,ClosedJob>};
+   pricingResolution?:PricingResolution; demandResolution?:DemandResolution; productResolution?:ProductResolution; retentionResolution?:RetentionResolution; expansionResolution?:ExpansionResolution; operationsResolution?:OperationsResolution; log:{id:number;tick:number;text:string;kind:'good'|'bad'|'info'}[]; failure:string; wonAt:number|null; inheritedWins:number;
+ };
+@@ -66,4 +66,4 @@
+  | {type:'ops-deal'} | {type:'ops-inspect';card:number;cell:number} | {type:'ops-claim';card:number;cell:number} | {type:'ops-discard';card:number}
+  | {type:'reveal';cell:number} | {type:'repair';target:'rot'|'strain'}
+  | {type:'buy';work:Work;axis:Axis;rank:number} | {type:'automation';work:Work} | {type:'risk';work:Work}
+- | {type:'draft-skip';quarter:number} | {type:'draft';quarter:number;id:string} | {type:'consume';id:string;account:number} | {type:'borrow';quote?:string} | {type:'raise';quote?:string} | {type:'repay-debt';loanId:number;quote?:string} | {type:'continue'};
++ | {type:'draft-skip';quarter:number} | {type:'draft';quarter:number;id:string} | {type:'consume';id:string;account?:number;problem?:number;work?:Work} | {type:'borrow';quote?:string} | {type:'raise';quote?:string} | {type:'repay-debt';loanId:number;quote?:string} | {type:'continue'};
+--- a/src/game/founder/profile.ts
++++ b/src/game/founder/profile.ts
+@@ -3,7 +3,12 @@
+ // Candidate tuning, never locked balance. Master units are cents and 0.1s ticks.
+ export const P = {
+   ...master,
+-  version: 'founder-candidate.11',
++  version: 'founder-candidate.12',
++  // S12 candidate effect budgets; no locked balance is claimed. Existing legacy
++  // reductions are reused; new scoped service/rot/compute savings require S15 calibration.
++  rewardOverheadFactor: .75, rewardCollectionFactor: .5, rewardDemandFactor: .65,
++  rewardProductFit: .12, rewardCareMonths: 2, rewardAddonServiceFactor: .75,
++  rewardRotFactor: .75, rewardComputeFactor: .75, rewardMaxCharges: 3, rewardDraftSize: 3,
+   // S11 retains the existing candidate financing amounts, not locked balance.
+   vcOwnershipSoldBps: 2000,
+   financeWarningTicks: 100,
+--- a/src/game/founder/contracts.ts
++++ b/src/game/founder/contracts.ts
+@@ -1,5 +1,5 @@
+ export const FOUNDER_CONTRACT_VERSION = 'founder-state.1';
+-export const FOUNDER_CONTENT_VERSION = 'founder-content.candidate.5';
++export const FOUNDER_CONTENT_VERSION = 'founder-content.candidate.12';
+ export const FOUNDER_SAVE_VERSION = 2;
+ 
+ export type EnginePhase =
+--- a/src/game/founder/save.ts
++++ b/src/game/founder/save.ts
+@@ -34,7 +34,7 @@
+   s.phase=s.status==='setup'?'setup':s.status==='failed'?'failure':s.status==='won'?'unicorn':s.paused?'paused':'active';s.resumePhase='active';
+   s.actionCursor=0;s.actions=[];s.actionResults=[];s.pendingDraftQuarter=s.reports.find(r=>!r.chosen)?.quarter??null;
+   if(s.pendingDraftQuarter!==null)s.phase='quarter-draft';
+-  s.inventory={relics:[],consumables:{}};s.jobs={reservations:[],closed:{}};
++  s.inventory={relics:[],consumables:{},active:[]};s.jobs={reservations:[],closed:{}};
+   if(s.recipe.id)s.jobs.reservations.push({jobId:`lead:${s.recipe.id}`,owner:'founder',actionId:'migration',reservedAt:s.tick});
+   if(s.package.id)s.jobs.reservations.push({jobId:`expansion:${s.package.id}`,owner:'founder',actionId:'migration',reservedAt:s.tick});
+   if(s.ops.active)s.jobs.reservations.push({jobId:`operations:${s.ops.id}`,owner:'founder',actionId:'migration',reservedAt:s.tick});
+@@ -56,7 +56,7 @@
+   const envelope=JSON.parse(raw) as SaveEnvelopeV1|SaveEnvelopeV2;
+   if((envelope.version!==1&&envelope.version!==FOUNDER_SAVE_VERSION)||typeof envelope.data!=='string'||checksum(envelope.data)!==envelope.checksum)throw new Error('Checkpoint checksum failed.');
+   let s=JSON.parse(envelope.data) as Company|LegacyCompany;if(envelope.version===1||!('contractVersion' in s))s=migrateLegacyCompany(s as LegacyCompany);
+-  if(envelope.version===FOUNDER_SAVE_VERSION&&(envelope.contractVersion!==FOUNDER_CONTRACT_VERSION||envelope.contentVersion!==FOUNDER_CONTENT_VERSION||envelope.balanceVersion!==(s as Company).version))throw new Error('Checkpoint contract, content, or balance version is incompatible.');
++  if(envelope.version===FOUNDER_SAVE_VERSION&&(envelope.contractVersion!==FOUNDER_CONTRACT_VERSION||envelope.contentVersion!==(s as Company).contentVersion||envelope.balanceVersion!==(s as Company).version))throw new Error('Checkpoint contract, content, or balance version is incompatible.');
+   const company=s as Company;let migratedFinance=false;
+   // S06 changes how rank-zero work and Luck resolve. Preserve an existing
+   // candidate.5 company as a new replay baseline instead of replaying its old
+@@ -100,6 +100,14 @@
+     company.actions=[];company.actionResults=[];company.actionCursor=0;
+     delete company.replayBase;company.replayBase=replayBaseline(company);
+   }
++  if(company.version==='founder-candidate.11'){
++    if(!['founder-content.candidate.5',FOUNDER_CONTENT_VERSION].includes(company.contentVersion))throw new Error('Unsupported reward content version.');
++    company.version=P.version;company.contentVersion=FOUNDER_CONTENT_VERSION;
++    company.inventory.active=[];
++    company.migratedActions=[...(company.migratedActions??[]),...company.actions];
++    company.actions=[];company.actionResults=[];company.actionCursor=0;migratedFinance=true;
++    // Preserve existing offers, owned relics, charges and accepted financing.
++  }
+   if(!Number.isSafeInteger(company.openingCash))company.openingCash=company.cash;
+   for(const report of company.reports){
+     if(!Number.isSafeInteger(report.openingCash))report.openingCash=report.cash;
+--- a/src/game/founder/toys.ts
++++ b/src/game/founder/toys.ts
+@@ -42,10 +42,10 @@
+ export const operationsTicketPatchCount=(scaleRank:number)=>P.operationsTicketBasePatches+Math.max(0,Math.min(4,scaleRank))*P.operationsTicketPatchesPerScale;
+ export const operationsTicketSupply=(scaleRank:number)=>P.operationsTicketsPerQuarter+Math.max(0,Math.min(4,scaleRank))*P.operationsTicketsPerScale;
+ export const operationsTicketPrice=(scaleRank:number)=>P.operationsTicketBasePriceCents+operationsTicketPatchCount(scaleRank)*P.operationsTicketPricePerPatchCents;
+-export function operationsAutomationUpkeepPerTicket(automateRank:number){
++export function operationsAutomationUpkeepPerTicket(automateRank:number,computeFactor=1){
+  if(automateRank<=0)return 0;
+  const upkeep=P.auto_upkeep_cents_per_unit_month[automateRank]??0,speed=P.auto_speed_by_rank[automateRank]??0;
+- return Math.round(upkeep*(P.functions.operations.manual_seconds*10)/(Math.max(.001,speed)*P.ticks_per_month));
++ return Math.round(upkeep*computeFactor*(P.functions.operations.manual_seconds*10)/(Math.max(.001,speed)*P.ticks_per_month));
+ }
+ const OPS_LABELS={
+  cash:{positive:'Vendor service credit',negative:'Emergency vendor invoice'},
+@@ -76,8 +76,8 @@
+ }
+ export const opsOutcomes=(s:Company)=>s.ops.patches;
+ export type OperationsDistributionMeasurement={samples:number;scaleRank:number;luckRank:number;automateRank:number;manual:{meanAfterPrice:number;lossRate:number};automated:{meanAfterPrice:number;meanAfterPriceAndUpkeep:number;lossRate:number;variance:number;minimum:number;maximum:number};ticket:{price:number;patches:number;supplyPerQuarter:number;upkeepPerTicket:number}};
+-export function measureOperationsTickets(samples:number,scaleRank:number,luckRank:number,automateRank:number):OperationsDistributionMeasurement{
+- const price=operationsTicketPrice(scaleRank),upkeep=operationsAutomationUpkeepPerTicket(automateRank);let manual=0,manualLoss=0,auto=0,autoLoss=0,sumSq=0,minimum=Infinity,maximum=-Infinity;
++export function measureOperationsTickets(samples:number,scaleRank:number,luckRank:number,automateRank:number,discountCompute=false):OperationsDistributionMeasurement{
++ const price=operationsTicketPrice(scaleRank),upkeep=operationsAutomationUpkeepPerTicket(automateRank,discountCompute?P.rewardComputeFactor:1);let manual=0,manualLoss=0,auto=0,autoLoss=0,sumSq=0,minimum=Infinity,maximum=-Infinity;
+  for(let seed=1;seed<=samples;seed++){
+   const patches=operationsTicketPatches(seed,1,scaleRank,luckRank,0),manualNet=patches.reduce((n,p)=>n+Math.max(0,p.valueCents),0)-price,autoNet=patches.reduce((n,p)=>n+p.valueCents,0)-price;
+   manual+=manualNet;if(manualNet<0)manualLoss++;auto+=autoNet;if(autoNet-upkeep<0)autoLoss++;sumSq+=autoNet*autoNet;minimum=Math.min(minimum,autoNet-upkeep);maximum=Math.max(maximum,autoNet-upkeep);
+@@ -86,20 +86,13 @@
+  return {samples,scaleRank,luckRank,automateRank,manual:{meanAfterPrice:manual/samples,lossRate:manualLoss/samples},automated:{meanAfterPrice:autoMean,meanAfterPriceAndUpkeep:autoMean-upkeep,lossRate:autoLoss/samples,variance:sumSq/samples-autoMean*autoMean,minimum,maximum},ticket:{price,patches:operationsTicketPatchCount(scaleRank),supplyPerQuarter:operationsTicketSupply(scaleRank),upkeepPerTicket:upkeep}};
+ }
+ 
+-export type RewardEffect='demand-stake-reduction'|'faster-collections'|'protect-threat';
+-export type DraftOption={id:string;kind:'relic'|'consumable';name:string;text:string;effect:RewardEffect;available:boolean};
+-// S05 is intentionally a small typed draft. S12 owns catalogue breadth and tuning.
+-const REWARDS:readonly DraftOption[]=[
+- {id:'relic:signal-ledger',kind:'relic',name:'Signal ledger',text:'Relic. Qualified Demand stakes cost 35% less for the rest of this run.',effect:'demand-stake-reduction',available:true},
+- {id:'relic:clean-terms',kind:'relic',name:'Clean terms',text:'Relic. New invoices use the existing shorter collection schedule for the rest of this run.',effect:'faster-collections',available:true},
+- {id:'consumable:customer-firebreak',kind:'consumable',name:'Customer firebreak',text:'Consumable. Once, protect one active churn threat for the normal care window. No ARR or cash is created.',effect:'protect-threat',available:true},
+-];
+-export function draftOption(s:Company,id:string,quarter:number):DraftOption|undefined {
+- void quarter;
+- const reward=REWARDS.find(option=>option.id===id);
+- if(!reward)return;
+- return {...reward,available:reward.kind==='consumable'||!s.inventory.relics.includes(id)};
++// S12 owns the authored catalogue; preserve imports used by older room adapters.
++export { draftOption } from './rewards';
++import { rewardPool, buildAffinity } from './rewards';
++export function quarterChoices(s:Company):string[]{
++ const pool=rewardPool(s).sort((a,b)=>(toyRoll(s.seed,'quarter-reward',s.quarter,a.id)-Math.min(1,buildAffinity(s,a.family)/100))-(toyRoll(s.seed,'quarter-reward',s.quarter,b.id)-Math.min(1,buildAffinity(s,b.family)/100)));
++ const chosen:typeof pool=[];
++ for(const option of pool)if(!chosen.some(r=>r.family===option.family||r.effect===option.effect)&&chosen.length<P.rewardDraftSize)chosen.push(option);
++ for(const option of pool)if(!chosen.some(r=>r.effect===option.effect)&&chosen.length<P.rewardDraftSize)chosen.push(option);
++ return chosen.map(r=>r.id);
+ }
+-export function quarterChoices(s:Company):string[]{
+- return [...REWARDS].sort((a,b)=>toyRoll(s.seed,'quarter-reward',s.quarter,a.id)-toyRoll(s.seed,'quarter-reward',s.quarter,b.id)).map(option=>option.id);
+-}
+--- a/src/components/founder/FounderGame.tsx
++++ b/src/components/founder/FounderGame.tsx
+@@ -1,12 +1,14 @@
+ 'use client';
+ import { useEffect, useMemo, useRef, useState } from 'react';
+-import { advance, agentCount, agentStatus, computeCost, capitalOffers, arr, batch, command, count, createCompany, forecast, luckDistribution, metrics, queueCap, signal, skillCost, STAGES, tier, units, unlocked } from '../../game/founder/engine';
++import { advance, agentCount, agentStatus, computeCost, capitalOffers, demandStake, arr, batch, command, count, createCompany, forecast, luckDistribution, metrics, queueCap, signal, skillCost, STAGES, tier, units, unlocked } from '../../game/founder/engine';
+ import { AXES, FUNCTIONS, NAMES, P, SEGMENTS, skillRank, UPGRADES, type Axis, type Work } from '../../game/founder/profile';
+ import { loanPayment, loanPayoff, loanSchedule, QUARTER_TICKS, type CapitalOffer } from '../../game/founder/finance';
+ import type { Command, Company } from '../../game/founder/model';
+ import { BACKUP_SAVE_KEY, decodeLastKnownGood, encodeSave, HISTORY_KEY, SAVE_KEY, verifiedBackup } from '../../game/founder/save';
+ import {ProductToy,ExpansionToy,RetentionToy,OperationsToy,PricingToy,QuarterDraft} from './ToyRooms';
+-import { draftOption, measureOperationsTickets } from '../../game/founder/toys';
++import { measureOperationsTickets } from '../../game/founder/toys';
++import { BUILD_FAMILIES, REWARD_EFFECTS, consumableUse, rewardById } from '../../game/founder/rewards';
++import { decodeFounderHistory, syncFounderHistory } from '../../game/founder/history';
+ import './founder.css';
+ import './toys.css';
+ 
+@@ -14,7 +16,7 @@
+ const money=(c:number)=>{const v=c/100;return v>=1e9?`$${(v/1e9).toFixed(2)}B`:v>=1e6?`$${(v/1e6).toFixed(2)}M`:v>=1e4?`$${(v/1e3).toFixed(1)}k`:`$${v.toLocaleString('en-US',{maximumFractionDigits:0})}`;};
+ const cash=(cents:number)=>(cents/100).toLocaleString('en-US',{style:'currency',currency:'USD',minimumFractionDigits:2,maximumFractionDigits:2});
+ const time=(ticks:number)=>{const t=Math.max(0,Math.ceil(ticks/10));return `${Math.floor(t/60)}:${String(t%60).padStart(2,'0')}`;};
+-const TITLES:Record<Work,[string,string]>={demand:['Find the signal.','Swipe right to pursue a real need. Left to keep your cash.'],product:['Less roadmap. More recipe.','Read the brief, combine the ingredients, test the build. Then ship something useful.'],monetisation:['Stick the landing.','Choose your price. Catch the sweet spot. Try not to negotiate with yourself.'],retention:['Break churn’s piggy bank.','Smash in some customer care before your recurring revenue becomes a fond memory.'],expansion:['Small features. Bigger deals.','Merge matching pieces into higher tiers. Serve the customer’s next big ask.'],operations:['Clear the backlog.','Scratch away strain. Refresh stale context. Keep the company moving.']};
++const TITLES:Record<Work,[string,string]>={demand:['Find the signal.','Swipe right to pursue a real need. Left to keep your cash.'],product:['Less roadmap. More recipe.','Read the brief, combine the ingredients, test the build. Then ship something useful.'],monetisation:['Stick the landing.','Choose your price. Catch the sweet spot. Try not to negotiate with yourself.'],retention:['Put out the customer fires.','Clear real problems before the clock turns customers into churn.'],expansion:['Small features. Bigger deals.','Merge matching pieces into higher tiers. Serve the customer’s next big ask.'],operations:['Read the fine print.','Pay, scratch, inspect. Finish worthwhile patches or walk away from the ticket.']};
+ 
+ export default function FounderGame(){
+   const [gesture,setGesture]=useState(false);
+@@ -28,7 +30,7 @@
+   useEffect(()=>{
+     let disposed=false;
+     void Promise.resolve().then(()=>{ if(disposed)return;
+-    try{const raw=localStorage.getItem(SAVE_KEY),backup=localStorage.getItem(BACKUP_SAVE_KEY);if(raw||backup){const restored=decodeLastKnownGood(raw,backup);let loaded=restored.company;if(loaded.phase==='active'||loaded.phase==='continuation')loaded=command(loaded,{type:'pause'});current.current=loaded;setS(loaded);setNotice(restored.source==='backup'?'Primary checkpoint was invalid. Restored the last-known-good copy.':'Checkpoint restored. Resume when you are ready.');}else{const h=JSON.parse(localStorage.getItem(HISTORY_KEY)??'{"wins":[]}');const fresh=createCompany(crypto.getRandomValues(new Uint32Array(1))[0],h.wins.length);current.current=fresh;setS(fresh);}}
++    try{const raw=localStorage.getItem(SAVE_KEY),backup=localStorage.getItem(BACKUP_SAVE_KEY);if(raw||backup){const restored=decodeLastKnownGood(raw,backup);let loaded=restored.company;let historyNotice='';try{syncFounderHistory(localStorage,loaded);}catch{historyNotice='Company restored. Founder history could not be saved; preserve this run and check device storage.';}if(loaded.phase==='active'||loaded.phase==='continuation')loaded=command(loaded,{type:'pause'});current.current=loaded;setS(loaded);setNotice(historyNotice||(restored.source==='backup'?'Primary checkpoint was invalid. Restored the last-known-good copy.':'Checkpoint restored. Resume when you are ready.'));}else{const h=decodeFounderHistory(localStorage.getItem(HISTORY_KEY));const fresh=createCompany(crypto.getRandomValues(new Uint32Array(1))[0],h.wins.length);current.current=fresh;setS(fresh);}}
+     catch{setNotice('The saved checkpoint could not be verified. It has not been overwritten. Start a new company to recover.');setSaveStatus('Unverified checkpoint preserved');}
+     setBoot(true);
+     });
+@@ -37,14 +39,17 @@
+   useEffect(()=>{
+     if(!boot)return;let previous=performance.now(),carry=0,lastSave=0;let frame=0;
+     let lastSaved:Company|null=null;
+-    const save=()=>{if(current.current.phase==='setup'||current.current===lastSaved)return;try{const prior=verifiedBackup(localStorage.getItem(SAVE_KEY));if(prior)localStorage.setItem(BACKUP_SAVE_KEY,prior);localStorage.setItem(SAVE_KEY,encodeSave(current.current));lastSaved=current.current;setSaveStatus('Saved on this device');if(current.current.wonAt!==null){const h=JSON.parse(localStorage.getItem(HISTORY_KEY)??'{"wins":[]}');const id=`${current.current.seed}:${current.current.wonAt}`;if(!h.wins.includes(id)){h.wins.push(id);localStorage.setItem(HISTORY_KEY,JSON.stringify(h));}}}catch{setSaveStatus('Storage unavailable · keep this tab open');}};
++    const save=()=>{if(current.current.phase==='setup'||current.current===lastSaved)return;try{const prior=verifiedBackup(localStorage.getItem(SAVE_KEY));if(prior)localStorage.setItem(BACKUP_SAVE_KEY,prior);localStorage.setItem(SAVE_KEY,encodeSave(current.current));syncFounderHistory(localStorage,current.current);lastSaved=current.current;setSaveStatus('Saved on this device');}catch{setSaveStatus('Storage unavailable · keep this tab open');}};
+     const loop=(now:number)=>{carry+=Math.min(250,now-previous);previous=now;if(carry>=100){const ticks=Math.floor(carry/100);carry-=ticks*100;if(!document.hidden){try{const next=advance(current.current,ticks);if(next!==current.current){current.current=next;setS(next);if(next.phase==='unicorn')save();}}catch{current.current=command(current.current,{type:'pause'});setS(current.current);setNotice('Simulation interrupted. Your company is paused; the last checkpoint is preserved.');}}}if(now-lastSave>5000){lastSave=now;save();}frame=requestAnimationFrame(loop);};
+     frame=requestAnimationFrame(loop);
+     const hide=()=>{if(document.hidden&&(current.current.phase==='active'||current.current.phase==='continuation')){current.current=command(current.current,{type:'pause'});setS(current.current);}save();previous=performance.now();carry=0;};
+     document.addEventListener('visibilitychange',hide);window.addEventListener('pagehide',save);
+     return()=>{cancelAnimationFrame(frame);document.removeEventListener('visibilitychange',hide);window.removeEventListener('pagehide',save);};
+   },[boot]);
+-  const reset=()=>{let wins=0;try{wins=JSON.parse(localStorage.getItem(HISTORY_KEY)??'{"wins":[]}').wins.length;localStorage.removeItem(SAVE_KEY);}catch{}commit(createCompany(crypto.getRandomValues(new Uint32Array(1))[0],wins));setNewRun(false);setNotice('');};
++  const reset=()=>{try{
++    const history=syncFounderHistory(localStorage,current.current),fresh=createCompany(crypto.getRandomValues(new Uint32Array(1))[0],history.wins.length),raw=encodeSave(fresh);
++    localStorage.setItem(BACKUP_SAVE_KEY,raw);localStorage.setItem(SAVE_KEY,raw);commit(fresh);setNewRun(false);setNotice('');
++  }catch{setNotice('Could not preserve this run and founder history. Free device storage before starting another company.');}};
+   if(!boot)return <main className="founder-game f-boot">Opening the garage…</main>;
+   const m=metrics(s),stage=tier(s),latest=s.log.at(-1),report=s.reports.at(-1),threats=s.accounts.filter(a=>a.active&&a.threat),pricing=s.pricingResolution;
+   const queue=(f:Work)=>f==='demand'?s.market[s.channel]:f==='product'?count(s.leads):f==='monetisation'?count(s.trials):f==='retention'?threats.length:f==='expansion'?s.accounts.filter(a=>a.active&&a.addons<2&&a.health>=60&&s.tick-a.born>=1200).length:Math.round(s.strain+m.rot*100);
+@@ -55,14 +60,14 @@
+       <div className="f-garage-scene"><div className="f-garage-pegboard" aria-hidden="true"><i/><i/><i/></div><div className="f-garage-lamp" aria-hidden="true"/><div className="f-layout"><aside className="f-navigation"><div className="f-nav-caption">YOUR ATTENTION</div>{FUNCTIONS.map((f,i)=><button key={f} disabled={!unlocked(s,f)} onClick={()=>send({type:'focus',work:f})} className={s.focus===f?'selected':''} aria-current={s.focus===f?'page':undefined}><span className="f-nav-no">0{i+1}</span><span>{NAMES[f]}<small>{agentCount(s,f)?`${agentCount(s,f)} agent${agentCount(s,f)>1?'s':''} · ${agentStatus(s,f).label}`:unlocked(s,f)?'Manual':'Needs customers'}</small></span><b>{queue(f)||'·'}</b></button>)}<div className="f-nav-caption">BUILD THE COMPANY</div><button className={s.focus==='skills'?'selected':''} onClick={()=>send({type:'focus',work:'skills'})}><span className="f-nav-no">↗</span><span>Skill trees<small>Craft · Scale · Automate · Luck</small></span></button><button className={s.focus==='finance'?'selected':''} onClick={()=>send({type:'focus',work:'finance'})}><span className="f-nav-no">$</span><span>Finance<small>{report&&!report.chosen&&report.choices.length>0?'Quarter choice ready':'Cashflow & capital'}</small></span><b>{report&&!report.chosen&&report.choices.length>0?'!':''}</b></button><div className="f-nav-bottom"><span>SEED {s.seed}</span><button onClick={()=>setSound(!sound)}>{sound?'Sound on':'Sound off'}</button><button onClick={()=>setNewRun(true)}>New company</button></div></aside>
+       <div className="f-mobile-actions"><button onClick={()=>send({type:'focus',work:'skills'})}>Skill trees ↗</button><button onClick={()=>send({type:'focus',work:'finance'})}>Finance {report&&!report.chosen&&report.choices.length>0?'· NEW CHOICE':'$'}</button><button onClick={()=>setSettings(!settings)}>Settings</button>{settings&&<div><button onClick={()=>setSound(!sound)}>{sound?'Mute sound':'Enable sound'}</button><button onClick={()=>setNewRun(true)}>New company</button></div>}{threats.length>0&&<button className="f-mobile-threat" onClick={()=>send({type:'focus',work:'retention'})}>{threats.length} account threats · {time(Math.min(...threats.map(a=>a.threat))-s.tick)} left →</button>}</div><section className="f-main">
+         {s.phase==='quarter-draft'&&<QuarterDraft defer={gesture} s={s} send={send}/>}
+-        {s.phase==='failure'||s.phase==='unicorn'?<div className="f-terminal"><span className="f-eyebrow">{s.phase==='unicorn'?'THE ONE PERSON UNICORN':'THE RUN IS OVER'}</span><h1>{s.phase==='unicorn'?'One founder.\nOne billion.':'The company\nran out of road.'}</h1><p>{s.phase==='unicorn'?'Your successful founder history earns extra starting cash on future runs. Keep building or start another company.':s.failure}</p><div><Metric label="FINAL VALUATION" value={money(m.valuation)}/><Metric label="TIME OPERATING" value={time(s.tick)}/></div>{s.phase==='unicorn'&&<button className="f-primary" onClick={()=>send({type:'continue'})}>Keep operating ↗</button>}<button className="f-secondary" onClick={reset}>Start another company</button></div>:s.phase==='paused'?<div className="f-paused"><span className="f-eyebrow">FOUNDER AWAY</span><h1>Take a breath.</h1><p>The company is paused. Your queues and obligations will wait.</p><button className="f-primary" onClick={()=>send({type:'continue'})}>Continue ↗</button><small>{notice||saveStatus}</small></div>:s.focus==='skills'?<Skills s={s} send={send}/>:s.focus==='finance'?<Finance s={s} send={send}/>:<>
++        {s.phase==='failure'||s.phase==='unicorn'?<div className="f-terminal"><span className="f-eyebrow">{s.phase==='unicorn'?'THE ONE PERSON UNICORN':'THE RUN IS OVER'}</span><h1>{s.phase==='unicorn'?'One founder.\nOne billion.':'The company\nran out of road.'}</h1><p>{s.phase==='unicorn'?`This win earns +${money(P.winCashBonus)} starting cash on future runs. Keep operating, or bring that experience to a fresh garage.`:`${s.failure} ${s.wonAt!==null?'Your earlier unicorn win stays in founder history.':'Failed runs award no new starting advantage.'}`}</p><p>{s.inventory.relics.length} relics · {s.reports.filter(r=>r.chosen&&r.chosen!=='passed').length} quarter choices · {s.vc?'VC mandate':s.debt?'Debt financed':'Self-funded now'}</p><div><Metric label="FINAL VALUATION" value={money(m.valuation)}/><Metric label="TIME OPERATING" value={time(s.tick)}/></div>{s.phase==='unicorn'&&<button className="f-primary" onClick={()=>send({type:'continue'})}>Keep operating ↗</button>}<button className="f-secondary" onClick={reset}>Start another company</button></div>:s.phase==='paused'?<div className="f-paused"><span className="f-eyebrow">FOUNDER AWAY</span><h1>Take a breath.</h1><p>Your build is saved. Queues, consumable timers and bills wait for Continue.</p><button className="f-primary" onClick={()=>send({type:'continue'})}>Continue ↗</button><small>{notice||saveStatus}</small></div>:s.focus==='skills'?<Skills s={s} send={send}/>:s.focus==='finance'?<Finance s={s} send={send}/>:<>
+         <div className="f-room-heading"><div><span className="f-eyebrow">0{FUNCTIONS.indexOf(s.focus)+1} / {NAMES[s.focus].toUpperCase()} <i/> {s.ranks[s.focus].automate?'FOUNDER + AGENTS':'HANDS ON'}</span><h1>{TITLES[s.focus][0]}</h1><p>{TITLES[s.focus][1]}</p></div><span className="f-work-stamp">{s.deployed[s.focus]>s.tick?'INSTALLING':'READY'}<b>{batch(s,s.focus)}×</b>OUTPUT / WORK<small>{units(s,s.focus)} lane{units(s,s.focus)===1?'':'s'} · {queueCap(s,s.focus)} finite slots</small></span></div>
+         <div className="f-toy" key={s.focus}>{s.focus==='demand'?<Demand s={s} send={send}/>:s.focus==='product'?<ProductToy s={s} send={send}/>:s.focus==='monetisation'?<PricingToy s={s} send={send}/>:s.focus==='retention'?<RetentionToy s={s} send={send}/>:s.focus==='expansion'?<ExpansionToy s={s} send={send}/>:<OperationsToy s={s} send={send}/>}</div>
+         <div className="f-underbench"><span>{s.ranks[s.focus].automate?`${s.completed[s.focus]} outputs · ${Math.round(s.rot[s.focus]*100)}% context rot`:'ONE FOUNDER. STILL ONLY TWO HANDS.'}</span><button onClick={()=>send({type:'focus',work:'skills'})}>{s.ranks[s.focus].automate?'Improve this system':'Teach an agent this job'} ↗</button></div>
+         </>}
+       </section>
+-      <aside className="f-awareness"><div className="f-awareness-title"><span>THE COMPANY</span><i className={s.phase==='paused'?'paused':''}/></div><CompanyScope s={s}/><div className="f-pipeline"><button onClick={()=>send({type:'focus',work:'product'})}><b>{count(s.leads)}</b><span>qualified<br/>opportunities</span></button><i>→</i><button onClick={()=>send({type:'focus',work:'monetisation'})}><b>{count(s.trials)}</b><span>activated<br/>trials</span></button></div><div className="f-health"><span>OPERATING STABILITY</span><b>{Math.round(m.stability*100)}%</b><div><i style={{width:`${m.stability*100}%`}}/></div><p>{m.overload>.3?'Coordination is slowing work. Repair strain or improve Operations.':m.rot>.2?'Your agents are drifting. Operations can refresh their context.':'Room to breathe. Keep the next bill covered.'}</p></div>{(stage>0||m.rot>0||s.strain>0)&&<dl className="f-pressure"><div><dt>Strain backlog</dt><dd>{s.strain.toFixed(1)}</dd></div><div><dt>Worst context rot</dt><dd>{Math.round(m.rot*100)}%</dd></div><div><dt>Agent pace</dt><dd>{Math.round(m.speed*100)}% before context rot</dd></div><div><dt>Coordination</dt><dd>{m.load.toFixed(1)} / {m.capacity.toFixed(1)}</dd></div></dl>}<button className="f-obligation" onClick={()=>send({type:'focus',work:'finance'})}><span>NEXT OPERATING BILL</span><strong>~{money(m.nextBill)}</strong><small>Due in {time(600-s.tick%600)} · cash {money(s.cash)}</small></button>{threats.length>0&&<button className="f-alert" onClick={()=>send({type:'focus',work:'retention'})}>{threats.length} churn threat{threats.length>1?'s':''} · {time(Math.min(...threats.map(a=>a.threat))-s.tick)} left →</button>}<FinanceAlerts s={s} send={send}/>{report&&!report.chosen&&report.choices.length>0&&<button className="f-quarter-notice" onClick={()=>send({type:'focus',work:'finance'})}>Q{report.quarter} closed. Choose what changes. ↗</button>}<BuildContext s={s}/><ProgressiveHUD s={s}/><small className="f-save-status">{saveStatus}</small></aside></div></div>
+-      <footer className={`f-receipt ${latest?.kind??''}`} role="status"><span>{latest?time(latest.tick):'0:00'} / FIELD NOTES</span><p key={latest?.id}>{latest?.text??'The company is running.'}</p>{(s.inventory.consumables['consumable:customer-firebreak']??0)>0&&s.accounts.some(a=>a.active&&a.threat)?<button onClick={()=>send({type:'consume',id:'consumable:customer-firebreak',account:s.accounts.find(a=>a.active&&a.threat)!.id})}>Deploy customer firebreak</button>:<b>01 FOUNDER / {s.accounts.filter(a=>a.active).reduce((n,a)=>n+a.count,0)} CUSTOMERS</b>}</footer>
++      <aside className="f-awareness"><div className="f-awareness-title"><span>THE COMPANY</span><i className={s.phase==='paused'?'paused':''}/></div><CompanyScope s={s}/><div className="f-pipeline"><button onClick={()=>send({type:'focus',work:'product'})}><b>{count(s.leads)}</b><span>qualified<br/>opportunities</span></button><i>→</i><button onClick={()=>send({type:'focus',work:'monetisation'})}><b>{count(s.trials)}</b><span>activated<br/>trials</span></button></div><div className="f-health"><span>OPERATING STABILITY</span><b>{Math.round(m.stability*100)}%</b><div><i style={{width:`${m.stability*100}%`}}/></div><p>{m.overload>.3?'Coordination is slowing work. Repair strain or improve Operations.':m.rot>.2?'Your agents are drifting. Operations can refresh their context.':'Room to breathe. Keep the next bill covered.'}</p></div>{(stage>0||m.rot>0||s.strain>0)&&<dl className="f-pressure"><div><dt>Strain backlog</dt><dd>{s.strain.toFixed(1)}</dd></div><div><dt>Worst context rot</dt><dd>{Math.round(m.rot*100)}%</dd></div><div><dt>Agent pace</dt><dd>{Math.round(m.speed*100)}% before context rot</dd></div><div><dt>Coordination</dt><dd>{m.load.toFixed(1)} / {m.capacity.toFixed(1)}</dd></div></dl>}<button className="f-obligation" onClick={()=>send({type:'focus',work:'finance'})}><span>NEXT OPERATING BILL</span><strong>~{money(m.nextBill)}</strong><small>Due in {time(600-s.tick%600)} · cash {money(s.cash)}</small></button>{threats.length>0&&<button className="f-alert" onClick={()=>send({type:'focus',work:'retention'})}>{threats.length} churn threat{threats.length>1?'s':''} · {time(Math.min(...threats.map(a=>a.threat))-s.tick)} left →</button>}<FinanceAlerts s={s} send={send}/>{report&&!report.chosen&&report.choices.length>0&&<button className="f-quarter-notice" onClick={()=>send({type:'focus',work:'finance'})}>Q{report.quarter} closed. Choose what changes. ↗</button>}<BuildContext s={s} send={send}/><ProgressiveHUD s={s}/><small className="f-save-status">{saveStatus}</small></aside></div></div>
++      <footer className={`f-receipt ${latest?.kind??''}`} role="status"><span>{latest?time(latest.tick):'0:00'} / FIELD NOTES</span><p key={latest?.id}>{latest?.text??'The company is running.'}</p><b>01 FOUNDER / {s.accounts.filter(a=>a.active).reduce((n,a)=>n+a.count,0)} CUSTOMERS</b></footer>
+     </>}
+     {newRun&&<div className="f-confirm" role="dialog" aria-modal="true" aria-label="Start a new company"><h2>Close this company?</h2><p>This replaces the current local run. Your successful founder history stays.</p><button className="f-primary" onClick={reset}>Start a new company</button><button className="f-secondary" onClick={()=>setNewRun(false)}>Keep this run</button></div>}
+   </main>;
+@@ -73,7 +78,7 @@
+   const [drag,setDrag]=useState(0);const origin=useRef<{x:number;y:number;signal:number;pointer:number;axis:'pending'|'x'|'y'}|null>(null);const candidate=signal(s);const clear=()=>{origin.current=null;setDrag(0);};
+   useEffect(()=>{window.addEventListener('blur',clear);window.addEventListener('resize',clear);return()=>{window.removeEventListener('blur',clear);window.removeEventListener('resize',clear);};},[]);
+   const title=[['My work lives in twelve different tabs.','I spend Sundays doing work a tool should do.'],['Our team keeps losing the handoff.','Nobody knows which version is the real one.'],['We need an audit trail we can actually trust.','Every exception ends up on one person’s desk.']][s.channel][s.signal%2];
+-  const stake=Math.round(P.acquisitionCents[s.channel]*((s.upgrades.includes('community')||s.inventory.relics.includes('relic:signal-ledger'))?.65:1)),resolution=s.demandResolution;
++  const stake=demandStake(s),resolution=s.demandResolution;
+   const commit=(pursue:boolean,signalId=s.signal)=>send({type:'demand',pursue,signal:signalId});
+   return <div className="f-demand"><div className="f-channel-picker" aria-label="Acquisition channel">{SEGMENTS.map((n,i)=><button key={n} aria-pressed={s.channel===i} onClick={()=>{clear();send({type:'channel',channel:i});}}>{['Creators','Teams','Enterprise'][i]} <small>{money(P.acquisitionCents[i])} / try</small></button>)}</div>
+     <div className="f-demand-helper"><b>FIRST SIGNAL</b><span>Read fit and stake. Swipe right commits the visible profile. Swipe left costs nothing.</span></div>
+@@ -90,8 +95,11 @@
+   if(a==='automate')return `${P.auto_speed_by_rank[next]}× manual speed per unit. ${money(P.auto_upkeep_cents_per_unit_month[next]*units(s,f))}/month compute. Actual jobs generate context rot.`;
+   return `Output mean ${(100-next).toFixed(0)}%, wider swings. Shared market shocks cannot be diversified away. Risk persists across automated units.`;
+ }
++function useOperationsLuck(active:boolean,scale:number,luck:number,automate:number,discount:boolean){
++  return useMemo(()=>active?measureOperationsTickets(512,scale,luck,Math.max(1,automate),discount):null,[active,scale,luck,automate,discount]);
++}
+ function Skills({s,send}:{s:Company;send:Send}){
+-  const [f,setF]=useState<Work>('demand');const [axis,setAxis]=useState<Axis>('automate');const rank=s.ranks[f][axis],next=rank+1,cost=skillCost(s,f,axis);const m=metrics(s);const preview=structuredClone(s);if(rank<4)preview.ranks[f][axis]++;const nextMetrics=metrics(preview);const definition=skillRank(f,axis,next);const finiteCap=f==='demand'?Math.max(0,Math.min(s.market[s.channel],units(preview,'product')*P.queue_slots_per_unit*batch(preview,'product')-count(s.leads))):f==='product'?Math.max(0,Math.min(count(s.leads),units(preview,'monetisation')*P.queue_slots_per_unit*batch(preview,'monetisation')-count(s.trials))):f==='monetisation'?count(s.trials):batch(preview,f);const luck=luckDistribution(next,batch(preview,f),finiteCap),operationsLuck=useMemo(()=>f==='operations'&&axis==='luck'?measureOperationsTickets(512,s.ranks.operations.scale,next,Math.max(1,s.ranks.operations.automate)):null,[axis,f,next,s.ranks.operations.automate,s.ranks.operations.scale]);
++  const [f,setF]=useState<Work>('demand');const [axis,setAxis]=useState<Axis>('automate');const rank=s.ranks[f][axis],next=rank+1,cost=skillCost(s,f,axis);const m=metrics(s);const preview=structuredClone(s);if(rank<4)preview.ranks[f][axis]++;const nextMetrics=metrics(preview);const definition=skillRank(f,axis,next);const finiteCap=f==='demand'?Math.max(0,Math.min(s.market[s.channel],units(preview,'product')*P.queue_slots_per_unit*batch(preview,'product')-count(s.leads))):f==='product'?Math.max(0,Math.min(count(s.leads),units(preview,'monetisation')*P.queue_slots_per_unit*batch(preview,'monetisation')-count(s.trials))):f==='monetisation'?count(s.trials):batch(preview,f);const luck=luckDistribution(next,batch(preview,f),finiteCap),operationsLuck=useOperationsLuck(f==='operations'&&axis==='luck',s.ranks.operations.scale,next,s.ranks.operations.automate,s.inventory.relics.includes('relic:reserved-instances'));
+   return <div className="f-management"><span className="f-eyebrow">CAPABILITY / PERMANENT FOR THIS RUN</span><h1>Buy back your attention.</h1><p>Improve one part of the machine. Every new capability has a cash and coordination cost.</p><div className="f-skill-functions">{FUNCTIONS.map(x=><button key={x} aria-pressed={x===f} onClick={()=>setF(x)}>{NAMES[x]}<small>{AXES.reduce((n,a)=>n+s.ranks[x][a],0)} / 16 ranks</small></button>)}</div><div className="f-skill-tree"><div className="f-axis-list">{AXES.map(a=><button key={a} aria-pressed={axis===a} onClick={()=>setAxis(a)}><span>{a.toUpperCase()}</span><div>{[1,2,3,4].map(n=><i key={n} className={n<=s.ranks[f][a]?'owned':''}/>)}</div><small>{a==='craft'?'Better work':a==='scale'?'More work units':a==='automate'?'Hands become systems':'Choose more variance'}</small></button>)}</div><article className="f-skill-detail"><span>{NAMES[f].toUpperCase()} / {axis.toUpperCase()}</span><div className="f-rank-number">{rank===4?'04':`0${next}`}<small>/ 04</small></div><h2>{rank===4?'Fully installed.':definition?.name??(axis==='automate'?'A faster autonomous system.':axis==='craft'?'Make each attempt count.':axis==='scale'?'Give the work more room.':'Let the tails get wider.')}</h2><p>{rank===4?'This branch is fully deployed. Your next bottleneck lives elsewhere.':skillEffect(s,f,axis)}</p>{rank<4&&<><dl><div><dt>PREREQUISITE</dt><dd>{definition?.prerequisite??'Previous rank in this branch'}</dd></div><div><dt>CASH AFTER PURCHASE</dt><dd>{money(s.cash-cost)}</dd></div><div><dt>MONTHLY BILL AFTER INSTALL</dt><dd>{money(nextMetrics.cost)} <small>({money(nextMetrics.cost-m.cost)} change)</small></dd></div><div><dt>COMMITMENT</dt><dd>{definition?.recurringCommitment??'5 seconds to deploy'}</dd></div><div><dt>VISIBLE CHANGE</dt><dd>{definition?.visibleChange??'Capability instruments update'}</dd></div>{axis==='luck'&&operationsLuck?<><div><dt>WHOLE-TICKET NET</dt><dd>E {money(operationsLuck.automated.meanAfterPrice)} after price</dd></div><div><dt>AUTOMATED NET</dt><dd>E {money(operationsLuck.automated.meanAfterPriceAndUpkeep)} after allocated upkeep</dd></div><div><dt>TAIL RANGE</dt><dd>{money(operationsLuck.automated.minimum)} to {money(operationsLuck.automated.maximum)}</dd></div></>:axis==='luck'&&<><div><dt>RAW OUTPUT</dt><dd>E {luck.raw.mean.toFixed(2)} · variance {luck.raw.variance.toFixed(2)}</dd></div><div><dt>FINITE INPUT CAP</dt><dd>E {luck.capped.mean.toFixed(2)} / {finiteCap} · variance {luck.capped.variance.toFixed(2)}</dd></div></>}</dl><p className="f-risk-note">{definition?.downside??'Finite inputs and operating pressure still apply.'}</p><button className="f-primary" disabled={s.cash<cost} onClick={()=>send({type:'buy',work:f,axis,rank:next})}>Install {axis} {next} <b>{money(cost)}</b></button>{s.cash-cost<nextMetrics.cost&&<small className="f-risk-note">This purchase leaves less than one projected monthly bill in cash.</small>}</>}</article></div>{s.ranks[f].automate>0&&<button className="f-secondary" onClick={()=>send({type:'automation',work:f})}>{s.enabled[f]?'Switch off':'Restart'} {NAMES[f]} agents · {s.enabled[f]?'stop compute upkeep and new rot':'resume autonomous production'}</button>}{s.ranks[f].luck>0&&<button className="f-secondary f-risk-toggle" onClick={()=>send({type:'risk',work:f})} aria-pressed={s.risky[f]}>Luck exposure {s.risky[f]?'on':'off'} · {s.risky[f]?'disable risk':'enable explained seeded swings'}</button>}<div className="f-hud-progression"><span>YOUR WORKSPACE EVOLVES WITH INSTALLED CAPABILITY</span>{STAGES.map((label,i)=><b key={label} className={tier(s)>=i?'active':''}>{label}</b>)}</div></div>;
+ }
+ function Finance({s,send}:{s:Company;send:Send}){
+@@ -140,10 +148,27 @@
+   return <>{s.debt&&payment&&<button className={s.cash<payment.total?'f-alert':'f-obligation'} onClick={()=>send({type:'focus',work:'finance'})}><span>{payment.principal?'LOAN PRINCIPAL + INTEREST':'LOAN INTEREST'}</span><strong>{cash(payment.total)}</strong><small>In {time(s.debt.due-s.tick)} · principal {cash(s.debt.principal)} due in {time(s.debt.maturity-s.tick)}</small></button>}{s.vc&&<button className="f-alert" onClick={()=>send({type:'focus',work:'finance'})}>{s.vc.baselineLocked?`${s.vc.rule==='quarter-growth'?'Beat':'Reach'} ${cash(s.vc.rule==='quarter-growth'?s.vc.baseline:s.vc.target)} eligible ARR`:'VC grace: next full quarter counts'}<small style={{display:'block'}}>First/next review in {time(s.vc.due-s.tick)}{!s.vc.baselineLocked?` · baseline locks in ${time(s.vc.startsAt-s.tick)}`:''}</small></button>}</>;
+ }
+ 
+-function BuildContext({s}:{s:Company}){
+-  const agents=FUNCTIONS.reduce((n,f)=>n+agentCount(s,f),0),consumables=Object.entries(s.inventory.consumables).filter(([,count])=>count>0);
+-  const relics=s.inventory.relics.map(id=>draftOption(s,id,s.quarter)?.name??id),skillRanks=FUNCTIONS.reduce((n,f)=>n+AXES.reduce((sum,a)=>sum+s.ranks[f][a],0),0);
+-  return <section className="f-build-context"><span>ACTIVE BUILD</span><dl><div><dt>Active lanes</dt><dd>{FUNCTIONS.reduce((n,f)=>n+agentStatus(s,f).activeCapacity,0)} / {FUNCTIONS.reduce((n,f)=>n+units(s,f),0)}</dd></div><div><dt>Skills installed</dt><dd>{skillRanks} / 96</dd></div><div><dt>Compute</dt><dd>{agents} agent{agents===1?'':'s'} · {money(FUNCTIONS.reduce((n,f)=>n+computeCost(s,f),0))}/mo</dd></div></dl>{relics.length>0?<p>{relics.join(' · ')}</p>:s.upgrades.length>0?<p>{s.upgrades.map(id=>UPGRADES.find(u=>u.id===id)?.name??id).join(' · ')}</p>:<p>No quarterly build choices yet.</p>}{consumables.length>0&&<small>{consumables.map(([id,count])=>`${draftOption(s,id,s.quarter)?.name??id} ×${count}`).join(' · ')}</small>}</section>;
++function BuildContext({s,send}:{s:Company;send:Send}){
++  const agents=FUNCTIONS.reduce((n,f)=>n+agentCount(s,f),0),charges=Object.entries(s.inventory.consumables).filter(([,count])=>count>0);
++  const ranks=FUNCTIONS.reduce((n,f)=>n+AXES.reduce((sum,a)=>sum+s.ranks[f][a],0),0);
++  return <section className="f-build-context"><span>YOUR RUN BUILD</span><dl><div><dt>Active lanes</dt><dd>{FUNCTIONS.reduce((n,f)=>n+agentStatus(s,f).activeCapacity,0)} / {FUNCTIONS.reduce((n,f)=>n+units(s,f),0)}</dd></div><div><dt>Skill purchases</dt><dd>{ranks} / 96</dd></div><div><dt>Compute</dt><dd>{agents} agents · {money(FUNCTIONS.reduce((n,f)=>n+computeCost(s,f),0))}/mo</dd></div></dl>
++    {s.inventory.relics.map(id=>{const r=rewardById(id);return r&&<details className="f-relic" key={id}><summary>{r.name}<small>{BUILD_FAMILIES[r.family]}</small></summary><p>{REWARD_EFFECTS[r.effect].summary}</p><small>{r.downside} Lasts this run.</small></details>;})}
++    {!s.inventory.relics.length&&<p>First quarter: choose what changes.</p>}
++    {s.upgrades.length>0&&<small>Saved legacy effects: {s.upgrades.map(id=>UPGRADES.find(u=>u.id===id)?.name??id).join(' · ')}</small>}
++    {s.inventory.active.map(b=><p className="f-active-consumable" key={b.id}>{rewardById(b.id)?.name} <b>{time(b.until-s.tick)}</b><small>active time left</small></p>)}
++    {charges.length>0&&<details className="f-consumables"><summary>Consumables · {charges.reduce((n,[,count])=>n+count,0)} charges</summary>{charges.map(([id,count])=><Consumable key={id} id={id} count={count} s={s} send={send}/>)}</details>}
++    <small>Founder history: {s.inheritedWins} prior wins · {money(s.inheritedWins*P.winCashBonus)} starting advantage. Run rewards reset next company.</small>
++  </section>;
++}
++function Consumable({id,count,s,send}:{id:string;count:number;s:Company;send:Send}){
++ const r=rewardById(id),[target,setTarget]=useState('');if(!r)return null;
++ const choices=r.effect==='protect-threat'?s.accounts.filter(a=>a.active&&a.threat>s.tick).map(a=>({value:String(a.id),label:`${a.problem?.label??'Customer problem'} · ${a.count} customers`}))
++  :r.effect==='reset-context'?FUNCTIONS.filter(f=>s.rot[f]>0).map(f=>({value:f,label:`${NAMES[f]} · ${Math.round(s.rot[f]*100)}% rot`})) :[];
++ const selected=choices.some(c=>c.value===target)?target:choices[0]?.value;
++ const account=r.effect==='protect-threat'?s.accounts.find(a=>String(a.id)===selected):undefined;
++ const action:Extract<Command,{type:'consume'}>={type:'consume',id,...(account?{account:account.id,problem:account.problem?.id}:{}),...(r.effect==='reset-context'&&selected?{work:selected as Work}:{})};
++ const use=consumableUse(s,action);
++ return <div className="f-consumable"><b>{r.name} ×{count}</b><p>{REWARD_EFFECTS[r.effect].summary}{r.duration==='month'?' One active month.':''}</p>{choices.length>0&&<select aria-label={`${r.name} target`} value={selected} onChange={e=>setTarget(e.target.value)}>{choices.map(c=><option key={c.value} value={c.value}>{c.label}</option>)}</select>}<button className="f-secondary" disabled={!use.available} onClick={()=>send(action)}>{use.available?'Use one charge':use.reason}</button></div>;
+ }
+ function CompanyScope({s}:{s:Company}){
+   const ref=useRef<HTMLCanvasElement>(null);
+--- a/src/components/founder/ToyRooms.tsx
++++ b/src/components/founder/ToyRooms.tsx
+@@ -1,11 +1,12 @@
+ 'use client';
++import { BUILD_FAMILIES } from '../../game/founder/rewards';
+ /* Native images preserve the generated alpha and work in the offline package. */
+ /* eslint-disable @next/next/no-img-element */
+ import {useEffect,useRef,useState,type PointerEvent as PE} from 'react';
+ import type {Command,Company,Lead,OperationsPatch} from '../../game/founder/model';
+-import {batch,expansionAccount,priceCursor,priceTarget,pricingQuote,pressure} from '../../game/founder/engine';
++import {batch,operationsUpkeep,expansionAccount,priceCursor,priceTarget,pricingQuote,pressure} from '../../game/founder/engine';
+ import {P,SEGMENTS,NAMES} from '../../game/founder/profile';
+-import {draftOption,COMPONENTS,expansionBoardSlots,initialBoard,mergeNames,mergeOrder,operationsAutomationUpkeepPerTicket,operationsTicketPatchCount,operationsTicketPrice,operationsTicketSupply,packageComplete,packageMass,packageNeeds,productBrief} from '../../game/founder/toys';
++import {draftOption,COMPONENTS,expansionBoardSlots,initialBoard,mergeNames,mergeOrder,operationsTicketPatchCount,operationsTicketPrice,operationsTicketSupply,packageComplete,packageMass,packageNeeds,productBrief} from '../../game/founder/toys';
+ type Send=(c:Command)=>void;
+ type Props={s:Company;send:Send};
+ const money=(n:number|undefined)=>{const value=n??0;return `${value<0?'−':''}$${(Math.abs(value)/100).toLocaleString('en-US',{maximumFractionDigits:Math.abs(value)%100?2:0,minimumFractionDigits:Math.abs(value)%100?2:0})}`;};
+@@ -45,7 +46,7 @@
+  const scratch=(e:PE<HTMLCanvasElement>)=>{const last=stroke.current;if(!last||last.id!==e.pointerId||done||claimed.current)return;const p=point(e),ctx=e.currentTarget.getContext('2d',{willReadFrequently:true})!;ctx.globalCompositeOperation='destination-out';ctx.strokeStyle='#000';ctx.lineWidth=22;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(last.x,last.y);ctx.lineTo(p.x,p.y);ctx.stroke();stroke.current={...p,id:e.pointerId};const pixels=ctx.getImageData(0,0,240,150).data;let clear=0;for(let i=3;i<pixels.length;i+=16)if(pixels[i]<40)clear++;coverage.current=clear/(pixels.length/16);setPct(Math.round(coverage.current*100));if(!inspected&&!inspectionSent.current&&coverage.current>=.12){inspectionSent.current=true;send({type:'ops-inspect',card:s.ops.id,cell});}if(inspected&&coverage.current>=.6){claimed.current=true;ctx.clearRect(0,0,240,150);send({type:'ops-claim',card:s.ops.id,cell});}};
+  return <div className={`scratch-patch ${inspected?patch.sentiment==='positive'?'credit':'penalty':''} ${done?'settled':''}`}><div className="scratch-result" aria-hidden={!inspected}><b>{patch.valueCents>=0?'+':'−'}{money(Math.abs(patch.valueCents))}</b><span>{patch.label}</span></div><canvas ref={canvas} width={240} height={150} aria-label={`Scratch patch ${cell+1}. Scratch 12 percent to inspect; continue to 60 percent to settle.`} onPointerDown={e=>{if(!e.isPrimary||e.button!==0||done)return;e.currentTarget.setPointerCapture(e.pointerId);stroke.current={...point(e),id:e.pointerId};}} onPointerMove={scratch} onPointerUp={()=>{stroke.current=null;}} onPointerCancel={()=>{stroke.current=null;}} onLostPointerCapture={()=>{stroke.current=null;}}/><div className="scratch-patch-footer"><span>{done?'SETTLED':inspected?patch.sentiment==='positive'?'POSITIVE · OPTIONAL':'NEGATIVE · STOP OR ACCEPT':'UNASSESSED'}</span><small>{done?'100':pct}%</small></div><p className="scratch-peek">{done?`${operationEffectCopy(patch)} · settled by ${s.ops.claimedBy[cell]}`:inspected?`${operationEffectCopy(patch)}. Continue to settle, or leave it covered.`:'Scratch 12% to assess. Inspection applies nothing.'}</p><button className="scratch-access" disabled={done} onClick={()=>send(!inspected?{type:'ops-inspect',card:s.ops.id,cell}:{type:'ops-claim',card:s.ops.id,cell})}>{done?'Settled':inspected?`Settle ${patch.label}`:'Inspect patch without settling'}</button></div>;
+ }
+-export function OperationsToy({s,send}:Props){const p=pressure(s),cooldown=Math.max(0,P.functions.operations.manual_seconds*10-(s.tick-s.lastManual.operations)),used=s.ops.quarter===s.quarter?s.ops.used:0,supply=operationsTicketSupply(s.ranks.operations.scale),price=operationsTicketPrice(s.ranks.operations.scale),patches=operationsTicketPatchCount(s.ranks.operations.scale),activeIncidents=s.incidents.filter(i=>i.active),manual=s.operationsReturns.manual,automated=s.operationsReturns.automated,canBuy=used<supply&&s.cash>=price&&cooldown<=0&&s.deployed.operations<=s.tick;return <div className="operations-toy"><div className="scratch-ticket"><header><div><span>OPERATIONS / PAID RISK TICKET</span><h2>Inspect the risk.<br/><em>Choose what lands.</em></h2></div><b>NO. {String(s.ops.id).padStart(4,'0')}<small>{used} / {supply} USED THIS QUARTER<br/>{activeIncidents.length} LIVE INCIDENTS</small></b></header><p className="scratch-instructions">The ticket is charged once and every patch is sampled once. Scratch 12% to inspect without consequence. Finish a positive patch, or abandon the ticket and lose its price. Operations automation finishes every remaining patch, including negatives.</p>{s.ops.active?<><div className="scratch-patches">{s.ops.patches.map(patch=><ScratchPatch key={`${s.ops.id}:${patch.id}`} s={s} send={send} cell={patch.id}/>)}</div><footer><span>{s.ops.claimed.length} / {s.ops.patches.length} SETTLED · TICKET RETURN <b>{s.ops.net>=0?'+':'−'}{money(Math.abs(s.ops.net))}</b></span><button onClick={()=>send({type:'ops-discard',card:s.ops.id})}>Abandon ticket · lose {money(s.ops.price)} ↗</button></footer></>:<div className="scratch-deal"><span className="scratch-seal">OPS<br/><small>PAID / RANDOM</small></span><p>{patches} locked outcomes. Rank-zero tickets are still random. Luck {s.risky.operations?s.ranks.operations.luck:0} changes the named distribution, never an issued ticket.</p><button className="f-primary" disabled={!canBuy} onClick={()=>send({type:'ops-deal'})}>{s.deployed.operations>s.tick?'Installing Operations…':used>=supply?'Quarterly ticket book exhausted':s.cash<price?`Need ${money(price)} cash`:cooldown>0?`Next ticket in ${time(cooldown)}`:`Buy ticket · ${money(price)}`}</button></div>}<div className="ops-return-strip"><span>MANUAL SELECTION <b>{manual.net>=0?'+':'−'}{money(Math.abs(manual.net))}</b><small>patch value after {money(manual.prices)} prices</small></span><span>AUTOMATED WHOLE TICKET <b>{automated.net>=0?'+':'−'}{money(Math.abs(automated.net))}</b><small>after prices + {money(automated.upkeep)} allocated upkeep</small></span></div><div className="scratch-terms">Load {p.load.toFixed(1)} / capacity {p.capacity.toFixed(1)} · strain {s.strain.toFixed(2)} · worst rot {(p.rot*100).toFixed(1)}% · incident burn {money(activeIncidents.reduce((n,i)=>n+i.monthlyCostCents,0))}/mo. Craft deepens positive operational repairs. Scale raises finite ticket stock, patch count, capacity and upkeep. Automated upkeep allocation is {money(operationsAutomationUpkeepPerTicket(s.ranks.operations.automate))} per completed ticket at the current rank. Negative cash settlement follows the isolated O02 policy: unaffordable mandatory settlement fails; zero cash alone does not.</div></div></div>;}
++export function OperationsToy({s,send}:Props){const p=pressure(s),cooldown=Math.max(0,P.functions.operations.manual_seconds*10-(s.tick-s.lastManual.operations)),used=s.ops.quarter===s.quarter?s.ops.used:0,supply=operationsTicketSupply(s.ranks.operations.scale),price=operationsTicketPrice(s.ranks.operations.scale),patches=operationsTicketPatchCount(s.ranks.operations.scale),activeIncidents=s.incidents.filter(i=>i.active),manual=s.operationsReturns.manual,automated=s.operationsReturns.automated,canBuy=used<supply&&s.cash>=price&&cooldown<=0&&s.deployed.operations<=s.tick;return <div className="operations-toy"><div className="scratch-ticket"><header><div><span>OPERATIONS / PAID RISK TICKET</span><h2>Inspect the risk.<br/><em>Choose what lands.</em></h2></div><b>NO. {String(s.ops.id).padStart(4,'0')}<small>{used} / {supply} USED THIS QUARTER<br/>{activeIncidents.length} LIVE INCIDENTS</small></b></header><p className="scratch-instructions">The ticket is charged once and every patch is sampled once. Scratch 12% to inspect without consequence. Finish a positive patch, or abandon the ticket and lose its price. Operations automation finishes every remaining patch, including negatives.</p>{s.ops.active?<><div className="scratch-patches">{s.ops.patches.map(patch=><ScratchPatch key={`${s.ops.id}:${patch.id}`} s={s} send={send} cell={patch.id}/>)}</div><footer><span>{s.ops.claimed.length} / {s.ops.patches.length} SETTLED · TICKET RETURN <b>{s.ops.net>=0?'+':'−'}{money(Math.abs(s.ops.net))}</b></span><button onClick={()=>send({type:'ops-discard',card:s.ops.id})}>Abandon ticket · lose {money(s.ops.price)} ↗</button></footer></>:<div className="scratch-deal"><span className="scratch-seal">OPS<br/><small>PAID / RANDOM</small></span><p>{patches} locked outcomes. Rank-zero tickets are still random. Luck {s.risky.operations?s.ranks.operations.luck:0} changes the named distribution, never an issued ticket.</p><button className="f-primary" disabled={!canBuy} onClick={()=>send({type:'ops-deal'})}>{s.deployed.operations>s.tick?'Installing Operations…':used>=supply?'Quarterly ticket book exhausted':s.cash<price?`Need ${money(price)} cash`:cooldown>0?`Next ticket in ${time(cooldown)}`:`Buy ticket · ${money(price)}`}</button></div>}<div className="ops-return-strip"><span>MANUAL SELECTION <b>{manual.net>=0?'+':'−'}{money(Math.abs(manual.net))}</b><small>patch value after {money(manual.prices)} prices</small></span><span>AUTOMATED WHOLE TICKET <b>{automated.net>=0?'+':'−'}{money(Math.abs(automated.net))}</b><small>after prices + {money(automated.upkeep)} allocated upkeep</small></span></div><div className="scratch-terms">Load {p.load.toFixed(1)} / capacity {p.capacity.toFixed(1)} · strain {s.strain.toFixed(2)} · worst rot {(p.rot*100).toFixed(1)}% · incident burn {money(activeIncidents.reduce((n,i)=>n+i.monthlyCostCents,0))}/mo. Craft deepens positive operational repairs. Scale raises finite ticket stock, patch count, capacity and upkeep. Automated upkeep allocation is {money(operationsUpkeep(s))} per completed ticket at the current rank and compute discount. Negative cash settlement: unaffordable mandatory settlement fails; zero cash alone does not.</div></div></div>;}
+ 
+ export function PricingToy({s,send}:Props){const track=useRef<HTMLDivElement>(null);const [plan,setPlan]=useState<'fair'|'premium'>('fair');const [helper,setHelper]=useState(true);const trial=s.trials[0],cursor=priceCursor(s);if(!trial)return <Empty title="The demo comes before the invoice." text="Ship a working recipe in Product. Then bring your best offer and your least apologetic face." to={s.leads.length?'product':'demand'} send={send}/>;const target=priceTarget(s,trial),perfect=cursor>=target.start&&cursor<=target.end,quote=pricingQuote(s,plan,false,cursor),luck=s.ranks.monetisation.luck;return <div className="pricing-toy"><div className="f-job-label"><span>LIVE OFFER / {trial.id}</span><b>{SEGMENTS[trial.segment]}</b><small>{time(trial.expires-s.tick)} left</small></div>{helper&&<aside className="pricing-helper" role="status"><b>FIRST CLOSE</b><span>Land in the highlighted range. A valid rank-zero close signs this visible contract. Cash follows the invoice.</span><button onClick={()=>setHelper(false)} aria-label="Dismiss pricing helper">Got it</button></aside>}<div className="f-price-display"><span>NAME YOUR MONTHLY PRICE</span><strong>{money(quote.price)}<small>/mo</small></strong><p>{Math.round(trial.fit*100)}% fit · {trial.count} prospects · valid close: +{money(quote.baseArr)} ARR · cash now {money(0)}</p></div><div className="f-price-plans">{(['fair','premium'] as const).map(p=><button key={p} aria-pressed={p===plan} onClick={()=>setPlan(p)}><b>{p==='fair'?'Fair contract':'Premium contract'}</b><small>Visible base contract</small></button>)}</div><div className={`golf-meter ${perfect?'in-zone':''}`}><div className="meter-score"><span>THE CLOSE</span><b>{perfect?'VALID CLOSE':'WAIT FOR IT'}</b></div><div ref={track} className="golf-track" role="meter" aria-label={`Moving offer marker. Land inside the customer window from ${Math.round(target.start*100)} to ${Math.round(target.end*100)} percent.`} aria-valuenow={Math.round(cursor*100)} aria-valuemin={0} aria-valuemax={100}><div className="golf-power" style={{width:`${cursor*100}%`}}/><div className="golf-target" style={{left:`${target.start*100}%`,width:`${target.width*100}%`}}><span>VALID RANGE</span></div><i className="golf-needle" style={{left:`${cursor*100}%`}}/>{Array.from({length:21},(_,i)=><span className="golf-tick" key={i} style={{left:`${i*5}%`}}/>)}</div><div className="golf-range"><span>UNDERSELLING</span><span>OVERCOOKED</span></div></div><button className="f-price-lock" onClick={()=>{const bar=track.current?.getBoundingClientRect(),needle=track.current?.querySelector('.golf-needle')?.getBoundingClientRect();const timing=bar&&needle?Math.max(0,Math.min(1,(needle.left+needle.width/2-bar.left-1)/(bar.width-2))):cursor;send({type:'price',job:trial.id,plan,timing:Math.round(timing*1000)/1000});}} onKeyDown={e=>{if(e.key===' '||e.key==='Enter'){e.preventDefault();e.currentTarget.click();}}}><span>ONE TAP. MAKE IT COUNT.</span><b>LOCK PRICE</b><small>SPACE / TAP TO CLOSE</small></button>{luck>0&&<p className="pricing-luck-cue">LUCK {luck} ARMED · the signed contract can resolve at −15%, base, or +15%. The result will name the swing.</p>}<p className="f-caption">The visible range decides a rank-zero close. Contracts create ARR now; service accrues, bills, then collects cash later.</p></div>;}
+-export function QuarterDraft({s,send,defer=false}:Props&{defer?:boolean}){const report=s.reports.find(r=>!r.chosen);const [hidden,setHidden]=useState(0);const quarter=report?.quarter??0;const [visible,setVisible]=useState(quarter);useEffect(()=>{let live=true;if(!defer)void Promise.resolve().then(()=>{if(live)setVisible(quarter);});return()=>{live=false;};},[defer,quarter]);if(!report||visible!==quarter)return null;return <section className={`quarter-reveal ${hidden===report.quarter?'collapsed':''}`} aria-label={`Quarter ${report.quarter} reward draft`}><header><div><span>QUARTER {String(report.quarter).padStart(2,'0')} SETTLED</span><h2>{hidden===report.quarter?'Your next change is waiting.':'The numbers are final. Choose one change.'}</h2></div><button onClick={()=>setHidden(hidden===report.quarter?0:report.quarter)}>{hidden===report.quarter?'Open report ↗':'Review later'}</button></header>{hidden!==report.quarter&&<><p>{money(report.closing-report.opening)} ARR · {money(report.cash-report.openingCash)} cash. {money(report.score.eligibleArr)} eligible ARR × {report.score.multiple.toFixed(2)} × {report.score.stability.toFixed(2)} = {money(report.score.valuation)} valuation.</p><p>Receipts, bills and failures settled before this draft. Time stays frozen until you choose or skip, then explicitly Continue.</p><div>{report.choices.map(id=>{const u=draftOption(s,id,report.quarter);if(!u)return null;return <button key={id} disabled={!u.available} onClick={()=>send({type:'draft',quarter:report.quarter,id})}><span>Q{report.quarter} / {u.kind.toUpperCase()}</span><h3>{u.name}</h3><p>{u.text}</p><b>{u.available?'TAKE THIS CHANGE ↗':'ALREADY IN BUILD'}</b></button>;})}</div><button className="quarter-pass" onClick={()=>send({type:'draft-skip',quarter:report.quarter})}>Skip this change</button></>}</section>;}
++export function QuarterDraft({s,send,defer=false}:Props&{defer?:boolean}){const report=s.reports.find(r=>r.quarter===s.pendingDraftQuarter&&!r.chosen);const [hidden,setHidden]=useState(0);const quarter=report?.quarter??0;const [visible,setVisible]=useState(quarter);useEffect(()=>{let live=true;if(!defer)void Promise.resolve().then(()=>{if(live)setVisible(quarter);});return()=>{live=false;};},[defer,quarter]);if(!report||visible!==quarter)return null;return <section className={`quarter-reveal ${hidden===report.quarter?'collapsed':''}`} aria-label={`Quarter ${report.quarter} reward draft`}><header><div><span>QUARTER {String(report.quarter).padStart(2,'0')} SETTLED</span><h2>{hidden===report.quarter?'Your next change is waiting.':'What changes next?'}</h2></div><button onClick={()=>setHidden(hidden===report.quarter?0:report.quarter)}>{hidden===report.quarter?'Open report ↗':'Review later'}</button></header>{hidden!==report.quarter&&<><p>{money(report.closing-report.opening)} ARR · {money(report.cash-report.openingCash)} cash. {money(report.score.eligibleArr)} eligible ARR × {report.score.multiple.toFixed(2)} × {report.score.stability.toFixed(2)} = {money(report.score.valuation)} valuation.</p><p>Pick one for your build. Time waits until Continue.</p>{report.choices.length===0&&<p>Your available reward pool is exhausted. Keep this build and continue.</p>}<div>{report.choices.map(id=>{const u=draftOption(s,id,report.quarter);if(!u)return null;return <button key={id} className={`quarter-reward family-${u.family}`} disabled={!u.available} onClick={()=>send({type:'draft',quarter:report.quarter,id})}><span>{BUILD_FAMILIES[u.family]} / {u.kind.toUpperCase()}</span><h3>{u.name}</h3><p>{u.text}</p><small>{u.downside}</small><em>{u.duration==='run'?'REST OF THIS RUN':u.duration==='month'?'ONE CHARGE · ONE ACTIVE MONTH':'ONE CHARGE · USE WHEN NEEDED'}</em><b>{u.available?'TAKE THIS CHANGE ↗':u.reason}</b></button>;})}</div><button className="quarter-pass" onClick={()=>send({type:'draft-skip',quarter:report.quarter})}>Skip this change</button></>}</section>;}
+--- a/src/components/founder/founder.css
++++ b/src/components/founder/founder.css
+@@ -35,3 +35,9 @@
+ .f-finance-metrics .f-metric>strong,.f-finance .f-obligations b,.f-finance .f-cash-bridge b,.f-finance .f-ledger b,.f-awareness .f-obligation strong{overflow-wrap:anywhere;white-space:normal;font-variant-numeric:tabular-nums}
+ .f-finance .f-capital-confirm button,.f-finance .f-obligations button{min-height:44px}
+ @media(max-width:650px){.f-finance .f-obligations>div,.f-finance .f-ledger>div{display:flex;flex-direction:column;align-items:flex-start;gap:5px}.f-finance .f-finance-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.f-finance .f-cash-bridge{flex-wrap:wrap}.f-finance .f-capital-confirm{padding:16px}.f-finance .f-capital-confirm button{max-width:100%;white-space:normal}.f-awareness .f-alert small{line-height:1.5}}
++
++/* S12: compact build inventory stays in the peripheral HUD on every viewport. */
++.f-build-context{min-width:0}.f-build-context>small{display:block;line-height:1.6;margin-top:10px;color:var(--f-muted)}
++.f-relic,.f-consumables{border-top:1px solid var(--f-line);padding:7px 0}.f-relic summary,.f-consumables summary{cursor:pointer;min-height:44px;align-content:center;font-size:12px;line-height:1.4;overflow-wrap:anywhere}.f-relic summary small{display:block;color:var(--f-accent);font-size:9px}.f-relic p,.f-consumable p{font-size:11px;line-height:1.6;margin:8px 0}.f-relic>small{font-size:10px;color:var(--f-muted);line-height:1.5}
++.f-consumable{padding:12px 0;border-bottom:1px solid var(--f-line)}.f-consumable>b{font-size:12px}.f-consumable select,.f-consumable button{width:100%;min-width:0;min-height:44px;margin-top:8px;white-space:normal;overflow-wrap:anywhere}.f-consumable select{background:var(--f-panel);color:var(--f-text);border:1px solid var(--f-line);font-size:12px;padding:8px}.f-active-consumable{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px;padding:10px 0;border-top:1px solid var(--f-line)}.f-active-consumable b{font-variant-numeric:tabular-nums;color:var(--f-accent)}.f-active-consumable small{flex-basis:100%;font-size:10px}
++@media(max-width:700px){.f-garage-scene .f-build-context{width:100%;grid-column:1/-1}.f-consumable select{font-size:16px}.f-relic summary,.f-consumables summary{min-height:48px}}
+--- a/src/components/founder/toys.css
++++ b/src/components/founder/toys.css
+@@ -33,3 +33,5 @@
+ 
+ /* S07: exposed customer problems are physical targets, never value containers. */
+ .retention-problem-toy{max-width:760px;margin:auto}.retention-header{display:flex;justify-content:space-between;gap:18px;padding:20px 21px 17px;background:linear-gradient(135deg,#222b42,#161d2d);border:1px solid #7289ca55;border-radius:14px 14px 4px 4px;color:#edf0ff}.retention-header>div>span,.retention-header dt{font:8px monospace;letter-spacing:.12em;color:#aebcf4}.retention-header h2{font-size:31px;line-height:.95;letter-spacing:-.055em;margin:12px 0 0}.retention-header h2 em{font-style:normal;font-weight:400}.retention-header dl{display:flex;gap:15px;margin:2px 0 0;text-align:right}.retention-header dd{font:18px monospace;margin:7px 0 0;white-space:nowrap}.retention-instructions{font-size:11px;line-height:1.55;margin:0;padding:15px 18px;color:var(--f-muted);border-inline:1px solid var(--f-line)}.retention-problem-field{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:13px;background:linear-gradient(145deg,#263142,#171f2b);border:1px solid #7289ca55;border-radius:0 0 14px 14px}.retention-problem{position:relative;min-height:235px;overflow:hidden;isolation:isolate;display:grid;grid-template-columns:1fr auto;grid-template-rows:auto 1fr auto auto;padding:15px!important;text-align:left!important;background:radial-gradient(circle at 75% 30%,#7893d422,transparent 36%),#202a3a!important;color:#edf0ff;border:1px solid #7789bd66!important;border-radius:11px;touch-action:manipulation;transition:transform .1s,background .15s,box-shadow .15s}.retention-problem:hover,.retention-problem:focus-visible{border-color:#b5c3ff!important;background:#29374b!important}.retention-problem.urgent{border-color:#e79a7d!important;background:radial-gradient(circle at 75% 30%,#df785a33,transparent 40%),#35252b!important;animation:retention-pulse 1s ease-in-out infinite}.problem-countdown{font:15px monospace;color:#cbd6ff}.urgent .problem-countdown{color:#ffd0bd}.problem-countdown small{display:block;font-size:7px;letter-spacing:.11em;margin-top:3px}.problem-splat{position:relative;width:49px;height:49px;border-radius:52% 48% 45% 55%;background:#6f8cff;transform:rotate(14deg);box-shadow:0 5px 13px #0006;display:grid;place-items:center}.severity-3 .problem-splat{background:#e07b63}.problem-splat:before,.problem-splat:after,.problem-splat i{content:'';position:absolute;width:11px;height:11px;border-radius:50%;background:inherit}.problem-splat:before{left:-5px;top:6px}.problem-splat:after{right:-7px;bottom:7px}.problem-splat i:nth-child(1){left:3px;bottom:-6px}.problem-splat i:nth-child(2){right:4px;top:-5px}.problem-splat i:nth-child(3){left:-9px;bottom:18px;width:7px;height:7px}.problem-splat b{font:30px/1 monospace;color:#172035;transform:rotate(-14deg)}.problem-copy{grid-column:1/-1;align-self:center;max-width:260px}.problem-copy small,.problem-exposure small,.problem-progress span,.retention-problem footer{font:7px monospace;letter-spacing:.08em;color:#aeb8cf}.problem-copy strong{display:block;font-size:19px;letter-spacing:-.03em;margin:8px 0 5px}.problem-copy>span{display:block;font-size:10px;line-height:1.45;color:#c6ccdb}.problem-exposure{grid-column:1/-1;margin-top:9px}.problem-exposure b{font:22px monospace;letter-spacing:-.05em;display:block;color:#f0e9d4}.problem-exposure small{display:block;margin-top:2px}.problem-progress{grid-column:1/-1;position:relative;height:19px;margin-top:11px;background:#0d1420;border:1px solid #8d9dcc44;overflow:hidden}.problem-progress i{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,#6f8cff,#afc4ff);transition:width .15s}.problem-progress span{position:relative;display:block;text-align:center;line-height:18px;color:#eef1ff;text-shadow:0 1px 2px #000}.retention-problem footer{grid-column:1/-1;display:flex;justify-content:space-between;gap:8px;margin-top:9px}.retention-problem footer>b{color:#adc0ff}.severity-3 footer>b{color:#ffb29b}.retention-problem.squashed{animation:problem-squash .28s cubic-bezier(.2,.9,.3,1.4)}@keyframes problem-squash{0%{transform:scale(1)}45%{transform:scale(1.04,.83)}100%{transform:scale(1)}}@keyframes retention-pulse{50%{box-shadow:0 0 0 3px #e37c5b22}}@media(max-width:650px){.retention-header{padding:17px 15px;gap:10px}.retention-header h2{font-size:26px}.retention-header dl{gap:9px}.retention-header dd{font-size:14px}.retention-header dt{font-size:6px}.retention-instructions{padding:12px 14px;font-size:10px}.retention-problem-field{grid-template-columns:1fr;padding:9px;gap:8px}.retention-problem{min-height:205px;padding:13px!important}.problem-copy strong{font-size:18px}.problem-exposure b{font-size:20px}.retention-problem footer{font-size:6px}}@media(prefers-reduced-motion:reduce){.retention-problem.urgent,.retention-problem.squashed{animation:none}.retention-problem,.problem-progress i{transition:none}}
++
++.quarter-reward{display:flex!important;flex-direction:column;gap:8px;text-align:left;min-width:0}.quarter-reward>small{font-size:11px;line-height:1.5;color:#c8c6b5}.quarter-reward>em{font:9px var(--font-geist-mono),monospace;letter-spacing:.06em;font-style:normal;color:#bdd7a7}.quarter-reward>b{margin-top:auto;padding-top:10px}.quarter-reward:focus-visible{outline:2px solid #dfe8c8;outline-offset:3px}.quarter-reward.family-growth{border-top-color:#9bc9d4}.quarter-reward.family-durable{border-top-color:#c8b9db}.quarter-reward.family-automation{border-top-color:#d2bba0}
+--- a/package.json
++++ b/package.json
+@@ -23,7 +23,7 @@
+     "test:integration": "vitest run tests/integration",
+     "validate:content": "vitest run tests/unit/content-validation.test.ts",
+     "test": "vitest run",
+-    "test:founder": "vitest run tests/integration/founder-finance.test.ts tests/integration/founder-automation.test.ts tests/integration/founder-state-save.test.ts tests/integration/founder-company.test.ts tests/integration/founder-policy.test.ts tests/integration/founder-toys.test.ts",
++    "test:founder": "vitest run tests/integration/founder-content.test.ts tests/integration/founder-finance.test.ts tests/integration/founder-automation.test.ts tests/integration/founder-state-save.test.ts tests/integration/founder-company.test.ts tests/integration/founder-policy.test.ts tests/integration/founder-toys.test.ts",
+     "postbuild": "node scripts/prepare-founder-offline.mjs"
+   },
+   "dependencies": {
+--- a/tests/integration/founder-company.test.ts
++++ b/tests/integration/founder-company.test.ts
+@@ -58,11 +58,11 @@
+     const failed=advance(s,1);expect(metrics(failed).valuation).toBeGreaterThanOrEqual(P.win_valuation_cents);expect(failed.phase).toBe('failure');expect(failed.reports).toHaveLength(0);expect(failed.pendingDraftQuarter).toBeNull();
+   });
+   it('persists draft offers and a consumable selection once across reloads without advancing time',()=>{
+-    let s=advance(start(79),1800);const offers=[...s.reports[0].choices],tick=s.tick;const restored=decodeSave(encodeSave(s));expect(restored.reports[0].choices).toEqual(offers);expect(advance(restored,999)).toBe(restored);
++    let s=advance(start(79),1800);s.reports[0].choices=['consumable:customer-firebreak'];s=rebaseCompany(s);const offers=[...s.reports[0].choices],tick=s.tick;const restored=decodeSave(encodeSave(s));expect(restored.reports[0].choices).toEqual(offers);expect(advance(restored,999)).toBe(restored);
+     const id='consumable:customer-firebreak';s=command(restored,{type:'draft',quarter:1,id});expect(s.inventory.consumables[id]).toBe(1);const saved=decodeSave(encodeSave(s));const duplicate=command(saved,{type:'draft',quarter:1,id});expect(duplicate.inventory.consumables[id]).toBe(1);expect(duplicate.tick).toBe(tick);expect(command(saved,{type:'continue'}).phase).toBe('active');
+   });
+   it('uses a drafted firebreak once to protect a live threat without creating money or ARR',()=>{
+-    let s=advance(start(80),1800);s=command(s,{type:'draft',quarter:1,id:'consumable:customer-firebreak'});s=command(s,{type:'continue'});s.accounts=[{id:12,origin:12,segment:0,count:1,price:4000,basePrice:4000,fit:.9,health:90,defects:0,born:0,caredUntil:0,addons:0,threat:s.tick+20,earned:0,remainder:0,active:true}];const cash=s.cash,before=arr(s);
++    let s=advance(start(80),1800);s.reports[0].choices=['consumable:customer-firebreak'];s=rebaseCompany(s);s=command(s,{type:'draft',quarter:1,id:'consumable:customer-firebreak'});s=command(s,{type:'continue'});s.accounts=[{id:12,origin:12,segment:0,count:1,price:4000,basePrice:4000,fit:.9,health:90,defects:0,born:0,caredUntil:0,addons:0,threat:s.tick+20,earned:0,remainder:0,active:true}];const cash=s.cash,before=arr(s);
+     s=command(s,{type:'consume',id:'consumable:customer-firebreak',account:12});expect(s.inventory.consumables['consumable:customer-firebreak']).toBe(0);expect(s.accounts[0].threat).toBe(0);expect(s.cash).toBe(cash);expect(arr(s)).toBe(before);const again=command(s,{type:'consume',id:'consumable:customer-firebreak',account:12});expect(again.cash).toBe(cash);expect(again.actionResults.at(-1)?.reason).toBe('stale-job');
+   });
+   it('fails on unpaid bills, and an accepted VC miss is terminal without creating ARR',()=>{
+--- a/docs/exec-plans/active/2026-09-16-founder-revamp/CHECKPOINT.md
++++ b/docs/exec-plans/active/2026-09-16-founder-revamp/CHECKPOINT.md
+@@ -1,6 +1,6 @@
+ # Revamp checkpoint
+ 
+-Updated: 2026-09-19. S11 is implemented and headless-validated; visual acceptance remains pending. S00-S10 preserved. Browser/computer-use remains disabled. S12 has not started.
++Updated: 2026-09-19. S12 is implemented and headless-validated. Visual acceptance remains pending. S00-S11 preserved; browser/computer-use remains disabled. S13 has not started.
+ 
+ ## Repository identity
+ 
+@@ -13,17 +13,19 @@
+ 
+ ## Next task
+ 
+-**S12 — Build runs with relics, consumables and contextual content**, Terra / medium. Stop here until S12 is explicitly authorized. Read tasks/S12.md, DECISIONS.md and queue.json; preserve the authoritative finance schedules and accepted legacy terms. No push or deployment.
++**S13 — Earn the environment and spectator payoff**, Terra / medium. Stop here until explicitly authorized. Read tasks/S13.md, DECISIONS.md and queue.json. Preserve S12 finite rewards, inventory, paused timers and the single recorded win per company. No push or deployment.
+ 
+-Completed S11: mandatory-payment-only cash failure; exact-cent shared loan math; monthly interest-only payments with principal due at maturity and optional prorated early payoff; VC first-full-quarter eligible-ARR growth mandate; explicit reviewed terms, stale-offer checks and right-HUD obligations; save migration preserving old agreements. New funding creates cash, never ARR. Version is founder-candidate.11; contract/content/save versions unchanged.
++Completed S12: four candidate build families with eight relics and four consumables; registered effects applied to real acquisition, shipment fit, invoices, overhead, care, addon service, compute and rot. Seeded contextual draft offers exclude owned/full/irrelevant rewards and duplicate effects; exhausted pools support skip. Consumables have explicit targets or one-month timers, exact charge depletion and non-stacking rules. Forecasts respect expiry, and Operations allocation/preview respects compute discounts.
+ 
+-Evidence: artifacts/qa/founder-revamp/S11/validation.json, SCENARIOS.md and loan-schedule.json. All **89/89 Founder tests** passed, along with contract, balance-schema, smoke and determinism checks. The aggregate validate command then caught a possibly undefined draft lookup in the test harness. After its guard-only fix and two test-local prefer-const fixes, final typecheck and lint passed separately. The unchanged long simulation was not repeated solely for those static fixes. Production build passed: 24 immutable offline files, build 69e7bdc154ed. git diff --check passed.
++Founder history is a pure, tested helper with legacy-format decoding, deduplication and storage retry. A winning run receives one timestamp and one starting-cash advantage; later continuation quarters cannot mint another. Quarter-boundary unicorn wins retain their draft for Continue. Failed runs mint no new permanent power. New companies reset run rewards while preserving earned history.
+ 
+-The six-run policy sweep records four failures and two survivors at the unchanged 45-minute horizon, with no wins. This establishes accounting/progress boundaries, not viable build balance, desired human pacing or enjoyment. The sweep took about 245 seconds; preserve the per-seed timings for S14 performance work. S15 must measure and tune successful-run pacing. Legacy balance remains runtimeReady=false with 41 required unresolved entries.
++Evidence: artifacts/qa/founder-revamp/S12/validation.json, catalogue.json, SCENARIOS.md and policy-summary.json; content contract: docs/content/FOUNDER_REWARDS.md. Final root validation passed **107/107 Founder tests** plus contract, balance-schema, smoke, determinism, typecheck and lint. Production build passed: 24 immutable offline files, build b1727e9b490b. git diff --check passed. Versions: founder-state.1 / founder-candidate.12 / founder-content.candidate.12 / save envelope 2. Candidate.11/content.5 migration preserves old choices, charges and financing, and establishes a new replay baseline.
+ 
+-Browser/computer-use stays disabled. S11 rendered terms, review/repayment controls, warnings, desktop/mobile layout and reduced-motion acceptance remain pending. No separate Sol review or model switch was performed in this inherited primary task.
++Policy sweep: six seeded bootstrap/debt runs, unchanged 27,000-tick / 45-active-minute horizon; 4 failures, 2 horizon-censored survivors, 0 wins. Draft pool/choices changed, so this is not a controlled balance comparison with S11. Numeric effect budgets are candidate, not locked. The legacy registry still has 41 required unresolved entries and runtimeReady=false. S15 owns full-run viability, successful pacing, degenerate builds and human comprehension.
+ 
+-Recovery: baseline.json records the pre-S11 mixed checkout; S11.patch isolates this slice against those snapshots. The policy-test baseline was captured before its first S11 edit. Do not reset the worktree or erase supplied folders, partial jobs, paid tickets or last-known-good saves. Preparation evidence is historical and superseded by validation.json. No partial implementation remains.
++Browser/computer-use remains disabled. S12 rendered draft/inventory/target controls, desktop/mobile/compact layout, gestures and reduced-motion acceptance are pending. S13 owns further visual payoff; S14 retains the late-run performance follow-up from S11. No independent review or model switch was performed in this inherited primary task.
++
++Recovery: S12 baseline.json records the pre-slice mixed checkout; S12.patch isolates this slice, with source hashes in validation.json. The state-save/toys test snapshots were captured before their first S12 edits. Preserve all earlier slices, supplied folders, paid tickets, partial jobs and saves. No partial code remains. Failed/interrupted diagnostic logs are retained separately and superseded by final validation.
+ 
+ ## Completed decisions
+ 
+@@ -173,3 +175,13 @@
+ - Harness repair: select available rewards from authoritative inventory, remove obsolete out-of-phase drafts, guard simulation progress, report horizon censoring, and yield only wall-clock execution for Vitest heartbeats. No skipped simulation time and no balance constants changed to force passing outcomes.
+ - Remaining: browser/device/human acceptance; independent review; S14 late-run update performance; S15 quantitative/human balance and pacing. Candidate APR/tenure and other numeric values are not locked. No deployment or publication.
+ - Next action: on explicit authorization, implement S12 only. Restore no old amortisation or +50% mandate for new financing; preserve those terms only for accepted migrated legacy agreements.
++
++## S12 handoff history
++
++- Task: implemented_unverified; all headless gates pass, visual/device acceptance owner-disabled. Stop before S13.
++- Execution: inherited GPT-6-based primary task. Terra/medium remains the packet assignment, not a claimed in-place model switch. No delegation, push or deployment.
++- Files: founder rewards/history modules; engine/model/profile/contracts/save/toys; FounderGame/ToyRooms and their CSS; content/company/state-save/toys tests; package test list; content documentation, queue/checkpoint and QA artifacts. All prior mixed edits preserved.
++- Content: 12 original items, ten registered effects, four build hypotheses. Per-item triggers, targets, magnitudes/units, charges, duration, cost, conflict/stacking, downside, cue and localization context are exported in catalogue.json.
++- Safeguards: one quarter choice, exact-use charges, no silent target substitution in commands, non-stacking equivalent effects, active-time expiry, consistent bill forecast, safe legacy migration and replay. Win marker stays fixed through continuation; the winning quarter draft remains claimable once.
++- Diagnostic fixes: updated obsolete inventory and always-firebreak assertions; corrected an old cost-variable reference during forecast refactor; synchronized discounted Operations upkeep/preview; corrected its optional measurement argument and isolated memoization in a scalar-argument hook. Final checks passed without suppressing lint, shortening the policy horizon or tuning the economy to force outcomes.
++- Remaining: inherited visual/device review, S13 authored visual/spectator payoff, S14 late-run performance and S15 balance/playtesting. Candidate numbers are not locked. No new discovery or broad source-pack reread is needed on resumption.
+--- a/docs/exec-plans/active/2026-09-16-founder-revamp/queue.json
++++ b/docs/exec-plans/active/2026-09-16-founder-revamp/queue.json
+@@ -222,10 +222,17 @@
+       "depends_on": [
+         "S11"
+       ],
+-      "status": "pending",
++      "status": "implemented_unverified",
+       "packet": "tasks/S12.md",
+-      "evidence": [],
+-      "code_ready_dependency_exceptions": []
++      "evidence": [
++        "artifacts/qa/founder-revamp/S12/validation.json",
++        "artifacts/qa/founder-revamp/S12/catalogue.json",
++        "artifacts/qa/founder-revamp/S12/policy-summary.json"
++      ],
++      "code_ready_dependency_exceptions": [
++        "Owner explicitly authorized S12 after S11 headless gates; inherited browser/device acceptance and independent review remain pending.",
++        "S12 catalogue, effect, persistence, history and build gates pass; owner-disabled browser/device verification leaves rendered reward choice, target controls, responsive hierarchy and reduced-motion acceptance pending."
++      ]
+     },
+     {
+       "id": "S13",
+--- a/tests/integration/founder-state-save.test.ts
++++ b/tests/integration/founder-state-save.test.ts
+@@ -39,7 +39,7 @@
+   it('persists partial ownership, versions, inventory, pending draft and exact replay identity',()=>{
+     let s=start(74);s.leads.push({id:600,segment:1,count:1,expires:500,fit:.7});s=command(s,{type:'focus',work:'product'});s=command(s,{type:'part',job:600,slot:0,part:2});s=command(s,{type:'focus',work:'demand'});
+     const restored=decodeSave(encodeSave(s));expect(restored).toEqual(s);expect(restored.jobs.reservations[0].jobId).toBe(leadJobId(600));expect(restored.recipe.slots[0]).toBe(2);
+-    expect(restored.contractVersion).toBe(FOUNDER_CONTRACT_VERSION);expect(restored.contentVersion).toBe(FOUNDER_CONTENT_VERSION);expect(restored.inventory).toEqual({relics:[],consumables:{}});validateCompany(restored);
++    expect(restored.contractVersion).toBe(FOUNDER_CONTRACT_VERSION);expect(restored.contentVersion).toBe(FOUNDER_CONTENT_VERSION);expect(restored.inventory).toEqual({relics:[],consumables:{},active:[]});validateCompany(restored);
+     const replayable=command(command(createCompany(740),{type:'start'}),{type:'focus',work:'skills'});expect(replayCompany(replayable)).toEqual(replayable);
+   });
+ 
+--- a/tests/integration/founder-toys.test.ts
++++ b/tests/integration/founder-toys.test.ts
+@@ -99,7 +99,7 @@
+  it('keeps manual room actions responsive while preserving semantic queue guards',()=>{let s=start();s.focus='demand';for(let i=0;i<3;i++)s=command(s,{type:'demand',pursue:true,signal:s.signal});expect(s.attempts.demand).toBe(3);expect(s.tick).toBe(0);const leads=s.leads.length;s=command(s,{type:'price',job:999,plan:'fair',timing:.5});expect(s.leads.length).toBe(leads);});
+  it('gives different cohorts stable seeded Monetisation windows',()=>{const s=start(91);s.trials=[{id:10,segment:0,count:1,fit:.8,expires:1000}];const first=priceTarget(s);expect(priceTarget(s)).toEqual(first);s.trials[0]={...s.trials[0],id:11};expect(priceTarget(s).center).not.toBe(first.center);});
+  it('keeps the pricing meter bounded and bouncing with no end-to-start jump',()=>{const s=start();let last=priceCursor(s);for(let t=1;t<=96;t++){s.tick=t;const next=priceCursor(s);expect(next).toBeGreaterThanOrEqual(0);expect(next).toBeLessThanOrEqual(1);expect(Math.abs(next-last)).toBeLessThan(.09);last=next;}});
+- it('offers the small typed relic and consumable draft without charging a second upgrade economy',()=>{let s=start();s.quarter=7;s.tick=12599;s.cash=1000000;s=advance(s,1);const r=s.reports.at(-1)!;expect(r.choices).toHaveLength(3);expect(r.choices.some(id=>id.startsWith('relic:'))).toBe(true);expect(r.choices).toContain('consumable:customer-firebreak');const id=r.choices[0],before=s.cash;s=command(s,{type:'draft',quarter:7,id});expect(s.reports.at(-1)?.chosen).toBe(id);expect(s.cash).toBe(before);expect(s.inventory.relics.includes(id)||s.inventory.consumables[id]===1).toBe(true);const installed=s.inventory;s=command(s,{type:'draft',quarter:7,id});expect(s.inventory).toEqual(installed);validateCompany(s);});
++ it('offers relevant typed rewards without charging a second upgrade economy',()=>{let s=start();s.quarter=7;s.tick=12599;s.cash=1000000;s=advance(s,1);const r=s.reports.at(-1)!;expect(r.choices.length).toBeGreaterThan(0);expect(r.choices.length).toBeLessThanOrEqual(P.rewardDraftSize);expect(r.choices.some(id=>id.startsWith('relic:'))).toBe(true);expect(r.choices).not.toContain('consumable:customer-firebreak');const id=r.choices[0],before=s.cash;s=command(s,{type:'draft',quarter:7,id});expect(s.reports.at(-1)?.chosen).toBe(id);expect(s.cash).toBe(before);expect(s.inventory.relics.includes(id)||s.inventory.consumables[id]===1).toBe(true);const installed=s.inventory;s=command(s,{type:'draft',quarter:7,id});expect(s.inventory).toEqual(installed);validateCompany(s);});
+  it('allows passing a quarter without cash cost, and rejects subsequently selecting it',()=>{let s=advance(start(),1800);const cash=s.cash;s=command(s,{type:'draft-skip',quarter:1});s=command(s,{type:'draft',quarter:1,id:s.reports[0].choices[0]});expect(s.cash).toBe(cash);expect(s.reports[0].chosen).toBe('passed');expect(s.upgrades).toHaveLength(0);expect(replayCompany(s)).toEqual(s);});
+  it('migrates previous saves without resetting company finances and replays from the migration checkpoint',()=>{const old=advance(start(),50);const migrated=decodeSave(legacySave(old,'founder-candidate.2'));expect(migrated.cash).toBe(old.cash);expect(migrated.tick).toBe(old.tick);expect(migrated.migratedActions).toEqual(old.actions.map(({tick,command})=>({tick,command})));const next=advance(command(migrated,{type:'focus',work:'operations'}),20);expect(replayCompany(next)).toEqual(next);});
+ });
+--- /dev/null
++++ b/src/game/founder/rewards.ts
+@@ -0,0 +1,74 @@
++import type { Company, Command } from './model';
++import { FUNCTIONS, P, type Work } from './profile';
++
++export const BUILD_FAMILIES={bootstrap:'Default alive',growth:'Ship and sell',durable:'Customers stay',automation:'Small team of agents'} as const;
++export type BuildFamily=keyof typeof BUILD_FAMILIES;
++// Candidate magnitudes are owned by P. Content identifies an engine effect, never computes ARR.
++export const REWARD_EFFECTS={
++ 'overhead-reduction':{target:'base overhead and unit upkeep',unit:'cost factor',value:P.rewardOverheadFactor,trigger:'operating accrual',legacy:'lean',summary:`Base overhead and unit upkeep cost ${Math.round((1-P.rewardOverheadFactor)*100)}% less. Compute and service bills stay full price.`},
++ 'faster-collections':{target:'new invoices',unit:'delay factor',value:P.rewardCollectionFactor,trigger:'invoice creation',legacy:'terms',summary:`New invoices wait ${Math.round((1-P.rewardCollectionFactor)*100)}% less before collection. Existing invoices keep their dates.`},
++ 'demand-stake-reduction':{target:'Demand acquisition stakes',unit:'cost factor',value:P.rewardDemandFactor,trigger:'paid Demand attempt',legacy:'community',summary:`Demand stakes cost ${Math.round((1-P.rewardDemandFactor)*100)}% less. Poor-fit profiles still waste the stake.`},
++ 'product-fit':{target:'new Product shipments',unit:'fit points',value:P.rewardProductFit,trigger:'Product shipment',legacy:'quality',summary:`New shipments gain ${Math.round(P.rewardProductFit*100)} fit points, capped at 100. The recipe still needs your work.`},
++ 'care-window':{target:'resolved customer problems',unit:'months',value:P.rewardCareMonths,trigger:'Retention resolution',legacy:'care',summary:`Resolved problems get ${P.rewardCareMonths} months of care. Unanswered problems still churn.`},
++ 'addon-service':{target:'addon service overhead',unit:'cost factor',value:P.rewardAddonServiceFactor,trigger:'service accrual',legacy:'',summary:`Addon service overhead costs ${Math.round((1-P.rewardAddonServiceFactor)*100)}% less. Base service costs stay unchanged.`},
++ 'context-decay':{target:'agent routine context rot',unit:'gain factor',value:P.rewardRotFactor,trigger:'completed agent effort',legacy:'',summary:`Routine agent work adds ${Math.round((1-P.rewardRotFactor)*100)}% less context rot. Existing rot remains.`},
++ 'compute-reduction':{target:'enabled agents',unit:'cost factor',value:P.rewardComputeFactor,trigger:'compute accrual',legacy:'',summary:`Agent compute costs ${Math.round((1-P.rewardComputeFactor)*100)}% less. Coordination load still grows.`},
++ 'protect-threat':{target:'one live customer problem',unit:'months of care',value:1,trigger:'manual use',legacy:'',summary:'Resolve one live customer problem and protect it for one month. No new ARR.'},
++ 'reset-context':{target:'one function',unit:'context rot',value:0,trigger:'manual use',legacy:'',summary:'Clear one function’s context rot. Strain and recurring compute bills remain.'},
++} as const;
++export type RewardEffect=keyof typeof REWARD_EFFECTS;
++export type Reward={id:string;kind:'relic'|'consumable';family:BuildFamily;name:string;effect:RewardEffect;downside:string;cue:string;duration:'run'|'month'|'instant';context:string;cost:'One quarter choice';stacking:'unique effect'|'up to three charges';locale:'en';contentVersion:'founder-rewards.12'};
++const item=(id:string,family:BuildFamily,name:string,effect:RewardEffect,downside:string,cue:string,duration:Reward['duration']='run'):Reward=>({id,kind:duration==='run'?'relic':'consumable',family,name,effect,downside,cue,duration,context:'Quarter reward; original founder fiction. Name is flavor, effect text is mechanical.',cost:'One quarter choice',stacking:duration==='run'?'unique effect':'up to three charges',locale:'en',contentVersion:'founder-rewards.12'});
++export const REWARDS:readonly Reward[]=[
++ item('relic:ramen-budget','bootstrap','Ramen budget','overhead-reduction','No discount on customer service or compute.','Monthly bill falls.'),
++ item('relic:clean-terms','bootstrap','Clean terms','faster-collections','Shorter terms do not guarantee collection.','New invoice dates move closer.'),
++ item('consumable:weekend-budget','bootstrap','Cancel the offsite','overhead-reduction','One month only; cannot stack with Ramen budget.','One-month bill discount.','month'),
++ item('relic:signal-ledger','growth','Signal ledger','demand-stake-reduction','Does not improve profile fit or increase market supply.','The acquisition stake shrinks.'),
++ item('relic:regression-suite','growth','It works on my machine','product-fit','Does not bypass recipe assembly, testing or capacity.','New trial fit rises.'),
++ item('consumable:launch-checklist','growth','Read the diff','product-fit','One month only; cannot stack with the fit relic.','One-month shipment fit boost.','month'),
++ item('relic:care-calendar','durable','Founder office hours','care-window','Care starts only after you resolve the problem.','Resolved care window lasts longer.'),
++ item('relic:shared-infrastructure','durable','One backend, many upsells','addon-service','Saves only addon service overhead, not base service costs.','Addon service bill falls.'),
++ item('consumable:customer-firebreak','durable','Customer firebreak','protect-threat','One threatened account only; cannot recover churned customers.','A live problem clears.','instant'),
++ item('relic:context-checksum','automation','Leave a paper trail','context-decay','Does not remove existing rot or strain.','Routine context rot grows more slowly.'),
++ item('relic:reserved-instances','automation','Committed compute','compute-reduction','Cheaper agents still create coordination load.','Compute bill falls.'),
++ item('consumable:context-reset','automation','Fresh context window','reset-context','One function only; agents will accumulate rot again.','Selected context rot clears.','instant'),
++];
++export const rewardById=(id:string)=>REWARDS.find(r=>r.id===id);
++export const hasRewardEffect=(s:Company,effect:RewardEffect)=>s.inventory.relics.some(id=>rewardById(id)?.effect===effect)||(s.inventory.active??[]).some(b=>b.until>s.tick&&rewardById(b.id)?.effect===effect);
++export const effectActive=(s:Company,effect:RewardEffect)=>hasRewardEffect(s,effect)||!!REWARD_EFFECTS[effect].legacy&&s.upgrades.includes(REWARD_EFFECTS[effect].legacy);
++export function rewardRelevant(s:Company,r:Reward){
++ if(r.effect==='faster-collections'||r.effect==='care-window'||r.effect==='protect-threat')return s.accounts.some(a=>a.active);
++ if(r.effect==='addon-service')return s.accounts.some(a=>a.active&&(a.addons>0||s.tick-a.born>=P.expansion_maturity_months*P.ticks_per_month));
++ if(r.effect==='product-fit')return s.leads.length>0||s.completed.product>0;
++ if(r.family==='automation')return FUNCTIONS.some(f=>s.ranks[f].automate>0);
++ return true;
++}
++export type DraftOption=Reward&{text:string;available:boolean;reason:string};
++export function draftOption(s:Company,id:string,quarter:number):DraftOption|undefined {
++ void quarter;const r=rewardById(id);if(!r)return;
++ const active=effectActive(s,r.effect),full=(s.inventory.consumables[id]??0)>=P.rewardMaxCharges;
++ const reason=r.kind==='relic'&&s.inventory.relics.includes(id)?'Already in this build':active?'Equivalent effect already active':r.kind==='consumable'&&full?'Charges full':'';
++ return {...r,text:REWARD_EFFECTS[r.effect].summary+(r.duration==='month'?' Lasts one active month.':''),available:!reason,reason};
++}
++export function rewardPool(s:Company){return REWARDS.filter(r=>rewardRelevant(s,r)&&draftOption(s,r.id,s.quarter)?.available);}
++export function buildAffinity(s:Company,family:BuildFamily){
++ const work:Work[]=family==='bootstrap'?[]:family==='growth'?['demand','product','monetisation']:family==='durable'?['retention','expansion']:['operations'];
++ return work.reduce((n,f)=>n+Object.values(s.ranks[f]).reduce((a,b)=>a+b,0),0)+(family==='automation'?FUNCTIONS.reduce((n,f)=>n+s.ranks[f].automate,0):0);
++}
++export function consumableUse(s:Company,c:Extract<Command,{type:'consume'}>):{available:boolean;reason:string}{
++ const r=rewardById(c.id);
++ if(!r||r.kind!=='consumable'||!(s.inventory.consumables[c.id]>0))return {available:false,reason:'No charge available'};
++ if(!['active','continuation'].includes(s.phase))return {available:false,reason:'Continue the company to use'};
++ if(r.duration==='month')return {available:!effectActive(s,r.effect),reason:effectActive(s,r.effect)?'Equivalent effect already active':'Use for one active month'};
++ if(r.effect==='protect-threat'){
++  const a=s.accounts.find(a=>a.id===c.account&&a.active&&a.threat>s.tick);
++  const available=!!a&&(c.problem===undefined||a.problem?.id===c.problem);return {available,reason:available?'Resolve this problem':'Choose a live customer problem'};
++ }
++ const available=!!c.work&&FUNCTIONS.includes(c.work)&&s.rot[c.work]>0;
++ return {available,reason:available?'Clear this context rot':'Choose a function with context rot'};
++}
++export function validateRewardCatalogue(){
++ if(new Set(REWARDS.map(r=>r.id)).size!==REWARDS.length)throw new Error('Duplicate reward ID');
++ for(const r of REWARDS)if(!REWARD_EFFECTS[r.effect]||!r.context||!r.downside||!r.cue||!r.locale||r.kind!==(r.duration==='run'?'relic':'consumable'))throw new Error('Invalid reward contract');
++ for(const family of Object.keys(BUILD_FAMILIES))if(REWARDS.filter(r=>r.family===family&&r.kind==='relic').length<2||!REWARDS.some(r=>r.family===family&&r.kind==='consumable'))throw new Error('Incomplete build family');
++}
+--- /dev/null
++++ b/src/game/founder/history.ts
+@@ -0,0 +1,25 @@
++import type { Company } from './model';
++import { P } from './profile';
++import { HISTORY_KEY } from './save';
++
++export type FounderHistory={version:2;wins:string[];records:{id:string;seed:number;wonAt:number;relics:string[];financing:'bootstrap'|'debt'|'vc'}[]};
++export function decodeFounderHistory(raw:string|null):FounderHistory{
++ if(!raw)return {version:2,wins:[],records:[]};
++ const input=JSON.parse(raw);
++ if(!input||!Array.isArray(input.wins)||input.wins.some((id:unknown)=>typeof id!=='string')||input.version!==undefined&&input.version!==2)throw new Error('Invalid founder history');
++ const wins=[...new Set<string>(input.wins)];
++ const records=Array.isArray(input.records)?input.records.filter((r:FounderHistory['records'][number])=>r&&wins.includes(r.id)&&Number.isSafeInteger(r.seed)&&Number.isSafeInteger(r.wonAt)&&r.wonAt>0&&Array.isArray(r.relics)&&r.relics.every(id=>typeof id==='string')&&['bootstrap','debt','vc'].includes(r.financing)):[];
++ return {version:2,wins,records:records.filter((r:FounderHistory['records'][number],i:number)=>records.findIndex((other:FounderHistory['records'][number])=>other.id===r.id)===i)};
++}
++export function recordFounderWin(history:FounderHistory,s:Company):FounderHistory{
++ if(s.wonAt===null||!Number.isSafeInteger(s.wonAt)||s.wonAt<=0||s.wonAt>s.tick||s.phase==='setup')return history;
++ const id=`${s.seed}:${s.wonAt}`;if(history.wins.includes(id))return history;
++ return {version:2,wins:[...history.wins,id],records:[...history.records,{id,seed:s.seed,wonAt:s.wonAt,relics:[...s.inventory.relics],financing:s.vc?'vc':s.debt?'debt':'bootstrap'}]};
++}
++export const inheritedStartingCash=(history:FounderHistory)=>history.wins.length*P.winCashBonus;
++// A storage adapter, independent of React or browser timing. Retry is safe after a partial save.
++export function syncFounderHistory(storage:{getItem(key:string):string|null;setItem(key:string,value:string):void},s:Company){
++ const history=decodeFounderHistory(storage.getItem(HISTORY_KEY)),next=recordFounderWin(history,s);
++ if(next!==history)storage.setItem(HISTORY_KEY,JSON.stringify(next));
++ return next;
++}
+--- /dev/null
++++ b/tests/integration/founder-content.test.ts
+@@ -0,0 +1,127 @@
++import { describe, expect, it } from 'vitest';
++import { mkdirSync, writeFileSync } from 'node:fs';
++import { advance, arr, command, computeCost, createCompany, demandStake, forecast, metrics, monthlyCost, operationsUpkeep, rebaseCompany, replayCompany, validateCompany } from '../../src/game/founder/engine';
++import { BUILD_FAMILIES, REWARDS, REWARD_EFFECTS, consumableUse, draftOption, effectActive, rewardById, rewardPool, validateRewardCatalogue } from '../../src/game/founder/rewards';
++import { productBrief, quarterChoices } from '../../src/game/founder/toys';
++import { checksum, decodeSave, encodeSave, HISTORY_KEY } from '../../src/game/founder/save';
++import { decodeFounderHistory, inheritedStartingCash, recordFounderWin, syncFounderHistory } from '../../src/game/founder/history';
++import { FUNCTIONS, P } from '../../src/game/founder/profile';
++import type { Account, Company } from '../../src/game/founder/model';
++
++function company(tick=0){const s=command(createCompany(1212),{type:'start'});s.cash=10_000_000;s.tick=tick;s.quarter=Math.floor(tick/1800)+1;s.focus='finance';return rebaseCompany(s);}
++function customer(s:Company,addons=0){const a:Account={id:100,origin:100,segment:0,count:2,price:4000,basePrice:4000,fit:.9,health:90,defects:0,born:0,caredUntil:100000,addons,threat:0,earned:0,remainder:0,active:true};s.accounts.push(a);s.serial=200;return a;}
++function relic(s:Company,id:string){const next=structuredClone(s);next.inventory.relics.push(id);return rebaseCompany(next);}
++function ship(s:Company){s=command(s,{type:'focus',work:'product'});const lead=s.leads[0];for(const [slot,part] of productBrief(s,lead).parts.entries())s=command(s,{type:'part',job:lead.id,slot,part});s=command(s,{type:'test-build',job:lead.id});return command(s,{type:'ship',job:lead.id,early:false});}
++function richContext(){const s=company(1800);customer(s,1);s.completed.product=1;for(const f of FUNCTIONS)s.ranks[f].automate=1;return rebaseCompany(s);}
++
++describe('S12 build catalogue and draft',()=>{
++ it('has four complete families and validated effect, localization and tradeoff contracts',()=>{
++  validateRewardCatalogue();expect(REWARDS).toHaveLength(12);
++  for(const family of Object.keys(BUILD_FAMILIES)){expect(REWARDS.filter(r=>r.family===family&&r.kind==='relic')).toHaveLength(2);expect(REWARDS.filter(r=>r.family===family&&r.kind==='consumable')).toHaveLength(1);}
++  expect(new Set(REWARDS.map(r=>r.effect)).size).toBe(Object.keys(REWARD_EFFECTS).length);
++  mkdirSync('artifacts/qa/founder-revamp/S12',{recursive:true});writeFileSync('artifacts/qa/founder-revamp/S12/catalogue.json',JSON.stringify({version:P.version,status:'candidate, not balanced or locked',items:REWARDS,effects:REWARD_EFFECTS},null,2)+'\n');
++ });
++ it('offers only relevant effects, never owned/full rewards or same-effect alternatives; seeds persist',()=>{
++  const fresh=company();expect(rewardPool(fresh).every(r=>r.family==='bootstrap'||r.id==='relic:signal-ledger')).toBe(true);
++  let s=richContext();s.inventory.relics=['relic:care-calendar'];s.inventory.consumables['consumable:customer-firebreak']=3;s=rebaseCompany(s);
++  for(let seed=1;seed<=120;seed++){
++   s.seed=seed;const offered=quarterChoices(s);expect(offered.length).toBeLessThanOrEqual(3);expect(offered).toEqual(quarterChoices(s));
++   expect(offered).not.toContain('relic:care-calendar');expect(offered).not.toContain('consumable:customer-firebreak');
++   expect(new Set(offered.map(id=>rewardById(id)?.effect)).size).toBe(offered.length);
++  }
++  s=advance(company(),1800);const choices=[...s.reports[0].choices];s=decodeSave(encodeSave(s));expect(s.reports[0].choices).toEqual(choices);
++  const invalid=command(s,{type:'draft',quarter:1,id:'relic:reserved-instances'});expect(invalid.phase).toBe('quarter-draft');expect(invalid.inventory.relics).toEqual([]);expect(invalid.actionResults.at(-1)?.reason).toBe('stale-job');
++  const selected=command(s,{type:'draft',quarter:1,id:choices[0]});expect(selected.phase).toBe('paused');expect(advance(selected,999)).toBe(selected);expect(replayCompany(selected)).toEqual(selected);
++ });
++ it('handles exhausted pools without fabricated rewards or a stuck quarter',()=>{
++  let s=richContext();s.inventory.relics=REWARDS.filter(r=>r.kind==='relic').map(r=>r.id);s.inventory.consumables=Object.fromEntries(REWARDS.filter(r=>r.kind==='consumable').map(r=>[r.id,3]));s.tick=3599;s=rebaseCompany(s);
++  expect(quarterChoices(s)).toEqual([]);s=advance(s);expect(s.phase).toBe('quarter-draft');expect(s.reports.at(-1)?.choices).toEqual([]);
++  s=command(s,{type:'draft-skip',quarter:s.pendingDraftQuarter!});expect(s.phase).toBe('paused');expect(command(s,{type:'continue'}).phase).toBe('active');
++ });
++ it('does not double-stack saved legacy upgrades and matching relics',()=>{
++  const s=company();s.upgrades=['lean','community','quality','terms','care'];const cost=monthlyCost(s),stake=demandStake(s);
++  for(const id of ['relic:ramen-budget','relic:signal-ledger','relic:regression-suite','relic:clean-terms','relic:care-calendar'])expect(draftOption(s,id,1)?.available).toBe(false);
++  s.inventory.relics=['relic:ramen-budget','relic:signal-ledger'];expect(monthlyCost(s)).toBe(cost);expect(demandStake(s)).toBe(stake);
++ });
++});
++
++describe('S12 every relic changes its actual function',()=>{
++ it('bootstrap reduces only overhead and changes only future invoice dates',()=>{
++  let s=company();customer(s);s.ranks.product.scale=1;s.ranks.product.automate=1;s=rebaseCompany(s);
++  const lean=relic(s,'relic:ramen-budget');expect(monthlyCost(lean)).toBeLessThan(monthlyCost(s));expect(computeCost(lean,'product')).toBe(computeCost(s,'product'));expect(arr(lean)).toBe(arr(s));
++  s.invoices=[{id:300,account:100,cents:100,due:900,attempts:0}];s.lifetimeEarned=100;s=rebaseCompany(s);
++  const terms=relic(s,'relic:clean-terms'),old=forecast(s).events.find(e=>e.label==='Expected collections'),next=forecast(terms).events.find(e=>e.label==='Expected collections');expect(next!.at).toBeLessThan(old!.at);
++  const after=advance(terms,600);expect(after.invoices.find(i=>i.id===300)?.due).toBe(900);expect(after.invoices.some(i=>i.id!==300&&i.due===630)).toBe(true);expect(after.lifetimeCollected).toBe(0);validateCompany(after);
++ });
++ it('growth lowers paid acquisition stakes and improves real shipped fit without booking ARR',()=>{
++  let s=company();expect(demandStake(relic(s,'relic:signal-ledger'))).toBe(Math.round(demandStake(s)*P.rewardDemandFactor));
++  s.leads=[{id:100,segment:0,count:1,expires:2000,fit:.8}];s.serial=100;s=rebaseCompany(s);
++  const normal=ship(s),improved=ship(relic(s,'relic:regression-suite'));expect(improved.trials[0].fit-normal.trials[0].fit).toBeCloseTo(P.rewardProductFit);expect(arr(improved)).toBe(0);expect(improved.productResolution?.trialsCreated).toBe(1);expect(replayCompany(improved)).toEqual(improved);
++ });
++ it('durable care extends only resolved protection and discounts only addon service',()=>{
++  let s=company(1300);const a=customer(s);a.threat=1400;a.caredUntil=0;a.problem={id:201,kind:'trust',label:'Missing export',detail:'An existing customer needs their data.',openedAt:1200,deadline:1400,severity:1,workRequired:1,workCompleted:0,exposedArr:a.price*a.count*12};s=rebaseCompany(s);
++  const care=relic(s,'relic:care-calendar'),resolved=command(command(care,{type:'focus',work:'retention'}),{type:'squash-problem',account:100,problem:201,expected:0});expect(resolved.accounts[0].caredUntil).toBe(1300+1200);expect(arr(resolved)).toBe(arr(s));expect(replayCompany(resolved)).toEqual(resolved);
++  expect(monthlyCost(relic(s,'relic:shared-infrastructure'))).toBe(monthlyCost(s));s.accounts[0].addons=1;
++  const service=relic(s,'relic:shared-infrastructure');expect(monthlyCost(s)-monthlyCost(service)).toBe(Math.round(2*P.monthlyService[0]*P.addon_service_cost_fraction*(1-P.rewardAddonServiceFactor)));expect(arr(service)).toBe(arr(s));
++ });
++ it('automation reduces real compute invoices and routine rot while preserving effort and pressure',()=>{
++  let s=company();s.ranks.demand.automate=1;s.credits.demand=.999;s=rebaseCompany(s);
++  const compute=relic(s,'relic:reserved-instances');expect(computeCost(compute,'demand')).toBe(Math.round(computeCost(s,'demand')*P.rewardComputeFactor));expect(metrics(compute).load).toBe(metrics(s).load);expect(monthlyCost(compute)).toBeLessThan(monthlyCost(s));
++  const base=advance(s),paper=advance(relic(s,'relic:context-checksum'));expect(base.rot.demand).toBeGreaterThan(0);expect(paper.rot.demand).toBeCloseTo(base.rot.demand*P.rewardRotFactor);expect(paper.completed.demand).toBe(base.completed.demand);expect(paper.attempts.demand).toBe(base.attempts.demand);expect(replayCompany(paper)).toEqual(paper);
++  const ops=company();ops.ranks.operations.automate=1;ops.credits.operations=.999;const discounted=relic(ops,'relic:reserved-instances'),ticket=advance(discounted),normal=advance(rebaseCompany(ops));expect(ticket.operationsReturns.automated.upkeep).toBe(operationsUpkeep(discounted));expect(ticket.operationsReturns.automated.upkeep).toBeLessThan(normal.operationsReturns.automated.upkeep);expect(ticket.operationsReturns.automated.patchValue).toBe(normal.operationsReturns.automated.patchValue);expect(replayCompany(ticket)).toEqual(ticket);
++ });
++});
++
++describe('S12 consumable lifecycle',()=>{
++ it.each(['consumable:weekend-budget','consumable:launch-checklist'])('%s expires in active time, pauses, reloads and never stacks or overspends charges',id=>{
++  let s=company(1201);s.inventory.consumables[id]=2;s=rebaseCompany(s);const before=s.cash,base=arr(s);s=command(s,{type:'consume',id});expect(s.inventory.consumables[id]).toBe(1);expect(s.inventory.active).toEqual([{id,until:1801}]);expect(s.cash).toBe(before);expect(arr(s)).toBe(base);
++  const duplicate=command(s,{type:'consume',id});expect(duplicate.inventory.consumables[id]).toBe(1);expect(duplicate.actionResults.at(-1)?.reason).toBe('stale-job');
++  s=advance(s,599);expect(s.phase).toBe('quarter-draft');expect(effectActive(s,rewardById(id)!.effect)).toBe(true);s=decodeSave(encodeSave(s));expect(advance(s,9999)).toBe(s);
++  s=command(s,{type:'draft-skip',quarter:s.pendingDraftQuarter!});expect(advance(s,9999)).toBe(s);s=advance(command(s,{type:'continue'}));expect(s.inventory.active).toEqual([]);expect(effectActive(s,rewardById(id)!.effect)).toBe(false);
++  s=command(s,{type:'consume',id});expect(s.inventory.consumables[id]).toBe(0);expect(command(s,{type:'consume',id}).inventory.consumables[id]).toBe(0);expect(replayCompany(s)).toEqual(s);
++ });
++ it('temporary discounts and shipment fit use the same economic resolvers as relics',()=>{
++  const s=company();s.inventory.consumables={'consumable:weekend-budget':1,'consumable:launch-checklist':1};s.leads=[{id:100,segment:0,count:1,expires:2000,fit:.8}];s.serial=100;const base=rebaseCompany(s);
++  expect(monthlyCost(command(base,{type:'consume',id:'consumable:weekend-budget'}))).toBe(monthlyCost(relic(base,'relic:ramen-budget')));
++  expect(ship(command(base,{type:'consume',id:'consumable:launch-checklist'})).trials[0].fit).toBe(ship(relic(base,'relic:regression-suite')).trials[0].fit);
++ });
++ it('cash forecast stops applying a temporary discount at its actual expiry',()=>{
++  const input=company(1);input.inventory.consumables['consumable:weekend-budget']=1;
++  const s=command(rebaseCompany(input),{type:'consume',id:'consumable:weekend-budget'}),bills=forecast(s).events.filter(e=>e.label==='Operating bill');
++  expect(bills[0].cents).toBe(-Math.round(P.base_company_overhead_cents_per_month*P.rewardOverheadFactor*599/600));
++  expect(bills[1].cents).toBe(-P.base_company_overhead_cents_per_month);expect(bills[2].cents).toBe(-P.base_company_overhead_cents_per_month);
++ });
++ it('firebreak targets a specific live problem and cannot spend on stale or churned accounts',()=>{
++  let s=company();const a=customer(s);a.threat=30;a.problem={id:201,kind:'trust',label:'Export blocked',detail:'Send the export.',openedAt:0,deadline:30,severity:1,workRequired:4,workCompleted:0,exposedArr:96000};s.inventory.consumables['consumable:customer-firebreak']=2;s=rebaseCompany(s);
++  const stale=command(s,{type:'consume',id:'consumable:customer-firebreak',account:100,problem:202});expect(stale.inventory.consumables['consumable:customer-firebreak']).toBe(2);
++  const used=command(s,{type:'consume',id:'consumable:customer-firebreak',account:100,problem:201});expect(used.accounts[0].problem).toBeUndefined();expect(used.accounts[0].threat).toBe(0);expect(used.inventory.consumables['consumable:customer-firebreak']).toBe(1);expect(arr(used)).toBe(arr(s));expect(used.cash).toBe(s.cash);expect(replayCompany(used)).toEqual(used);
++  const duplicate=command(used,{type:'consume',id:'consumable:customer-firebreak',account:100,problem:201});expect(duplicate.inventory.consumables['consumable:customer-firebreak']).toBe(1);
++ });
++ it('context reset clears only the selected function and a second use does not waste a charge',()=>{
++  let s=company();s.rot.product=.8;s.rot.demand=.3;s.strain=7;s.inventory.consumables['consumable:context-reset']=2;s=rebaseCompany(s);
++  const used=command(s,{type:'consume',id:'consumable:context-reset',work:'product'});expect(used.rot.product).toBe(0);expect(used.rot.demand).toBe(.3);expect(used.strain).toBe(7);expect(used.cash).toBe(s.cash);expect(used.inventory.consumables['consumable:context-reset']).toBe(1);expect(consumableUse(used,{type:'consume',id:'consumable:context-reset',work:'product'}).available).toBe(false);expect(replayCompany(used)).toEqual(used);
++ });
++ it('rejects malformed inventory and preserves old offers, charges and financing during migration',()=>{
++  const s=company(),data=JSON.parse(JSON.stringify(s));data.version='founder-candidate.11';data.contentVersion='founder-content.candidate.5';delete data.inventory.active;data.inventory.relics=['relic:signal-ledger'];data.inventory.consumables={'consumable:customer-firebreak':5};
++  data.debt={id:300,principal:101,months:6,due:600,remainder:0,mode:'interest-only',aprBps:1800,acceptedAt:0,lastPaymentAt:0,maturity:3600};
++  const raw=JSON.stringify(data),loaded=decodeSave(JSON.stringify({version:2,contractVersion:s.contractVersion,contentVersion:data.contentVersion,balanceVersion:data.version,data:raw,checksum:checksum(raw)}));expect(loaded.debt).toEqual(data.debt);expect(loaded.inventory).toEqual({...data.inventory,active:[]});expect(replayCompany(loaded)).toEqual(loaded);
++  loaded.inventory.consumables['consumable:customer-firebreak']=-1;expect(()=>validateCompany(loaded)).toThrow('inventory');
++ });
++});
++
++describe('S12 earned founder history',()=>{
++ function winner(tick=0){const s=company(tick);s.cash=1_000_000_000_000;const a=customer(s);a.count=10_000_000;return advance(rebaseCompany(s),tick===1799?1:10);}
++ it('records an engine-earned win once across reload, continue, later quarters and storage retries',()=>{
++  let s=winner();expect(s.phase).toBe('unicorn');const wonAt=s.wonAt;let history=recordFounderWin(decodeFounderHistory(null),s);expect(history.wins).toHaveLength(1);
++  expect(recordFounderWin(history,decodeSave(encodeSave(s)))).toBe(history);s=command(s,{type:'continue'});s=advance(s,1800-s.tick);expect(s.phase).toBe('quarter-draft');expect(s.wonAt).toBe(wonAt);history=recordFounderWin(history,s);expect(history.wins).toHaveLength(1);expect(inheritedStartingCash(history)).toBe(P.winCashBonus);
++  let failWrite=true;const map=new Map<string,string>(),storage={getItem:(key:string)=>map.get(key)??null,setItem:(key:string,value:string)=>{if(failWrite){failWrite=false;throw new Error('storage full');}map.set(key,value);}};expect(()=>syncFounderHistory(storage,s)).toThrow('storage full');syncFounderHistory(storage,s);syncFounderHistory(storage,s);expect(decodeFounderHistory(map.get(HISTORY_KEY)!).wins).toHaveLength(1);
++  const next=createCompany(900,history.wins.length);expect(next.cash).toBe(P.starting_cash_cents+P.winCashBonus);expect(next.inventory.relics).toEqual([]);expect(next.inventory.active).toEqual([]);expect(replayCompany(s)).toEqual(s);
++ });
++ it('keeps the winning quarter draft available on Continue and never overwrites the first win',()=>{
++  let s=winner(1799);expect(s.wonAt).toBe(1800);expect(s.pendingDraftQuarter).toBe(1);s=command(s,{type:'continue'});expect(s.phase).toBe('quarter-draft');s=command(s,{type:'draft-skip',quarter:1});s=command(s,{type:'continue'});expect(s.phase).toBe('continuation');s=advance(s,1800);expect(s.wonAt).toBe(1800);expect(s.phase).toBe('quarter-draft');expect(replayCompany(s)).toEqual(s);
++ });
++ it('failed runs mint nothing; legacy wins deduplicate without capping earned advantage',()=>{
++  let s=company();s.cash=0;s=rebaseCompany(s);s=advance(s,600);expect(s.phase).toBe('failure');const history=decodeFounderHistory(JSON.stringify({wins:['old:10','old:10',...Array.from({length:100},(_,i)=>`${i}:20`)]}));expect(history.wins).toHaveLength(101);expect(recordFounderWin(history,s)).toBe(history);expect(inheritedStartingCash(history)).toBe(101*P.winCashBonus);
++  expect(()=>decodeFounderHistory('{broken')).toThrow();expect(()=>decodeFounderHistory('{"wins":5}')).toThrow();
++ });
++});
+--- /dev/null
++++ b/docs/content/FOUNDER_REWARDS.md
+@@ -0,0 +1,41 @@
++# Founder reward catalogue, candidate 12
++
++S12 implementation supplement to the [owner decisions](../exec-plans/active/2026-09-16-founder-revamp/DECISIONS.md). The root founder runtime is authoritative. Older V2 catalogue breadth and starter executable instructions do not override this bounded slice.
++
++## Four build hypotheses
++
++| Family | Run relics | Consumable | Actual consequence |
++|---|---|---|---|
++| Default alive | Ramen budget; Clean terms | Cancel the offsite | Lower base/unit overhead; earlier new invoice dates; one active month of overhead savings |
++| Ship and sell | Signal ledger; It works on my machine | Read the diff | Lower acquisition stakes; improved shipped product fit; one active month of that fit benefit |
++| Customers stay | Founder office hours; One backend, many upsells | Customer firebreak | Longer resolved-problem care; lower addon service overhead; resolve one selected live problem |
++| Small team of agents | Leave a paper trail; Committed compute | Fresh context window | Slower routine context rot; lower compute cost; clear one selected function's rot |
++
++These are playable packages, not demonstrated winning strategies. Every family has two relics and one consumable. Funding still creates no ARR; Product still creates trials; Retention only protects existing customers. No reward directly multiplies valuation or introduces rank-zero action randomness.
++
++## Source and effect contracts
++
++- `src/game/founder/rewards.ts`: stable item/effect IDs, family, target, trigger, units, plain effect sentence, duration, charge/stacking rule, downside, visible cue, locale and localization context. Original durable founder wording, no live generation or external content API.
++- `src/game/founder/profile.ts`: all candidate magnitudes and caps. Reuses the legacy 35% acquisition saving, 50% shorter new collection delay, 25% base/unit overhead saving, 12 fit points and two-month care. New addon service, compute and routine rot reductions are **candidate 25%** reductions with narrowly specified targets. No production balance is locked.
++- `src/game/founder/engine.ts`: settlement, actual expenses/output/rot, shared compute and Operations ticket upkeep, finite jobs and phase checks. UI consumes these selectors and dispatches semantic commands.
++- The legacy registry's `relics.effectBudgets`, `relics.eligibilityGraph` and `strategies.effectModel` remain unresolved. S12 neither claims to finish that historical catalogue nor promotes its registry values. Separate timed Strategies are outside this packet.
++
++## Selection and use
++
++A quarter offers at most three seeded, relevant choices. Installed ranks bias family order; distinct families are preferred. The offer never contains two items with the same effect. Owned relics, active equivalent effects, full-charge items and irrelevant function rewards are excluded. The exact choices are persisted, including older saved offers. At most one choice applies, at no extra cash price; that choice consumes the quarter opportunity.
++
++Relics are unique and last this run. Each consumable draft grants one charge, with a candidate cap of three held charges per item for new acquisition. Old saves with more charges retain them. Timed consumables last 600 active ticks, cannot refresh or stack an already active equivalent effect, and pause during draft/pause. Their effects end at `until`, including forecasted bill accrual. A relic and its matching legacy upgrade or temporary effect never multiply together. Permanent-equivalent effects prevent redundant consumable use.
++
++Firebreak explicitly targets a live account/problem; stale problems and already churned customers cannot consume a charge. Context reset explicitly targets a function with rot; it neither removes strain nor cancels compute bills. Failed/paused/out-of-phase or empty uses are rejected without consuming anything. Charges, timers and relic ownership survive save/reload and replay. At an exhausted pool, skip remains available and leads to the normal paused Continue state.
++
++## History and endings
++
++A first valid unicorn sets its win timestamp once. Later continuation quarters cannot award another win. A quarter-boundary victory retains its reward draft for Continue. Failed runs before unicorn award no new permanent advantage; failure after a previous unicorn does not erase its earned success.
++
++History is local and separate from run inventory and skill purchases. Pure helpers deduplicate the existing seed/win-timestamp identity, accept the old wins-array format and retry safely after storage failure. Each recorded win retains the existing candidate $150 starting-cash advantage, with no hidden cap or difficulty normalization. Starting a new company saves history first and replaces both local run slots, including the setup state; no user identity/background is inferred. Legacy duplicate entries are deduplicated, not counted as extra wins.
++
++## Evidence and pending gates
++
++`artifacts/qa/founder-revamp/S12/catalogue.json` exports all contracts. `founder-content.test.ts` covers every effect, all four families, fees, stacking, targeting, depletion, timer expiry, forecast expiry, migration, replay, depleted draft pools, continuation and one-time history. It includes synthetic seed 1212 paired states, 120 draft seeds and diagnostic funded unicorn states. They are not earned human runs. The root policy sweep separately exercises bootstrap/debt seeds 19, 77 and 84022; VC survives its S11 boundary suite.
++
++Content QA checks clear effect sentences, sourced candidate numbers, explicit limitations, original naming and stable localization context. Browser/device/gesture/visual acceptance is deliberately pending. S13 owns further authored visual payoff; S15 must measure build viability, degenerate strategies, successful pacing and comprehension. Root build and headless results are recorded in the S12 validation artifact; no deployment is implied.

@@ -1,0 +1,11 @@
+
+ RUN  v3.2.4 /Users/deepsheth/Documents/GitHub/solounicorn
+
+ ✓ tests/integration/founder-finance.test.ts (16 tests) 816ms
+   ✓ S11 approved survival and financing > captures VC baseline after the partial quarter and freezes all schedules during the draft  363ms
+
+ Test Files  1 passed (1)
+      Tests  16 passed (16)
+   Start at  20:24:25
+   Duration  2.65s (transform 459ms, setup 0ms, collect 479ms, tests 816ms, environment 0ms, prepare 478ms)
+

@@ -1,0 +1,30 @@
+{
+  "browserUsed": false,
+  "server": "npm run start -- --port 3214",
+  "checks": [
+    {
+      "path": "/",
+      "status": 200,
+      "contentType": "text/html; charset=utf-8",
+      "bytes": 10202
+    },
+    {
+      "path": "/manifest.webmanifest",
+      "status": 200,
+      "contentType": "application/manifest+json",
+      "bytes": 463
+    },
+    {
+      "path": "/sw.js",
+      "status": 200,
+      "contentType": "application/javascript; charset=UTF-8",
+      "bytes": 2743
+    },
+    {
+      "path": "/founder-assets/environments.png",
+      "status": 200,
+      "contentType": "image/png",
+      "bytes": 2811902
+    }
+  ]
+}

@@ -1,0 +1,86 @@
+{
+  "date": "2026-09-20",
+  "status": "implemented_unverified",
+  "head": "70d8b0e550126849a524573098d051f288fcc706",
+  "branch": "main",
+  "actualExecution": "Inherited GPT-6-based primary; no model switch or subagents",
+  "versions": {
+    "contract": "founder-state.1",
+    "balance": "founder-candidate.15",
+    "content": "founder-content.candidate.12",
+    "save": 2,
+    "art": "founder-art.13"
+  },
+  "rootValidation": {
+    "command": "npm run validate",
+    "exitCode": 0,
+    "tests": 117,
+    "log": "artifacts/qa/founder-revamp/S15/validate.log"
+  },
+  "finalBuild": {
+    "command": "npm run build",
+    "exitCode": 0,
+    "build": "df3e6ca0c9a8",
+    "immutableFiles": 24,
+    "publicAssets": 9,
+    "log": "artifacts/qa/founder-revamp/S15/build-final.log"
+  },
+  "finalStaticChecks": {
+    "typecheck": 0,
+    "lint": 0,
+    "contract": 0,
+    "diffCheck": 0
+  },
+  "report": "docs/exec-plans/active/2026-09-16-founder-revamp/S15-ACCEPTANCE.md",
+  "browserUsed": false,
+  "published": false,
+  "combinedPatch": "artifacts/qa/founder-revamp/S15/S13-S15.patch",
+  "patchSha256": "d162b4fac48560c6a09b441287909518dc3da12ed7375e78afc01ee5db498738",
+  "implementationSha256": {
+    "src/game/founder/engine.ts": "7dcf944fe0b551be68ec73ff4bd1377c702b784b57b26b3dc780ab4b78322b4a",
+    "src/game/founder/model.ts": "c009d2a67945bcd83481d6355ea7d3d792d108ef64ca01dc5aed0aaf70c6d0f7",
+    "src/game/founder/profile.ts": "f90e72f3c7ad14c65f9397a8fa6b8693eaea1ecf4f30911946608111ac7bc337",
+    "src/game/founder/save.ts": "bb47a9d6975c56e2d2c1537c41c97e979a81fd052795ba34f2df79d35eb350eb",
+    "src/components/founder/founder.css": "2629e29c96b1d7095d4b9a11ff02087271d1c6c385d928906875ad6678c27a36",
+    "src/components/founder/FounderGame.tsx": "4a005df7799e2ff31cdc8ffbf66f94f8f753454fffda2a35df65c798dd8afba4",
+    "app/pwa-registration.tsx": "e9dd8621ac6b653f5fe2058d244318bdc2053fd2538801ace661f493e59ed4fe",
+    "scripts/prepare-founder-offline.mjs": "f202dbdd83dedb481160d1789b5e5a5c105392586cba0195837a89801eaff6da",
+    "public/sw.js": "9ad4faf6a1dec1c3cc60e000e9a3f5b9cf2ed7e0bff230e92957fb749948e492",
+    "docs/exec-plans/active/2026-09-16-founder-revamp/CHECKPOINT.md": "956e341959e040288d09f459470bd21ccc6bc25c522d8e8cdd6f19fe78628976",
+    "docs/exec-plans/active/2026-09-16-founder-revamp/README.md": "fe6689f31ab44262e8588f758f859ab3dd7600afc3ec29c50587619d5db30d11",
+    "docs/exec-plans/active/2026-09-16-founder-revamp/queue.json": "6b5bb5a6d7797b6bf741860d718a3785a91795e234ac0b4c5ac3987577804080",
+    "package.json": "df1393879cf124c6e282cfe909217d8556acd32b8c09c1e4ae162a4fda903561",
+    "src/game/founder/presentation.ts": "f430e3f5fc1ca05fe03b9838bb699fdd2c7eaa2524900bb46118b4f7d424166d",
+    "src/game/founder/storage.ts": "0441377229f3b06f9cdddc8d0e700047e876e7cceb98b77e3d400462bbd2b0b1",
+    "src/game/founder/checkpoint-db.ts": "c381c66cc00548d097140bfadedb860baaf1f17222dca9160af82ed2b282317b",
+    "src/components/founder/RunPresentation.tsx": "7692dffeb4f83809824b9ab7f44e4f9691a45f1b4e70fe424390308ee37dc1ae",
+    "scripts/founder-sw.template.txt": "6b64ecc59b99a45f7e1e8ffe7acbd0ce0dec0cc0352d23c3738a8cf15c45aef9",
+    "scripts/check-founder-offline.mjs": "63c23bed379eb1bff29c6d4af2ab3d910f4e17d1d16b4def12f574f45fab0e02",
+    "scripts/summarize-founder-matrix.mjs": "3ea872b0274692fb3bf7cda8a69ad11742788ec60008c035fddeeb113446c780",
+    "tests/integration/founder-presentation.test.ts": "905b50d1988eade3a6a41dd131a1c0a1a675a7a384213d5c73fa8893260104cc",
+    "tests/integration/founder-resilience.test.ts": "9d14a1c2a746ca7aa0d006a6ea352bacacde5c24fa5a3b4c39acb78ca81607dc",
+    "tests/integration/founder-checkpoint-db.test.ts": "7711e7c24207ec3692cbe3007e8860457e1a3f7ad5bc73911ef0d63c9734933b",
+    "tests/simulation/founder-matrix.test.ts": "b332787cb429b5d74c834c2104aba15068481d5d23b57de6d2a95e21d234646f",
+    "tests/simulation/founder-policy-matrix.ts": "30a62a782c824eb30f9fafbeea4a655ea56418ebe639fba616756b3c9cdeb6f5",
+    "tests/simulation/founder-earned-run.test.ts": "8c5f8cc7ea6801dbcbe9d7ecb423ebcc612386f1265c0ca413e12139aef669a7",
+    "tests/simulation/founder-ticket-tails.test.ts": "ea8cc417616aa17852e675e91fb5d1b17d7a0cd2cf22db365d8b809814e06218",
+    "public/founder-assets/manifest.json": "abe48b25bbbfb0a359fd4e57c3bbdf13c8a5831553a168497bedc00f73348040",
+    "docs/exec-plans/active/2026-09-16-founder-revamp/S15-ACCEPTANCE.md": "6b169353c07442e9261a446fbfc2a2890d6d370dedf6bd40fab507f3cda4c2b6",
+    "asset_requests/pending/founder-function-icons.md": "1a7f6e82cef413bc95457090a09a7eb4c57bcd734062203e3fbd0a481f1c66b5",
+    "public/founder-assets/environments.png": "2ca0b59854e1e8551113a875a1a9b4dc40bbafeb6df6f33cfb1ace0384e95058",
+    "docs/BUILD.md": "f59856a0812bfe4689fc1e1243afbda22c050332c3546c0c212609de45c6e3a0",
+    "asset_requests/pending/founder-garage-laptop-shell.md": "cf2f9bf4e31a6074626c19fb44f37b9cd4d7cb7daef07de2ca5956077aef7ab9"
+  },
+  "patchLimit": "Text changes from pre-S13 snapshot. Atlas is a separate unchanged generated binary. BUILD.md and old garage asset request have isolated documentation edits listed in hashes, outside captured snapshot.",
+  "task": "S13",
+  "evidence": [
+    "public/founder-assets/manifest.json",
+    "artifacts/qa/founder-revamp/S13/ASSET-PROVENANCE.md",
+    "artifacts/qa/founder-revamp/S13/focused.log"
+  ],
+  "pending": [
+    "Final function icon alpha rejected; asset request open",
+    "Rendered visual/gesture/motion acceptance",
+    "Later stages reuse sky art"
+  ]
+}

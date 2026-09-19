@@ -1,0 +1,101 @@
+{
+  "profile": "founder-candidate.15",
+  "seed": 1010,
+  "scenario": "Diagnostic matched starting ledgers, 600 ticks; not an earned run or balance certification",
+  "controlled": {
+    "tick": 600,
+    "compute": 18000,
+    "cost": 54000,
+    "cash": 99964827,
+    "expenses": 36273,
+    "strain": 0,
+    "rot": {
+      "demand": 0.011999999999999999,
+      "product": 0.003360000000000001,
+      "monetisation": 0.0044,
+      "retention": 0.006200000000000001,
+      "expansion": 0.0024000000000000002,
+      "operations": 0.0024000000000000002
+    },
+    "pressure": {
+      "load": 6.67,
+      "capacity": 20,
+      "overload": 0,
+      "speed": 1,
+      "rot": 0.011999999999999999
+    },
+    "firstAccountActive": true,
+    "completed": {
+      "demand": 192,
+      "product": 64,
+      "monetisation": 64,
+      "retention": 1,
+      "expansion": 0,
+      "operations": 8
+    }
+  },
+  "overextended": {
+    "tick": 600,
+    "compute": 198000,
+    "cost": 280800,
+    "cash": 99727187,
+    "expenses": 274146,
+    "strain": 100.97000000000077,
+    "rot": {
+      "demand": 0.043707666000000055,
+      "product": 0.01274305820000002,
+      "monetisation": 0.006036463000000012,
+      "retention": 0,
+      "expansion": 0,
+      "operations": 0
+    },
+    "pressure": {
+      "load": 120.96999999999998,
+      "capacity": 20,
+      "overload": 10.097000000000037,
+      "speed": 0.027261109219939617,
+      "rot": 0.043707666000000055
+    },
+    "firstAccountActive": false,
+    "completed": {
+      "demand": 128,
+      "product": 64,
+      "monetisation": 32,
+      "retention": 0,
+      "expansion": 0,
+      "operations": 0
+    }
+  },
+  "disabled": {
+    "tick": 1200,
+    "compute": 0,
+    "cost": 97800,
+    "cash": 91900688,
+    "expenses": 371946,
+    "strain": 89.77000000000413,
+    "rot": {
+      "demand": 0.043707666000000055,
+      "product": 0.01274305820000002,
+      "monetisation": 0.006036463000000012,
+      "retention": 0,
+      "expansion": 0,
+      "operations": 0
+    },
+    "pressure": {
+      "load": 128.79999999999998,
+      "capacity": 140,
+      "overload": 0.6412142857143153,
+      "speed": 0.8741988391079537,
+      "rot": 0.043707666000000055
+    },
+    "firstAccountActive": false,
+    "completed": {
+      "demand": 128,
+      "product": 64,
+      "monetisation": 32,
+      "retention": 0,
+      "expansion": 0,
+      "operations": 0
+    }
+  }
+}

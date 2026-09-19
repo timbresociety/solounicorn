@@ -1,6 +1,6 @@
 # Context v4 full product and repository rebuild
 
-Status: PROPOSED — planning only; no production code or existing canon has been removed.
+Status: SUPERSEDED — historical planning only. Current work follows the [2026-09-16 founder revamp](2026-09-16-founder-revamp/README.md). The original proposal below is preserved as evidence and is not a parallel execution route.
 
 ## Goal
 

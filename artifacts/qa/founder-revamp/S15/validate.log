@@ -1,0 +1,127 @@
+
+> sites-project@0.1.0 validate
+> npm run contract:check && npm run balance:validate && npm run sim:smoke && npm run sim:determinism && npm run test:founder && npm run typecheck && npm run lint
+
+
+> sites-project@0.1.0 contract:check
+> node scripts/check-repo-contract.mjs
+
+repository contract passed
+
+> sites-project@0.1.0 balance:validate
+> node scripts/validate-balance.mjs
+
+balance v2-alpha.0: missing=32 calibration=1 provisional=8 candidate=0 locked=5; required unresolved=41; runtimeReady=false
+
+> sites-project@0.1.0 sim:smoke
+> node scripts/simulation-smoke.mjs
+
+simulation smoke passed
+
+> sites-project@0.1.0 sim:determinism
+> node scripts/check-determinism.mjs
+
+simulation determinism passed
+
+> sites-project@0.1.0 test:founder
+> vitest run tests/integration/founder-content.test.ts tests/integration/founder-finance.test.ts tests/integration/founder-automation.test.ts tests/integration/founder-state-save.test.ts tests/integration/founder-company.test.ts tests/integration/founder-policy.test.ts tests/integration/founder-toys.test.ts tests/integration/founder-presentation.test.ts tests/integration/founder-resilience.test.ts tests/integration/founder-checkpoint-db.test.ts
+
+
+ RUN  v3.2.4 /Users/deepsheth/Documents/GitHub/solounicorn
+
+ ✓ tests/integration/founder-content.test.ts (18 tests) 1003ms
+   ✓ S12 build catalogue and draft > offers only relevant effects, never owned/full rewards or same-effect alternatives; seeds persist  381ms
+ ✓ tests/integration/founder-company.test.ts (19 tests) 1120ms
+ ✓ tests/integration/founder-finance.test.ts (17 tests) 1138ms
+   ✓ S11 approved survival and financing > funds only once, creates no ARR, charges interest monthly and principal only at maturity  389ms
+   ✓ S11 approved survival and financing > does not kill a run for an unaffordable optional payoff and keeps exact carry across save/reload  414ms
+ ✓ tests/integration/founder-checkpoint-db.test.ts (4 tests) 35ms
+ ✓ tests/integration/founder-presentation.test.ts (2 tests) 74ms
+ ✓ tests/integration/founder-state-save.test.ts (9 tests) 298ms
+ ✓ tests/integration/founder-toys.test.ts (29 tests) 2057ms
+   ✓ tactile founder state and accounting > measures random rank-zero and wider Luck tickets after price and automation upkeep, with all sixteen ranks defined  1695ms
+ ✓ tests/integration/founder-automation.test.ts (14 tests) 2069ms
+   ✓ S10 integrated company automation > keeps the in-progress merge board until it is served, then fills the second slot  656ms
+   ✓ S10 integrated company automation > runs all six real workflows and freezes them across quarter drafts and reloads  893ms
+ ✓ tests/integration/founder-resilience.test.ts (4 tests) 2286ms
+   ✓ preserves replay, prior state and duplicate rejection with a long immutable event log  2237ms
+stdout | tests/integration/founder-policy.test.ts > validates bootstrap and debt accounting through failures and horizon-censored survivors
+[
+  {
+    seed: 19,
+    capital: 'bootstrap',
+    status: 'failure',
+    outcome: 'failure',
+    tick: 600,
+    valuation: 119496980,
+    failure: 'Monthly operating bill required $664.00; only $465.75 was liquid. Keep a reserve or raise capital before the due date.',
+    elapsedMs: 197
+  },
+  {
+    seed: 77,
+    capital: 'bootstrap',
+    status: 'failure',
+    outcome: 'failure',
+    tick: 600,
+    valuation: 119496980,
+    failure: 'Monthly operating bill required $664.00; only $463.75 was liquid. Keep a reserve or raise capital before the due date.',
+    elapsedMs: 171
+  },
+  {
+    seed: 84022,
+    capital: 'bootstrap',
+    status: 'failure',
+    outcome: 'failure',
+    tick: 600,
+    valuation: 119496980,
+    failure: 'Monthly operating bill required $664.00; only $487.75 was liquid. Keep a reserve or raise capital before the due date.',
+    elapsedMs: 122
+  },
+  {
+    seed: 19,
+    capital: 'debt',
+    status: 'failure',
+    outcome: 'failure',
+    tick: 1360,
+    valuation: 696760686,
+    failure: 'Loan interest required $57.60; only $26.28 was liquid. Keep a reserve or raise capital before the due date.',
+    elapsedMs: 408
+  },
+  {
+    seed: 77,
+    capital: 'debt',
+    status: 'quarter-draft',
+    outcome: 'horizon-censored',
+    tick: 27000,
+    valuation: 5536445062,
+    failure: '',
+    elapsedMs: 42133
+  },
+  {
+    seed: 84022,
+    capital: 'debt',
+    status: 'quarter-draft',
+    outcome: 'horizon-censored',
+    tick: 27000,
+    valuation: 9062677347,
+    failure: '',
+    elapsedMs: 34782
+  }
+]
+
+ ✓ tests/integration/founder-policy.test.ts (1 test) 77833ms
+   ✓ validates bootstrap and debt accounting through failures and horizon-censored survivors  77832ms
+
+ Test Files  10 passed (10)
+      Tests  117 passed (117)
+   Start at  04:15:51
+   Duration  78.59s (transform 731ms, setup 0ms, collect 1.99s, tests 87.91s, environment 2ms, prepare 1.41s)
+
+
+> sites-project@0.1.0 typecheck
+> tsc --noEmit -p tsconfig.typecheck.json
+
+
+> sites-project@0.1.0 lint
+> eslint . --ignore-pattern dist --ignore-pattern .next
+

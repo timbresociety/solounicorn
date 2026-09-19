@@ -1,0 +1,51 @@
+
+> sites-project@0.1.0 validate
+> npm run contract:check && npm run balance:validate && npm run sim:smoke && npm run sim:determinism && npm run test:founder && npm run typecheck && npm run lint
+
+
+> sites-project@0.1.0 contract:check
+> node scripts/check-repo-contract.mjs
+
+repository contract passed
+
+> sites-project@0.1.0 balance:validate
+> node scripts/validate-balance.mjs
+
+balance v2-alpha.0: missing=32 calibration=1 provisional=8 candidate=0 locked=5; required unresolved=41; runtimeReady=false
+
+> sites-project@0.1.0 sim:smoke
+> node scripts/simulation-smoke.mjs
+
+simulation smoke passed
+
+> sites-project@0.1.0 sim:determinism
+> node scripts/check-determinism.mjs
+
+simulation determinism passed
+
+> sites-project@0.1.0 test:founder
+> vitest run tests/integration/founder-finance.test.ts tests/integration/founder-automation.test.ts tests/integration/founder-state-save.test.ts tests/integration/founder-company.test.ts tests/integration/founder-policy.test.ts tests/integration/founder-toys.test.ts
+
+
+ RUN  v3.2.4 /Users/deepsheth/Documents/GitHub/solounicorn
+
+ ✓ tests/integration/founder-state-save.test.ts (9 tests) 654ms
+ ✓ tests/integration/founder-finance.test.ts (16 tests) 3421ms
+   ✓ S11 approved survival and financing > funds only once, creates no ARR, charges interest monthly and principal only at maturity  1164ms
+   ✓ S11 approved survival and financing > does not kill a run for an unaffordable optional payoff and keeps exact carry across save/reload  1314ms
+   ✓ S11 approved survival and financing > captures VC baseline after the partial quarter and freezes all schedules during the draft  517ms
+ ✓ tests/integration/founder-company.test.ts (19 tests) 3768ms
+   ✓ founder company candidate > makes real subscriptions from semantic work, bills in arrears, reconciles collections and saves  512ms
+   ✓ founder company candidate > replays exactly and time rebatching does not reroll work  943ms
+   ✓ founder company candidate > agents consume real queues, unlock after deployment, cost cash, and accumulate rot  335ms
+   ✓ founder company candidate > fails on unpaid bills, and an accepted VC miss is terminal without creating ARR  604ms
+ ✓ tests/integration/founder-toys.test.ts (29 tests) 5731ms
+   ✓ tactile founder state and accounting > measures random rank-zero and wider Luck tickets after price and automation upkeep, with all sixteen ranks defined  4652ms
+   ✓ tactile founder state and accounting > allows passing a quarter without cash cost, and rejects subsequently selecting it  373ms
+ ✓ tests/integration/founder-automation.test.ts (14 tests) 6521ms
+   ✓ S10 integrated company automation > installs every one of the 96 named ranks once and replays the commitments  980ms
+   ✓ S10 integrated company automation > never chains new Demand, Product and Monetisation output within a tick  391ms
+   ✓ S10 integrated company automation > resumes founder work after enabling or first installing agents offscreen  416ms
+   ✓ S10 integrated company automation > keeps the in-progress merge board until it is served, then fills the second slot  2087ms
+   ✓ S10 integrated company automation > runs all six real workflows and freezes them across quarter drafts and reloads  1652ms
+   ✓ S10 integrated company automation > exposes deterministic slowdown, bill load and customer consequences with a recoverable configuration  392ms

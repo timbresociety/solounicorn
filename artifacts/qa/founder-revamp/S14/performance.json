@@ -1,0 +1,18 @@
+{
+  "environment": "v26.8.1",
+  "platform": "darwin",
+  "arch": "arm64",
+  "scenario": "2501 immutable action records, headless Node, 30 samples; no browser frame-time claim",
+  "advanceMs": {
+    "p50": 0.13720799999964584,
+    "p95": 0.43108299999994415,
+    "p99": 0.5821250000003602
+  },
+  "previousDeepCloneOnlyMs": {
+    "p50": 25.290459000000283,
+    "p95": 66.44145799999978
+  },
+  "saveBytes": 1129048,
+  "frameTime": "pending physical browser/device",
+  "economicWorkDropped": false
+}

@@ -1,0 +1,39 @@
+{
+  "task": "S07",
+  "status": "implemented_unverified",
+  "base": {
+    "branch": "main",
+    "head": "70d8b0e550126849a524573098d051f288fcc706",
+    "profile": "founder-candidate.7",
+    "contract": "founder-state.1",
+    "content": "founder-content.candidate.5",
+    "saveEnvelope": 2
+  },
+  "scope": [
+    "finite persisted customer problems with deadline, severity, exposed ARR, and work progress",
+    "manual squash and automated Retention share the same resolver",
+    "health recovery or disclosed concession only; no existing ARR is booked",
+    "candidate.6 piggy-bank progress migration to real problem work",
+    "all 16 Retention skill definitions and runtime axes"
+  ],
+  "scenarios": {
+    "manual": "seed 77: finite work, stale progress rejection, reload, replay, ARR preservation",
+    "agent": "seed 811: manual/agent resolver parity at Craft 2 and Automate 4",
+    "batch": "seed 813: two finite account problems resolve once each through one agent",
+    "deadline": "seed 6: expired named problem churns attributable ARR",
+    "cancellation": "seed 812: cancelled founder reservation clears only incomplete work and rejects later squash",
+    "migration": "seed 752: candidate.6 bankDamage becomes finite problem work with no financial reset"
+  },
+  "commands": [
+    "npx vitest run tests/integration/founder-toys.test.ts tests/integration/founder-state-save.test.ts: passed 28 tests",
+    "npx vitest run tests/integration/founder-policy.test.ts: passed 1 test",
+    "npm run validate: passed contract, balance report, simulation smoke/determinism, 48 founder tests, typecheck, lint",
+    "npm run build: passed; offline package 24 immutable files, build 6ab10cafc917",
+    "git diff --check: passed"
+  ],
+  "limitations": [
+    "Browser/computer-use was disabled by owner instruction. No browser scripts ran.",
+    "Desktop/mobile gesture, urgency hierarchy, reduced-motion, overflow, and touch-target acceptance remain pending.",
+    "balance v2-alpha.0 remains runtimeReady=false with 41 required unresolved entries; S07 does not claim balance lock."
+  ]
+}

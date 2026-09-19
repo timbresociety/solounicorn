@@ -1,0 +1,24 @@
+{
+  "head": "70d8b0e550126849a524573098d051f288fcc706",
+  "branch": "main",
+  "status": " M ARCHITECTURE.md\n M README.md\n M artifacts/qa/founder/browser-fixtures.json\n M artifacts/qa/founder/earned-apex.json\n M artifacts/qa/founder/earned-winner.json\n M artifacts/qa/founder/policy.json\n M docs/BUILD.md\n M docs/FOUNDER_RUNTIME.md\n M docs/exec-plans/active/2026-09-07-context-v4-full-rebuild.md\n M docs/exec-plans/active/README.md\n M docs/index.md\n M eslint.config.mjs\n M next.config.ts\n M package.json\n M scripts/check-repo-contract.mjs\n M scripts/qa-tactile-founder.mjs\n M src/components/founder/FounderGame.tsx\n M src/components/founder/ToyRooms.tsx\n M src/components/founder/founder.css\n M src/components/founder/toys.css\n M src/game/founder/engine.ts\n M src/game/founder/model.ts\n M src/game/founder/profile.ts\n M src/game/founder/save.ts\n M src/game/founder/toys.ts\n M tests/integration/founder-company.test.ts\n M tests/integration/founder-policy.test.ts\n M tests/integration/founder-toys.test.ts\n M tsconfig.json\n?? artifacts/qa/2026-09-16-audit/\n?? artifacts/qa/founder-revamp/\n?? asset_requests/pending/founder-garage-laptop-shell.md\n?? docs/exec-plans/active/2026-09-16-founder-revamp/\n?? solounicorn_exec/\n?? src/game/founder/contracts.ts\n?? tests/integration/founder-automation.test.ts\n?? tests/integration/founder-state-save.test.ts\n?? tests/simulation/\n?? tsconfig.typecheck.json\n",
+  "file_sha256": {
+    "src/game/founder/engine.ts": "504436da511b42effaff9f39c9750f420dfb22bcade4abb233bb81bf07c09491",
+    "src/game/founder/model.ts": "42d1b4f3c90dfdf2e03218d260a70053cccc1ab0344da05af279bd537bfb2f9e",
+    "src/game/founder/profile.ts": "226b6682c578e18acfc2519eb711dc881112f5271752e29853365c542078f7d8",
+    "src/game/founder/contracts.ts": "4913e109ab6ce30f07283339bac8594795468c4cda4fbbbdc992ef9920aad963",
+    "src/game/founder/save.ts": "28698e33ba3e407eaaea07bcdc2b81aca8b304856927832129293e9dbf904e7f",
+    "src/components/founder/FounderGame.tsx": "5ef6c5f5429a5aa40c5e789fbf5dc48c4b06ce711d4a2dc58e3c395ef6ebbe29",
+    "src/components/founder/founder.css": "325440c7c417e5c26d068989e31a3095f0ea473c328431f256898e3fd2f90044",
+    "package.json": "7440c706449fc663f0c8008ef7373e620def75f33972ad4a87174efed4d43d39",
+    "tests/integration/founder-company.test.ts": "61e43b531f1855d6ced9f3d2f91e1dc0c3c837430f026f44d35555d045a5c74b",
+    "tests/integration/founder-state-save.test.ts": "f0d5657b36858ec2863dc0bf83364b45f15e70c68d0ab9123cc9e00355618cf0",
+    "tests/integration/founder-automation.test.ts": "c7ed58d2c3983efee9f8ba69dc41d2b22a7b0d8ec02d30bf2098d742383471f4",
+    "docs/exec-plans/active/2026-09-16-founder-revamp/DECISIONS.md": "12a01446417be80286e07b4dc8e80b548d67007949ed41e6f2d1c8f7b0131e06",
+    "docs/exec-plans/active/2026-09-16-founder-revamp/queue.json": "6f2fe8ea3d5b756a75d4052e7cb5dc01be6958084d80dc90dae17d71080dd795",
+    "docs/exec-plans/active/2026-09-16-founder-revamp/CHECKPOINT.md": "30a65e322a9712f6f1eb62d7667506eaa96ed721319e4198b7745c721f4b6aea",
+    "tests/integration/founder-policy.test.ts": "e76d4647a9c08a9178b00c71dce331010b92e172be1c72766c64ffccb91ad9a5"
+  },
+  "snapshot": "/tmp/solounicorn-S11-baseline",
+  "late_baseline_note": "founder-policy.test.ts captured before its first S11 edit on 2026-09-19; earlier slice edits preserved."
+}

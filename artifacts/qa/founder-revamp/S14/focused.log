@@ -1,0 +1,13 @@
+
+ RUN  v3.2.4 /Users/deepsheth/Documents/GitHub/solounicorn
+
+ ✓ tests/integration/founder-presentation.test.ts (2 tests) 49ms
+ ✓ tests/integration/founder-state-save.test.ts (9 tests) 89ms
+ ✓ tests/integration/founder-resilience.test.ts (3 tests) 636ms
+   ✓ preserves replay, prior state and duplicate rejection with a long immutable event log  590ms
+
+ Test Files  3 passed (3)
+      Tests  14 passed (14)
+   Start at  22:23:04
+   Duration  1.08s (transform 197ms, setup 0ms, collect 503ms, tests 774ms, environment 0ms, prepare 189ms)
+

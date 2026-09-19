@@ -1,0 +1,13 @@
+
+ RUN  v3.2.4 /Users/deepsheth/Documents/GitHub/solounicorn
+
+ ✓ tests/integration/founder-state-save.test.ts (9 tests) 233ms
+ ✓ tests/integration/founder-finance.test.ts (17 tests) 1532ms
+   ✓ S11 approved survival and financing > does not kill a run for an unaffordable optional payoff and keeps exact carry across save/reload  545ms
+   ✓ S11 approved survival and financing > captures VC baseline after the partial quarter and freezes all schedules during the draft  475ms
+
+ Test Files  2 passed (2)
+      Tests  26 passed (26)
+   Start at  20:26:59
+   Duration  2.64s (transform 510ms, setup 0ms, collect 943ms, tests 1.76s, environment 4ms, prepare 326ms)
+
